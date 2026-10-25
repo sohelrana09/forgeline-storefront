@@ -23,7 +23,6 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 - [Configuration](#configuration)
 - [Commands](#commands)
 - [Project structure](#project-structure)
-- [Documentation](#documentation)
 - [Roadmap](#roadmap)
 - [FAQ](#faq)
 
@@ -73,7 +72,7 @@ Everything runs on commercetools. There is no second admin to learn.
 | Quotes | Merchant Center **Quotes**: answer requests, set prices and validity. |
 | Orders and approvals | Merchant Center **Orders**. Approval rules can also be managed by company admins in the storefront. |
 
-The Content app runs on **commercetools Connect**, so you don't need extra hosting for it. See [docs/content-app-deployment.md](docs/content-app-deployment.md).
+The Content app runs on **commercetools Connect** (see `connect.yaml`), so you don't need extra hosting for it.
 
 ## Screenshots
 
@@ -161,8 +160,8 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 | `CTP_AUTH_URL`, `CTP_API_URL` | Your region, for example `https://auth.us-east-2.aws.commercetools.com`. |
 | `CTP_STOREFRONT_CLIENT_ID`, `CTP_STOREFRONT_CLIENT_SECRET` | Client for customer sign-in (password flow). |
 | `SITE_URL` | Public address of the shop. Needed for production builds, email links, canonicals and the sitemap. |
-| `REVALIDATE_SECRET` | Lets content and catalog updates refresh cached guest pages ([docs/cache-refresh.md](docs/cache-refresh.md)). |
-| `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout ([docs/checkout-setup.md](docs/checkout-setup.md)). Off by default: consumers pay by bank transfer. |
+| `REVALIDATE_SECRET` | Lets content and catalog updates refresh cached guest pages (`POST /api/revalidate`). |
+| `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. |
 
 Store prices: the sample stores have no countries set, so the mapping from store to currency and country is in `STORE_PRICING` in `src/features/business-units/service.ts`. Adjust it for your own stores.
 
@@ -201,16 +200,8 @@ src/lib/           infrastructure: commercetools clients, caching, rate limits, 
 cms-app/           the Merchant Center "Content" custom application
 content/           content as JSON (blocks and pages), published with ct:content
 scripts/           setup, seed and maintenance scripts
-docs/              guides and the feature roadmap
+docs/images/       screenshots
 ```
-
-## Documentation
-
-- [docs/decomposition.md](docs/decomposition.md): every feature, the commercetools APIs behind it, and what we learned along the way.
-- [docs/checkout-setup.md](docs/checkout-setup.md): card payments with commercetools Checkout.
-- [docs/content-app-deployment.md](docs/content-app-deployment.md): deploying the Content app on commercetools Connect.
-- [docs/cache-refresh.md](docs/cache-refresh.md): how cached guest pages stay fresh.
-- [CLAUDE.md](CLAUDE.md): architecture notes for developers (and AI coding assistants).
 
 ## Roadmap
 

@@ -7,8 +7,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { tooManyAttempts } from "@/lib/rate-limit";
-import { requireBusinessContext } from "@/features/business-units/context";
-import { CompanyError, addCompanyUser, changeCompanyUserRoles, removeCompanyUser, updateCompanyProfile } from "@/features/company/service";
+import { requireBusinessContext, requireShopContext } from "@/features/business-units/context";
+import { CompanyError, INVITE_CODE, acceptInvitation, changeCompanyUserRoles, inviteCompanyUser, removeCompanyUser, updateCompanyProfile } from "@/features/company/service";
 import { saveApprovalRule } from "@/features/company/approval-rules";
 import { COMPANY_NAME_PATTERN, EMAIL_PATTERN } from "@/features/company/utils";
 import type { CompanyActionState } from "@/features/company/types";
@@ -43,7 +43,32 @@ export async function saveCompanyProfile(_prev: CompanyActionState, formData: Fo
 export async function addUser(_prev: CompanyActionState, formData: FormData): Promise<CompanyActionState> {
   const email = str(formData, "email");
   if (!EMAIL_PATTERN.test(email)) return { error: "Enter the user's email address." };
-  return run(({ context, session }) => addCompanyUser(context, session.customerId, email, roles(formData)), `${email} was added to the company.`);
+  // Not the same person over and over (each invitation is an email to them).
+  const { context } = await requireBusinessContext();
+  if (tooManyAttempts(`invite-send:${context.businessUnitKey}:${email.toLowerCase()}`, 3)) {
+    return { error: `${email} was invited a few times already. Please wait a while before sending another invitation.` };
+  }
+  return run(
+    ({ context, session }) => inviteCompanyUser(context, session.customerId, email, roles(formData)),
+    `If ${email} has a customer account, they'll get an email invitation. They join once they accept it. No account yet? Ask our sales team to create one.`,
+  );
+}
+
+// The invited customer accepts (signed in as that customer; consumers too, so this isn't a company page).
+export async function acceptInvitationAction(_prev: CompanyActionState, formData: FormData): Promise<CompanyActionState> {
+  const code = str(formData, "code");
+  if (!INVITE_CODE.test(code)) return { error: "This invitation link is not valid." };
+  const { session } = await requireShopContext();
+  if (tooManyAttempts(`invite:${session.customerId}`, 20)) return { error: "Too many attempts. Please wait a few minutes and try again." };
+  try {
+    await acceptInvitation(code, session.customerId);
+  } catch (err) {
+    if (err instanceof CompanyError) return { error: err.message };
+    console.error("invitation accept failed", (err as { body?: unknown })?.body ?? err);
+    return { error: "The invitation could not be accepted. Please try again." };
+  }
+  revalidatePath("/(shop)", "layout");
+  redirect(`/account?joined=1`);
 }
 
 export async function changeUserRoles(_prev: CompanyActionState, formData: FormData): Promise<CompanyActionState> {

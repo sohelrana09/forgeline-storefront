@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
+// Sent with every response. The CSP only covers what can't break the pages (framing, plugins, <base>, form
+// targets); a script-src policy needs nonces for Next's inline scripts and the Checkout SDK hosts first.
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // HTTPS only in production builds; a dev server on http://localhost must not pin itself.
+  ...(process.env.NODE_ENV === "production" ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }] : []),
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   // Images go through the optimizer only from these exact hosts (a wildcard would make it an open image proxy):
   // the sample data's bucket, and the commercetools CDN folder that holds uploaded CMS images (MEDIA_SOURCES in src/lib/media.ts).
   images: {
@@ -10,15 +23,18 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.us-east-2.aws.commercetools.com", pathname: "/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/**" },
     ],
   },
-  // Pages whose URL carries a one-time token: never leak it in a Referer header, never cache the page.
   async headers() {
-    return ["/reset-password", "/verify-email"].map((source) => ({
-      source,
-      headers: [
-        { key: "Referrer-Policy", value: "no-referrer" },
-        { key: "Cache-Control", value: "no-store" },
-      ],
-    }));
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Pages whose URL carries a one-time token: never leak it in a Referer header, never cache the page.
+      ...["/reset-password", "/verify-email"].map((source) => ({
+        source,
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      })),
+    ];
   },
   // Orders and quotes moved into the customer account (Magento style); old links keep working.
   async redirects() {

@@ -1,3 +1,4 @@
+import "server-only";
 import { apiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";
 import { sendMail, siteUrl } from "@/lib/mailer";

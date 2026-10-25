@@ -1,9 +1,10 @@
 // Session cookie + customer-token helpers for the signed-in buyer (server-only).
+import "server-only";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { projectKey } from "@/lib/commercetools/client";
-import { refreshAnonymousToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
+import { customerApiRoot, projectKey } from "@/lib/commercetools/client";
+import { refreshAnonymousToken, revokeToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
 import { GUEST_STORE_KEY, getBuyingContexts } from "@/features/business-units/service";
 
 // The browser never sees the customer token: the session cookie is AES-256-GCM encrypted with a key derived
@@ -111,6 +112,29 @@ export async function customerScopes(): Promise<string[]> {
 // A revoked/expired customer token: clear the session in the /logout Route Handler (Server Components can't
 // delete cookies, and redirecting to /login directly would loop back to / while the cookie still decrypts).
 // A 403 "insufficient_scope" means the session predates a scope the storefront now needs: sign in again.
+// Whether there is a signed-in session whose token commercetools still accepts (a cookie that no longer decrypts, or
+// a revoked token, is not one). Unknown answers count as working, the safe side for the logout confirmation.
+export async function sessionWorks(): Promise<boolean> {
+  const session = await getSession();
+  if (!session) return false;
+  return customerApiRoot(session.accessToken)
+    .me()
+    .get()
+    .execute()
+    .then(() => true)
+    .catch((err) => (err as { body?: { statusCode?: number } })?.body?.statusCode !== 401);
+}
+
+// Revokes the customer token and drops every sign-in and cart cookie (sign-out, or a session that stopped working).
+export async function signOut() {
+  const session = await getSession();
+  if (session) await revokeToken(session.accessToken);
+  const jar = await cookies();
+  for (const c of jar.getAll()) {
+    if (c.name === SESSION_COOKIE || c.name === GUEST_COOKIE || c.name === BU_COOKIE || c.name.startsWith("ct_cart_")) jar.delete(c.name);
+  }
+}
+
 export function signOutOnAuthError(err: unknown): never {
   const body = (err as { body?: { statusCode?: number; errors?: { code?: string }[] } })?.body;
   if (body?.statusCode === 401) redirect("/logout");

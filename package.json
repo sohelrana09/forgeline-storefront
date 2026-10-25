@@ -7,19 +7,19 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ct:hello": "tsx --env-file=.env scripts/hello.ts",
-    "ct:create-bu": "tsx --env-file=.env scripts/create-business-unit.ts",
+    "ct:hello": "tsx --conditions=react-server --env-file=.env scripts/hello.ts",
+    "ct:create-bu": "tsx --conditions=react-server --env-file=.env scripts/create-business-unit.ts",
     "typecheck": "tsc --noEmit",
-    "ct:query": "tsx --env-file=.env scripts/ct-query.ts",
-    "ct:contexts": "tsx --env-file=.env scripts/ct-buying-contexts.ts",
-    "ct:seed-buyers": "tsx --env-file=.env --env-file=.env.demo scripts/seed-demo-buyers.ts",
-    "ct:seed-associates": "tsx --env-file=.env --env-file=.env.demo scripts/seed-demo-buyers.ts --all-roles",
-    "ct:content": "tsx --env-file=.env scripts/sync-content.ts",
-    "ct:quote-respond": "tsx --env-file=.env scripts/quote-respond.ts",
-    "ct:catalog-subscription": "tsx --env-file=.env scripts/catalog-subscription.ts",
-    "ct:media-library": "tsx --env-file=.env scripts/media-library.ts",
-    "ct:connect-content-app": "tsx --env-file=.env scripts/connect-content-app.ts",
-    "ct:seed-approval-rules": "tsx --env-file=.env scripts/seed-approval-rules.ts"
+    "ct:query": "tsx --conditions=react-server --env-file=.env scripts/ct-query.ts",
+    "ct:contexts": "tsx --conditions=react-server --env-file=.env scripts/ct-buying-contexts.ts",
+    "ct:seed-buyers": "tsx --conditions=react-server --env-file=.env --env-file=.env.demo scripts/seed-demo-buyers.ts",
+    "ct:seed-associates": "tsx --conditions=react-server --env-file=.env --env-file=.env.demo scripts/seed-demo-buyers.ts --all-roles",
+    "ct:content": "tsx --conditions=react-server --env-file=.env scripts/sync-content.ts",
+    "ct:quote-respond": "tsx --conditions=react-server --env-file=.env scripts/quote-respond.ts",
+    "ct:catalog-subscription": "tsx --conditions=react-server --env-file=.env scripts/catalog-subscription.ts",
+    "ct:media-library": "tsx --conditions=react-server --env-file=.env scripts/media-library.ts",
+    "ct:connect-content-app": "tsx --conditions=react-server --env-file=.env scripts/connect-content-app.ts",
+    "ct:seed-approval-rules": "tsx --conditions=react-server --env-file=.env scripts/seed-approval-rules.ts"
   },
   "dependencies": {
     "@commercetools/checkout-browser-sdk": "^1.7.5",
@@ -29,7 +29,8 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

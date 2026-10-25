@@ -14,10 +14,12 @@ export async function AccountDashboardView({
   session,
   context,
   emailNotice,
+  joined,
 }: {
   session: Session;
   context: BuyerContext;
   emailNotice?: "verified" | "invalid";
+  joined?: boolean;
 }) {
   const [me, orders, awaiting] = await Promise.all([
     getMe(session),
@@ -33,6 +35,11 @@ export async function AccountDashboardView({
     <div className="flex flex-col gap-6">
       <h1 className="m-0 text-2xl font-bold">My account</h1>
 
+      {joined && (
+        <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+          You joined the company. Choose it in the company switcher at the top of the page to buy at its prices.
+        </p>
+      )}
       {emailNotice === "verified" && (
         <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
           Thank you. Your email address is confirmed.

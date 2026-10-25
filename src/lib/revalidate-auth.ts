@@ -1,3 +1,4 @@
+import "server-only";
 import { createHash, createPublicKey, timingSafeEqual, verify, type JsonWebKey } from "node:crypto";
 
 // Who may call /api/revalidate (it only clears caches, but each call makes the next guests wait for fresh renders):

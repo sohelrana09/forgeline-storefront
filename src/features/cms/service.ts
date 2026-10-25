@@ -3,6 +3,7 @@
 //   container "cms-page",  key = url slug    → CmsPage
 // Pages and components only use the functions below, so swapping the backend for a headless CMS
 // (Contentful, Storyblok, …) means rewriting this file, nothing else.
+import "server-only";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
 

@@ -1,3 +1,4 @@
+import "server-only";
 import { cache } from "react";
 import type { Category, ProductProjection } from "@commercetools/platform-sdk";
 import { apiRoot } from "@/lib/commercetools/client";

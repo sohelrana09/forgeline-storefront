@@ -1,3 +1,4 @@
+import "server-only";
 import type { BaseAddress, Customer, MyCustomerUpdateAction } from "@commercetools/platform-sdk";
 import type { BuyerContext } from "@/features/business-units/types";
 import { customerApiRoot } from "@/lib/commercetools/client";

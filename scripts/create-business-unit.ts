@@ -1,6 +1,7 @@
 // B2B step 1: a Company business unit with a customer linked as an associate.
 // Usage: npm run ct:create-bu -- <company-key> <buyer-email>
 import { apiRoot } from "../src/lib/commercetools/client";
+import { str } from "../src/lib/predicate";
 
 async function main() {
   const [companyKey = "acme-corp", email = "buyer@acme.example"] = process.argv.slice(2);
@@ -35,17 +36,20 @@ async function main() {
   }
 
   const existingCustomer = (
-    await apiRoot.customers().get({ queryArgs: { where: `email="${email}"` } }).execute()
+    await apiRoot.customers().get({ queryArgs: { where: `lowercaseEmail=${str(email.toLowerCase())}` } }).execute()
   ).body.results[0];
   const customer =
     existingCustomer ??
     (
       await apiRoot
         .customers()
-        .post({ body: { email, password: "ChangeMe123!", firstName: "Demo", lastName: "Buyer" } })
+        // No password here (this repo is public): run `npm run ct:seed-buyers` to give buyers the demo password
+        // from the git-ignored .env.demo, or use "Forgot your password?" on the storefront.
+        .post({ body: { email, firstName: "Demo", lastName: "Buyer" } })
         .execute()
     ).body.customer;
   console.log(`Customer: ${customer.email} (${customer.id})`);
+  if (!existingCustomer) console.log("New customer has no password: run npm run ct:seed-buyers, or use Forgot your password? on the storefront.");
 
   const unit = (
     await apiRoot

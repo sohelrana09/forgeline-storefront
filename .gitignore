@@ -40,3 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+
+# Claude Code setup and internal docs: kept locally, not published
+CLAUDE.md
+.claude/
+docs/*.md

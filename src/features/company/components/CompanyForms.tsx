@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { addUser, changeUserRoles, removeUser, saveCompanyProfile } from "@/features/company/actions";
+import { acceptInvitationAction, addUser, changeUserRoles, removeUser, saveCompanyProfile } from "@/features/company/actions";
 import type { CompanyActionState } from "@/features/company/types";
 
 const initial: CompanyActionState = {};
@@ -71,7 +71,7 @@ export function AddUserForm({ roles }: { roles: Role[] }) {
       </label>
       <RoleChoices roles={roles} selected={["buyer"]} idPrefix="new" />
       <button disabled={pending} className={`${primary} self-start`}>
-        {pending ? "Adding…" : "Add user"}
+        {pending ? "Sending…" : "Send invitation"}
       </button>
     </form>
   );
@@ -102,5 +102,18 @@ export function UserRolesForm({ customerId, name, roles, selected }: { customerI
       </form>
       <Notice state={state.error || state.saved ? state : removeState} />
     </div>
+  );
+}
+
+export function AcceptInvitationForm({ code }: { code: string }) {
+  const [state, action, pending] = useActionState(acceptInvitationAction, initial);
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="code" value={code} />
+      <Notice state={state} />
+      <button disabled={pending} className={`${primary} self-start`}>
+        {pending ? "Joining…" : "Accept invitation"}
+      </button>
+    </form>
   );
 }

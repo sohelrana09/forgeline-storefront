@@ -1,3 +1,4 @@
+import "server-only";
 import type { BusinessUnit, Permission } from "@commercetools/platform-sdk";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";

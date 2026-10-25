@@ -30,7 +30,7 @@ export async function SiteChrome({ children, lenient = false }: { children: Reac
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800">
+    <div className="flex min-h-screen flex-col bg-gray-100 text-gray-800">
       <SiteHeader
         welcome={session && (session.name || session.email)}
         context={
@@ -50,7 +50,8 @@ export async function SiteChrome({ children, lenient = false }: { children: Reac
         cart={cart}
         menu={categoryMenu(tree)}
       />
-      <main id="main" className="mx-auto max-w-7xl px-4 py-6 sm:px-8">
+      {/* Grows to fill the window, so the footer stays at the bottom on short pages. */}
+      <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8">
         {children}
       </main>
       <SiteFooter pages={pages} />

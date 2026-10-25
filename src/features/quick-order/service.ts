@@ -1,3 +1,4 @@
+import "server-only";
 import { cookies } from "next/headers";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { revalidatePath } from "next/cache";

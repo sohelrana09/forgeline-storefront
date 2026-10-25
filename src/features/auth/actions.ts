@@ -6,17 +6,17 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { customerApiRoot } from "@/lib/commercetools/client";
 import { requestCustomerToken, revokeToken, signUpCustomer } from "@/lib/commercetools/customer-token";
-import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
+import { clientIp, isLimited, recordFailure, tooManyAttempts } from "@/lib/rate-limit";
 import { after } from "next/server";
 import {
   BU_COOKIE,
   GUEST_COOKIE,
-  SESSION_COOKIE,
   cartCookie,
   cookieOptions,
   customerScopes,
   getGuest,
   getSession,
+  signOut,
   saveSession,
   type Session,
 } from "@/features/auth/session";
@@ -32,14 +32,24 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return { error: "Enter your email and password.", email };
 
-  if (await throttled(email)) return { error: "Too many attempts. Please wait a few minutes and try again.", email };
+  // Only failed attempts count, so colleagues behind one office address can all sign in. The tight limit is per
+  // address AND email: a stranger guessing a buyer's password can't lock the buyer out from elsewhere.
+  // Without a proxy the address is unknown ("no-proxy"): then there is no per-address limit, or one person's typos
+  // would lock out everybody.
+  const ip = await clientIp();
+  const keys = [`login:${ip}:${email}`, `login-email:${email}`, ...(ip === "no-proxy" ? [] : [`login-ip:${ip}`])];
+  if (isLimited(keys[0], 10) || isLimited(keys[1], 50) || (keys[2] !== undefined && isLimited(keys[2], 100))) {
+    return { error: "Too many attempts. Please wait a few minutes and try again.", email };
+  }
   const result = await signIn(email, password);
-  if ("error" in result) return { ...result, email };
+  if ("error" in result) {
+    keys.forEach(recordFailure);
+    return { ...result, email };
+  }
   redirect(await mergeGuestCartOnLogin(result));
 }
 
 const ipKey = async () => `ip:${await clientIp()}`;
-const throttled = async (email: string) => tooManyAttempts(await ipKey()) || tooManyAttempts(`email:${email}`);
 
 // Password flow with the narrowed scope list, then the encrypted session cookie. Shared by sign-in and sign-up.
 async function signIn(email: string, password: string): Promise<Session | { error: string }> {
@@ -116,7 +126,7 @@ export async function resetPasswordAction(_prev: ResetPasswordState, formData: F
   if (!/^[A-Za-z0-9_-]{10,200}$/.test(token)) return { error: "This reset link is not valid. Request a new one." };
   if (!strongEnough(password)) return { error: PASSWORD_RULE };
   if (password !== String(formData.get("confirmPassword") ?? "")) return { error: "The passwords don't match." };
-  if (tooManyAttempts(await ipKey())) return { error: "Too many attempts. Please wait a few minutes and try again." };
+  if (tooManyAttempts(`resetpw-${await ipKey()}`)) return { error: "Too many attempts. Please wait a few minutes and try again." };
   const result = await resetPassword(token, password).catch((err) => {
     console.error("password reset failed", (err as { body?: unknown })?.body ?? err);
     return "error" as const;
@@ -154,19 +164,14 @@ async function mergeGuestCartOnLogin(session: Session): Promise<string> {
 }
 
 export async function logout() {
-  const session = await getSession();
-  if (session) await revokeToken(session.accessToken);
-  const jar = await cookies();
-  for (const c of jar.getAll()) {
-    if (c.name === SESSION_COOKIE || c.name === GUEST_COOKIE || c.name === BU_COOKIE || c.name.startsWith("ct_cart_")) jar.delete(c.name);
-  }
+  await signOut();
   redirect("/login");
 }
 
 // Public endpoint: confirms the email address with the token from the verification link (a button, not the GET).
 export async function confirmEmail(formData: FormData) {
   const token = String(formData.get("token") ?? "");
-  const ok = /^[A-Za-z0-9_-]{10,200}$/.test(token) && !tooManyAttempts(await ipKey()) && (await verifyEmail(token).catch(() => false));
+  const ok = /^[A-Za-z0-9_-]{10,200}$/.test(token) && !tooManyAttempts(`verify-${await ipKey()}`) && (await verifyEmail(token).catch(() => false));
   redirect(`/account?email=${ok ? "verified" : "invalid"}`);
 }
 

@@ -1,3 +1,4 @@
+import "server-only";
 import type { Order, Quote, QuoteRequest } from "@commercetools/platform-sdk";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";

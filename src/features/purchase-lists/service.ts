@@ -1,3 +1,4 @@
+import "server-only";
 import type { MyShoppingListUpdateAction, ShoppingList } from "@commercetools/platform-sdk";
 import { customerApiRoot } from "@/lib/commercetools/client";
 import { localize } from "@/features/catalog/utils";

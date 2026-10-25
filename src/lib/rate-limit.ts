@@ -23,6 +23,16 @@ export function tooManyAttempts(key: string, max = MAX_ATTEMPTS): boolean {
   return entry.count > max;
 }
 
+// For limits that count failures only (sign-in): check before trying, record after a failed attempt.
+export function isLimited(key: string, max = MAX_ATTEMPTS): boolean {
+  const entry = attempts.get(key);
+  return Boolean(entry && entry.resetAt >= Date.now() && entry.count >= max);
+}
+
+export function recordFailure(key: string): void {
+  tooManyAttempts(key, Number.MAX_SAFE_INTEGER);
+}
+
 // The client address for throttling. Only headers our own proxy sets can be trusted: x-real-ip (nginx, Vercel),
 // else the LAST x-forwarded-for hop (added by the nearest proxy; earlier hops are whatever the client sent).
 // Without a proxy (local dev) every request shares one bucket. Set the proxy up before production.

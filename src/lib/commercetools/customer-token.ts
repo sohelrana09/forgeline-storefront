@@ -1,3 +1,4 @@
+import "server-only";
 import { projectKey, requireEnv } from "@/lib/commercetools/client";
 
 // Customer logins use the storefront API client (only manage_my_* style scopes), never the admin client:

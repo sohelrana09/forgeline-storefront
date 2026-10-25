@@ -1,3 +1,4 @@
+import "server-only";
 import type { Order } from "@commercetools/platform-sdk";
 import { customerApiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";

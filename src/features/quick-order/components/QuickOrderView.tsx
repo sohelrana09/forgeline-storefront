@@ -14,7 +14,8 @@ import { Pagination } from "@/components/ui/Pagination";
 const PAGE_SIZE = 20;
 
 export async function QuickOrderView({ context, page: requestedPage = 1 }: { context: BuyerContext; page?: number }) {
-  const page = Math.max(1, requestedPage);
+  // Up to the last page the API can serve (offset 10,000).
+  const page = Math.min(Math.max(1, requestedPage), Math.floor(10_000 / PAGE_SIZE) + 1);
   const { body } = await apiRoot
     .productProjections()
     .get({

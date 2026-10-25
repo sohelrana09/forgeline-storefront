@@ -1,5 +1,9 @@
+import "server-only";
 import type { AssociateRoleAssignment, AssociateRoleAssignmentDraft, BusinessUnit, BusinessUnitUpdateAction, Order, Permission } from "@commercetools/platform-sdk";
+import { randomBytes } from "node:crypto";
+import { after } from "next/server";
 import { apiRoot } from "@/lib/commercetools/client";
+import { sendMail, siteUrl } from "@/lib/mailer";
 import { str } from "@/lib/predicate";
 import { staleWhileRevalidate } from "@/lib/memo";
 import { forgetBuyingContexts, hasPermissionNow } from "@/features/business-units/service";
@@ -11,10 +15,16 @@ import type { CompanyMember, CompanyRole, CompanyUnit } from "@/features/company
 // So reads and writes use the admin client, always for the SELECTED unit only, and every write first checks the
 // acting associate's permission live (hasPermissionNow), like quote renegotiation.
 
-export class CompanyError extends Error {}
+export class CompanyError extends Error {
+  // "forbidden": the acting associate lacks the permission or tried to give more than they hold.
+  constructor(message: string, readonly reason?: "forbidden") {
+    super(message);
+  }
+}
 
 const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
-const unit = (ctx: PricingContext) => apiRoot.businessUnits().withKey({ key: ctx.businessUnitKey });
+const unit = (ctx: PricingContext) => unitByKey(ctx.businessUnitKey);
+const unitByKey = (key: string) => apiRoot.businessUnits().withKey({ key });
 
 // Associate roles are project-wide and change rarely.
 const rolesMemo = staleWhileRevalidate<CompanyRole[]>(5 * 60 * 1000);
@@ -136,20 +146,25 @@ type Decision = { bu: BusinessUnit; roles: CompanyRole[]; actor: Set<Permission>
 
 const CAN_MANAGE: Permission = "UpdateAssociates";
 
-async function updateUnit(
-  ctx: PricingContext,
-  actorId: string,
-  permission: "UpdateAssociates" | "UpdateBusinessUnitDetails",
-  actions: (d: Decision) => BusinessUnitUpdateAction[],
-) {
+type Managing = "UpdateAssociates" | "UpdateBusinessUnitDetails";
+
+// The unit and roles as they are now, and the actor's permissions in it; refused unless they hold `permission`.
+async function decide(businessUnitKey: string, actorId: string, permission: Managing): Promise<Decision> {
+  const [{ body: bu }, roles] = await Promise.all([unitByKey(businessUnitKey).get().execute(), liveRoles()]);
+  const actor = permissionsIn(bu, actorId, roles);
+  if (!actor?.has(permission)) {
+    throw new CompanyError(permission === "UpdateAssociates" ? "You can't manage company users." : "You can't edit the company profile.", "forbidden");
+  }
+  return { bu, roles, actor };
+}
+
+async function updateUnit(businessUnitKey: string, actorId: string, permission: Managing, actions: (d: Decision) => BusinessUnitUpdateAction[]) {
   for (let attempt = 1; ; attempt++) {
-    const [{ body: bu }, roles] = await Promise.all([unit(ctx).get().execute(), liveRoles()]);
-    const actor = permissionsIn(bu, actorId, roles);
-    if (!actor?.has(permission)) {
-      throw new CompanyError(permission === "UpdateAssociates" ? "You can't manage company users." : "You can't edit the company profile.");
-    }
+    const d = await decide(businessUnitKey, actorId, permission);
+    const body = actions(d);
+    if (body.length === 0) return;
     try {
-      await unit(ctx).post({ body: { version: bu.version, actions: actions({ bu, roles, actor }) } }).execute();
+      await unitByKey(businessUnitKey).post({ body: { version: d.bu.version, actions: body } }).execute();
       break;
     } catch (err) {
       if (statusOf(err) !== 409) throw err;
@@ -168,7 +183,7 @@ function grantable(keys: string[], { roles, actor }: Decision): string[] {
   const chosen = [...new Set(keys)].map((k) => roles.find((r) => r.key === k && r.permissions.length > 0)).filter((r): r is CompanyRole => !!r);
   if (chosen.length === 0) throw new CompanyError("Choose at least one role.");
   const beyond = chosen.find((r) => r.permissions.some((p) => !ownOnly(p) && !actor.has(p)));
-  if (beyond) throw new CompanyError(`You can't give the ${beyond.name} role: it allows more than your own roles do.`);
+  if (beyond) throw new CompanyError(`You can't give the ${beyond.name} role: it allows more than your own roles do.`, "forbidden");
   return chosen.map((r) => r.key);
 }
 
@@ -185,7 +200,7 @@ function keepsAManager({ bu, roles }: Decision, change: { customerId: string; ro
 }
 
 export async function updateCompanyProfile(ctx: PricingContext, actorId: string, name: string, contactEmail: string) {
-  await updateUnit(ctx, actorId, "UpdateBusinessUnitDetails", () => [
+  await updateUnit(ctx.businessUnitKey, actorId, "UpdateBusinessUnitDetails", () => [
     { action: "changeName", name },
     { action: "setContactEmail", contactEmail: contactEmail || undefined },
   ]);
@@ -198,38 +213,127 @@ const assignments = (keys: string[], keep: AssociateRoleAssignment[] = []): Asso
     inheritance: keep.find((a) => a.associateRole.key === key)?.inheritance ?? "Disabled",
   }));
 
-export async function addCompanyUser(ctx: PricingContext, actorId: string, email: string, roleKeys: string[]) {
+// Adding a user is an invitation the account holder accepts (Magento B2B "invite"): an admin can't attach someone
+// else's account to their company. The invitation is a one-time Custom Object (container "company-invite", key = a
+// random code) that holds who invited whom, with which roles, until when. The admin always gets the same answer,
+// so the form doesn't reveal which emails have an account.
+const INVITES = "company-invite";
+const INVITE_DAYS = 7;
+export const INVITE_CODE = /^[0-9a-f]{64}$/;
+type Invite = { businessUnitKey: string; unitName: string; customerId: string; email: string; roles: string[]; inviterId: string; expiresAt: number };
+
+const invite = (key: string) => apiRoot.customObjects().withContainerAndKey({ container: INVITES, key });
+
+export async function inviteCompanyUser(ctx: PricingContext, actorId: string, email: string, roleKeys: string[]) {
+  const d = await decide(ctx.businessUnitKey, actorId, "UpdateAssociates");
+  if (d.bu.associateMode === "FromParent") throw new CompanyError("Users of this division come from the parent unit. Add them there.");
+  const roles = grantable(roleKeys, d);
+  // After the response, so its timing doesn't tell whether the email has an account either.
+  after(() =>
+    sendInvite(d, email, roles, actorId).catch((err) => console.error("invitation failed", (err as { body?: unknown })?.body ?? err)),
+  );
+}
+
+async function sendInvite(d: Decision, email: string, roles: string[], actorId: string) {
   const { body } = await apiRoot
     .customers()
     .get({ queryArgs: { where: `lowercaseEmail=${str(email.toLowerCase())}`, limit: 1 } })
     .execute();
   const customer = body.results[0];
-  await updateUnit(ctx, actorId, "UpdateAssociates", (d) => {
-    if (d.bu.associateMode === "FromParent") throw new CompanyError("Users of this division come from the parent unit. Add them there.");
-    // Checked after the permission, so only user managers learn whether an email has an account.
-    if (!customer) throw new CompanyError("There is no customer account with that email. Ask our sales team to create one first.");
-    if (d.bu.associates.some((a) => a.customer.id === customer.id)) throw new CompanyError(`${email} is already a user of ${d.bu.name}.`);
-    return [
-      {
-        action: "addAssociate",
-        associate: { customer: { typeId: "customer", id: customer.id }, associateRoleAssignments: assignments(grantable(roleKeys, d)) },
-      },
-    ];
+  if (!customer || d.bu.associates.some((a) => a.customer.id === customer.id)) return;
+  const value: Invite = {
+    businessUnitKey: d.bu.key,
+    unitName: d.bu.name,
+    customerId: customer.id,
+    email: customer.email,
+    roles,
+    inviterId: actorId,
+    expiresAt: Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000,
+  };
+  const code = randomBytes(32).toString("hex");
+  await apiRoot.customObjects().post({ body: { container: INVITES, key: code, value } }).execute();
+  const roleNames = roles.map((k) => d.roles.find((r) => r.key === k)?.name ?? k).join(", ");
+  await sendMail({
+    to: customer.email,
+    subject: `You're invited to buy for ${d.bu.name}`,
+    text: `You have been invited to join ${d.bu.name} on Ironline Supply as: ${roleNames}.\n\nSign in with this email address, then open this link within ${INVITE_DAYS} days to accept:\n${siteUrl()}/account/invitation?code=${code}\n\nIf you don't know this company, ignore this email: nothing changes until you accept.`,
   });
+}
+
+// The invitation behind a code, if it is still valid and meant for this customer. Expired ones are removed.
+async function readInvitation(code: string) {
+  if (!INVITE_CODE.test(code)) return undefined;
+  const found = await invite(code)
+    .get()
+    .execute()
+    .then((r) => ({ version: r.body.version, value: r.body.value as Invite }))
+    .catch((err) => {
+      if (statusOf(err) === 404) return undefined;
+      throw err;
+    });
+  if (found && found.value.expiresAt < Date.now()) {
+    await invite(code).delete({ queryArgs: { version: found.version } }).execute().catch(() => undefined);
+    return undefined;
+  }
+  return found;
+}
+
+export async function getInvitation(code: string, customerId: string): Promise<(Invite & { roleNames: string[] }) | undefined> {
+  const found = await readInvitation(code);
+  if (!found || found.value.customerId !== customerId) return undefined;
+  const roles = await getRoles();
+  return { ...found.value, roleNames: found.value.roles.map((k) => roles.find((r) => r.key === k)?.name ?? k) };
+}
+
+// Accepting: the code is claimed first (deleted at the version just read, so it works exactly once, even if two
+// requests race), then the inviter must still be allowed to add users and give these roles (checked live, as for
+// any other change) and the unit must still take users of its own.
+export async function acceptInvitation(code: string, customerId: string): Promise<string> {
+  const found = await readInvitation(code);
+  const gone = new CompanyError("This invitation has expired, was already used, or is for another account.");
+  if (!found || found.value.customerId !== customerId) throw gone;
+  await invite(code)
+    .delete({ queryArgs: { version: found.version } })
+    .execute()
+    .catch((err) => {
+      if (statusOf(err) === 404 || statusOf(err) === 409) throw gone;
+      throw err;
+    });
+  const pending = found.value;
+  try {
+    await updateUnit(pending.businessUnitKey, pending.inviterId, "UpdateAssociates", (d) => {
+      if (d.bu.associateMode === "FromParent") throw new CompanyError("This company no longer adds users here. Ask whoever invited you.");
+      if (d.bu.associates.some((a) => a.customer.id === customerId)) return [];
+      const keys = grantable(pending.roles, d);
+      return [{ action: "addAssociate", associate: { customer: { typeId: "customer", id: customerId }, associateRoleAssignments: assignments(keys) } }];
+    });
+  } catch (err) {
+    if (err instanceof CompanyError && err.reason === "forbidden") {
+      throw new CompanyError("Whoever invited you can no longer add users. Ask them, or another admin, for a new invitation.");
+    }
+    if (err instanceof CompanyError) throw err;
+    console.error("invitation accept failed", (err as { body?: unknown })?.body ?? err);
+    throw new CompanyError("The invitation could not be accepted. Ask for a new one.");
+  }
+  return pending.unitName;
 }
 
 // Explicit members only (inherited roles are managed in the parent unit), and never the acting admin themselves,
 // so an admin can't lock the company out by mistake.
-function editable(bu: BusinessUnit, actorId: string, customerId: string) {
+// Also never someone holding a role the company can't assign (set by our team): changing or removing them would
+// silently drop that role, which the admin couldn't give back.
+function editable({ bu, roles }: Decision, actorId: string, customerId: string) {
   if (customerId === actorId) throw new CompanyError("You can't change your own roles or remove yourself.");
   const current = bu.associates.find((a) => a.customer.id === customerId);
   if (!current) throw new CompanyError("This user's roles come from the parent unit. Change them there.");
+  const sellerRole = current.associateRoleAssignments.find((a) => !roles.some((r) => r.key === a.associateRole.key && r.permissions.length > 0));
+  if (sellerRole) throw new CompanyError("This user has a role set by our team. Contact us to change or remove them.");
   return current;
 }
 
 export async function changeCompanyUserRoles(ctx: PricingContext, actorId: string, customerId: string, roleKeys: string[]) {
-  await updateUnit(ctx, actorId, "UpdateAssociates", (d) => {
-    const current = editable(d.bu, actorId, customerId);
+  await updateUnit(ctx.businessUnitKey, actorId, "UpdateAssociates", (d) => {
+    const current = editable(d, actorId, customerId);
     // Nor take away a role the admin couldn't give: someone with more rights is left as they are.
     grantable(current.associateRoleAssignments.map((r) => r.associateRole.key ?? ""), d);
     const keys = grantable(roleKeys, d);
@@ -244,8 +348,8 @@ export async function changeCompanyUserRoles(ctx: PricingContext, actorId: strin
 }
 
 export async function removeCompanyUser(ctx: PricingContext, actorId: string, customerId: string) {
-  await updateUnit(ctx, actorId, "UpdateAssociates", (d) => {
-    const current = editable(d.bu, actorId, customerId);
+  await updateUnit(ctx.businessUnitKey, actorId, "UpdateAssociates", (d) => {
+    const current = editable(d, actorId, customerId);
     grantable(current.associateRoleAssignments.map((r) => r.associateRole.key ?? ""), d);
     keepsAManager(d, { customerId });
     return [{ action: "removeAssociate", customer: { typeId: "customer", id: customerId } }];

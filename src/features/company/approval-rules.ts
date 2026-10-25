@@ -1,3 +1,4 @@
+import "server-only";
 import type { ApprovalRule, ApprovalRuleUpdateAction, Permission } from "@commercetools/platform-sdk";
 import { apiRoot, asAssociate } from "@/lib/commercetools/client";
 import { formatMoney } from "@/lib/utils";

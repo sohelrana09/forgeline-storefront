@@ -1,3 +1,4 @@
+import "server-only";
 import { projectKey, requireEnv } from "@/lib/commercetools/client";
 import { B2C_STORE_KEY } from "@/lib/commercetools/stores";
 

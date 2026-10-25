@@ -26,6 +26,8 @@ export async function CategoryView({ context, slug, query }: { context: BuyerCon
 
   const sortKey = query.sort && SORTS[query.sort] ? query.sort : "name-asc";
   const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  // The API serves offsets up to 10,000; anything further is past the end anyway.
+  if ((page - 1) * PAGE_SIZE > 10_000) notFound();
   const result = await getProductsInCategories(context, tree.subtreeIds(category.id), {
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,

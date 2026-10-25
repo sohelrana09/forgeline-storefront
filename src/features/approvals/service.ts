@@ -1,3 +1,4 @@
+import "server-only";
 import type { ApprovalFlow, ApprovalFlowUpdateAction, Order } from "@commercetools/platform-sdk";
 import { apiRoot, asAssociate } from "@/lib/commercetools/client";
 import { sendMail, siteUrl } from "@/lib/mailer";

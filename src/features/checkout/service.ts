@@ -1,3 +1,4 @@
+import "server-only";
 import type { BaseAddress, Cart, Order } from "@commercetools/platform-sdk";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
