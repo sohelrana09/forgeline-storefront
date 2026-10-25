@@ -1,0 +1,8 @@
+{
+  "title": "Delivery notice",
+  "active": true,
+  "placement": "home.top",
+  "style": "info",
+  "type": "markdown",
+  "content": "**Free standard delivery** on orders above 10,000 in your currency. Need it faster? Choose Premium delivery at checkout (Europe only)."
+}

@@ -1,0 +1,20 @@
+{
+  "title": "Featured products",
+  "active": true,
+  "placement": "home.featured",
+  "type": "products",
+  "skus": [
+    "hydraulic-hose",
+    "led-work-light",
+    "alternator",
+    "starter-motor",
+    "piston-ring-set",
+    "brake-pad-set",
+    "air-filter",
+    "fuel-filter"
+  ],
+  "cta": {
+    "label": "All spare parts",
+    "href": "/c/spare_parts"
+  }
+}

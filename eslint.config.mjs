@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Merchant Center custom apps have their own eslint/tsconfig.
+      "cms-app/**",
     ],
   },
 ];

@@ -24,3 +24,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Tailwind v4 resets buttons to the default cursor; restore the pointer (as in Tailwind v3) for everything
+   clickable, and show "not allowed" on disabled controls. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/* No page scrolling behind a modal dialog (e.g. the product gallery's full-screen view). */
+html:has(dialog:modal) {
+  overflow: hidden;
+}
+
+/* Keep the scrollbar's space so the page doesn't shift when a modal hides the scrollbar. */
+html {
+  scrollbar-gutter: stable;
+}

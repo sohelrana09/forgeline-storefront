@@ -1,0 +1,253 @@
+import { cache } from "react";
+import type { Category, ProductProjection } from "@commercetools/platform-sdk";
+import { apiRoot } from "@/lib/commercetools/client";
+import { staleWhileRevalidate } from "@/lib/memo";
+import type { PricingContext } from "@/features/business-units/types";
+import { allVariants, localize, LOCALE, specRows } from "@/features/catalog/utils";
+import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
+import { MEDIA_PRODUCT_KEY } from "@/features/cms/types";
+
+// The CMS media library is a product too (never published). If someone publishes it by mistake, it still never
+// becomes a shop page, a search hit or a sitemap entry.
+const isMediaLibrary = (p: ProductProjection) => p.key === MEDIA_PRODUCT_KEY;
+
+// Catalog reads with the admin client, price-selected for the buyer's store/channel/country.
+
+// ---------- Categories (42 in the sample data; products are assigned to leaf categories only) ----------
+
+export type CategoryTree = {
+  all: Category[];
+  roots: Category[];
+  bySlug: (slug: string) => Category | undefined;
+  children: (id: string) => Category[];
+  ancestors: (category: Category) => Category[];
+  // The category plus every descendant: product queries need all of them because parents hold no products.
+  subtreeIds: (id: string) => string[];
+};
+
+// The tree and the homepage tiles change rarely: refresh them every 5 minutes in the background.
+const TTL_MS = 5 * 60 * 1000;
+const treeMemo = staleWhileRevalidate<CategoryTree>(TTL_MS);
+
+async function loadCategoryTree(): Promise<CategoryTree> {
+  const { body } = await apiRoot
+    .categories()
+    .get({ queryArgs: { limit: 500, sort: ["orderHint asc", `name.${LOCALE} asc`] } })
+    .execute();
+  const all = body.results;
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const children = (id: string) => all.filter((c) => c.parent?.id === id);
+  const subtreeIds = (id: string): string[] => [id, ...children(id).flatMap((c) => subtreeIds(c.id))];
+  return {
+    all,
+    roots: all.filter((c) => !c.parent),
+    bySlug: (slug) => all.find((c) => c.slug[LOCALE] === slug),
+    children,
+    ancestors: (category) => category.ancestors.map((a) => byId.get(a.id)).filter((c): c is Category => !!c),
+    subtreeIds,
+  };
+}
+
+export const getCategoryTree = () => treeMemo("tree", loadCategoryTree);
+
+// The storefront menu mirrors the Merchant Center category tree (same nesting, same orderHint order).
+export type CategoryMenuItem = { id: string; label: string; href: string; children: CategoryMenuItem[] };
+
+export function categoryMenu(tree: CategoryTree, maxDepth = 3): CategoryMenuItem[] {
+  const build = (categories: Category[], depth: number): CategoryMenuItem[] =>
+    categories.map((c) => ({
+      id: c.id,
+      label: localize(c.name),
+      href: `/c/${localize(c.slug)}`,
+      children: depth < maxDepth ? build(tree.children(c.id), depth + 1) : [],
+    }));
+  return build(tree.roots, 1);
+}
+
+// ---------- Products (price-selected for the buyer's store/channel/country) ----------
+
+const priceSelection = (ctx: PricingContext) => ({
+  storeProjection: ctx.storeKey,
+  priceCurrency: ctx.currency,
+  priceChannel: ctx.channelId,
+  ...(ctx.country && { priceCountry: ctx.country }),
+});
+
+// Ids come from commercetools (category tree, product references), never from user input.
+const idList = (ids: string[]) => ids.map((id) => `"${id}"`).join(", ");
+
+export async function getProductsInCategories(
+  ctx: PricingContext,
+  categoryIds: string[],
+  { limit = 24, offset = 0, sort = `name.${LOCALE} asc` }: { limit?: number; offset?: number; sort?: string } = {},
+) {
+  const { body } = await apiRoot
+    .productProjections()
+    .get({
+      queryArgs: {
+        where: `categories(id in (${idList(categoryIds)}))`,
+        limit,
+        offset,
+        sort: [sort],
+        ...priceSelection(ctx),
+      },
+    })
+    .execute();
+  return body;
+}
+
+// React cache(): the page's metadata and the page itself share one query per request (same context object).
+export const getProductBySlug = cache(async (ctx: PricingContext, slug: string): Promise<ProductProjection | undefined> => {
+  // Slugs come from the URL: allow only the characters product slugs use, so the predicate can't be broken.
+  if (!/^[A-Za-z0-9._-]+$/.test(slug)) return undefined;
+  const { body } = await apiRoot
+    .productProjections()
+    .get({ queryArgs: { where: `slug(${LOCALE}="${slug}")`, limit: 1, ...priceSelection(ctx) } })
+    .execute();
+  return body.results[0] && !isMediaLibrary(body.results[0]) ? body.results[0] : undefined;
+});
+
+// For CMS "products" blocks: SKUs come from content files, so only allow SKU characters in the predicate.
+export async function getProductsBySkus(ctx: PricingContext, skus: unknown): Promise<ProductProjection[]> {
+  if (!Array.isArray(skus)) return [];
+  const safe = skus.filter((s): s is string => typeof s === "string" && /^[A-Za-z0-9._-]+$/.test(s)).slice(0, 100);
+  if (safe.length === 0) return [];
+  const list = safe.map((s) => `"${s}"`).join(", ");
+  const { body } = await apiRoot
+    .productProjections()
+    .get({ queryArgs: { where: `masterVariant(sku in (${list})) or variants(sku in (${list}))`, limit: safe.length, ...priceSelection(ctx) } })
+    .execute();
+  // Keep the editor's order.
+  return safe
+    .map((sku) => body.results.find((p) => allVariants(p).some((v) => v.sku === sku)))
+    .filter((p, i, arr): p is ProductProjection => !!p && arr.indexOf(p) === i);
+}
+
+export async function getProductsByIds(ctx: PricingContext, ids: string[]): Promise<ProductProjection[]> {
+  if (ids.length === 0) return [];
+  const { body } = await apiRoot
+    .productProjections()
+    .get({ queryArgs: { where: `id in (${idList(ids)})`, limit: ids.length, ...priceSelection(ctx) } })
+    .execute();
+  // Keep the order of the references.
+  return ids.map((id) => body.results.find((p) => p.id === id)).filter((p): p is ProductProjection => !!p);
+}
+
+// Homepage tiles: one picture + product count per category. They change rarely, so cache them per store
+// (prices aren't involved) instead of running one query per category on every homepage load.
+export type CategoryTile = { id: string; name: string; slug: string; total: number; image?: string };
+const tileMemo = staleWhileRevalidate<CategoryTile[]>(TTL_MS);
+
+export function getCategoryTiles(ctx: PricingContext, categories: Category[], tree: CategoryTree): Promise<CategoryTile[]> {
+  const cacheKey = `${ctx.storeKey}:${categories.map((c) => c.id).join(",")}`;
+  return tileMemo(cacheKey, () =>
+    Promise.all(
+      categories.map(async (category) => {
+        const { body } = await apiRoot
+          .productProjections()
+          .get({ queryArgs: { where: `categories(id in (${idList(tree.subtreeIds(category.id))}))`, limit: 1, storeProjection: ctx.storeKey } })
+          .execute();
+        return {
+          id: category.id,
+          name: localize(category.name),
+          slug: localize(category.slug),
+          total: body.total ?? body.count,
+          image: body.results[0]?.masterVariant.images?.[0]?.url,
+        };
+      }),
+    ),
+  );
+}
+
+
+// After catalog changes made elsewhere (Merchant Center, imports): the next read loads the tree, tiles and search
+// index fresh. Per process, like the memos themselves.
+export function forgetCatalogCache() {
+  treeMemo.clear();
+  tileMemo.clear();
+  searchMemo.clear();
+}
+
+// Site search. Product (Projection) Search is not activated in this project, so the header search uses a small
+// in-memory index (refreshed every 5 minutes): names, SKUs and model codes, categories, attributes and descriptions,
+// ranked in features/catalog/search.ts. Fine for a catalog this size; switch to the Product Search API
+// (POST /products/search) once it is activated in Merchant Center.
+const searchMemo = staleWhileRevalidate<SearchEntry[]>(TTL_MS);
+
+// One index per store, built with the same price selection as the result cards: a product without a price in the
+// store is left out, so the total always matches the cards shown.
+const searchIndex = (ctx: PricingContext) =>
+  searchMemo(`${ctx.storeKey}:${ctx.channelId}:${ctx.currency}:${ctx.country ?? ""}`, async () => {
+    const tree = await getCategoryTree();
+    const entries: SearchEntry[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { body } = await apiRoot
+        .productProjections()
+        .get({ queryArgs: { limit: 500, offset, withTotal: false, ...priceSelection(ctx) } })
+        .execute();
+      for (const p of body.results) {
+        if (isMediaLibrary(p)) continue;
+        const variants = allVariants(p);
+        // The product page opens on the master variant: show its price, or the lowest as "from" when variants differ.
+        const prices = variants.flatMap((v) => (v.price ? [v.price.discounted?.value ?? v.price.value] : []));
+        const priced = p.masterVariant.price ? p.masterVariant : variants.find((v) => v.price);
+        if (!priced) continue;
+        const categories = p.categories
+          .map((ref) => tree.all.find((c) => c.id === ref.id))
+          .flatMap((c) => (c ? [...tree.ancestors(c), c].map((x) => localize(x.name)) : []));
+        entries.push({
+          id: p.id,
+          name: localize(p.name),
+          slug: localize(p.slug),
+          sku: priced.sku,
+          image: priced.images?.[0]?.url ?? p.masterVariant.images?.[0]?.url,
+          price: priced.price?.discounted?.value ?? priced.price?.value,
+          fromPrice: new Set(prices.map((m) => m.centAmount)).size > 1 ? prices.reduce((a, b) => (b.centAmount < a.centAmount ? b : a)) : undefined,
+          nameWords: words(localize(p.name)),
+          codes: [...new Set(variants.flatMap((v) => (v.sku ? codeWords(v.sku) : [])))],
+          categories: [...new Set(categories.flatMap(words))],
+          attributes: [...new Set(variants.flatMap((v) => specRows(v).flatMap((r) => words(r.value))))],
+          description: [...new Set(words(localize(p.description)))],
+        });
+      }
+      if (body.results.length < 500) break;
+    }
+    return entries.sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+export async function searchProducts(ctx: PricingContext, query: string, page: number, size: number) {
+  const { matches, corrected } = rank(await searchIndex(ctx), query);
+  const products = await getProductsByIds(
+    ctx,
+    matches.slice((page - 1) * size, page * size).map((e) => e.id),
+  );
+  return { products, total: matches.length, corrected };
+}
+
+// Autocomplete: the best few products (from the index, so no extra API call) and matching categories.
+export async function suggestProducts(ctx: PricingContext, query: string, limit = 6) {
+  const [index, tree] = await Promise.all([searchIndex(ctx), getCategoryTree()]);
+  const { matches, corrected } = rank(index, query);
+  const qs = words(query);
+  const categories = qs.length
+    ? tree.all.filter((c) => {
+        const name = words(localize(c.name));
+        return qs.every((w) => name.some((t) => t.startsWith(w)));
+      })
+    : [];
+  return { products: matches.slice(0, limit), total: matches.length, corrected, categories: categories.slice(0, 3) };
+}
+
+// Every product a guest can open (the guest store's assortment, priced), page by page (sitemap): the product page
+// uses the same store projection, so the sitemap never lists a URL that answers 404.
+export async function allProductSlugs(guest: PricingContext): Promise<{ slug: string; lastModified: string }[]> {
+  const out: { slug: string; lastModified: string }[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { body } = await apiRoot
+      .productProjections()
+      .get({ queryArgs: { limit: 500, offset, withTotal: false, sort: ["id asc"], ...priceSelection(guest) } })
+      .execute();
+    out.push(...body.results.filter((p) => !isMediaLibrary(p)).map((p) => ({ slug: localize(p.slug), lastModified: p.lastModifiedAt })));
+    if (body.results.length < 500) return out;
+  }
+}

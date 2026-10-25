@@ -1,0 +1,20 @@
+# commercetools Connect: hosts the Merchant Center "Content" app (folder cms-app/, whose name must match `name`
+# below). The storefront itself is not deployed by Connect. Setup steps: docs/content-app-deployment.md.
+deployAs:
+  - name: cms-app
+    applicationType: merchant-center-custom-application
+    configuration:
+      standardConfiguration:
+        - key: CUSTOM_APPLICATION_ID
+          description: Application ID from Merchant Center (Organization settings > Custom Applications > Content)
+          required: true
+        - key: CLOUD_IDENTIFIER
+          description: Merchant Center region of the project (ctwara is in AWS us-east-2, "aws-us")
+          default: "aws-us"
+        - key: ENTRY_POINT_URI_PATH
+          description: Entry point path registered in Merchant Center; must match cms-app/src/constants.ts
+          required: true
+          default: "cms-content"
+        - key: STOREFRONT_URL
+          description: Public storefront URL, refreshed after content is saved (POST /api/revalidate); empty = no instant refresh
+          required: false

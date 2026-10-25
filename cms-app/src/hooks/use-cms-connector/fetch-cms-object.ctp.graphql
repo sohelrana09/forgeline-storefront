@@ -1,0 +1,9 @@
+query FetchCmsObject($container: String!, $key: String!) {
+  customObject(container: $container, key: $key) {
+    id
+    key
+    version
+    value
+    lastModifiedAt
+  }
+}

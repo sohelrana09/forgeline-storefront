@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "next-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "mc-cms-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "cms-app", "start"],
+      "port": 3001
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "title": "Delivery and invoicing",
+  "active": true,
+  "placement": "pdp.below-add-to-cart",
+  "style": "plain",
+  "type": "markdown",
+  "content": "- Standard delivery, free above 10,000\n- Paid on invoice; add your PO number at checkout\n- [Delivery information](/pages/delivery-information)"
+}

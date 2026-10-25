@@ -1,0 +1,20 @@
+query FetchMediaLibrary($key: String!) {
+  product(key: $key) {
+    id
+    version
+    masterData {
+      staged {
+        masterVariant {
+          images {
+            url
+            label
+            dimensions {
+              width
+              height
+            }
+          }
+        }
+      }
+    }
+  }
+}
