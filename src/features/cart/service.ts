@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { BaseAddress, Cart, MyCartUpdateAction, ProductVariant, ShippingMethod, TypedMoney } from "@commercetools/platform-sdk";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
@@ -69,7 +70,8 @@ const myCarts = (session: CartAuth, context: PricingContext) =>
 
 const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 
-export async function getActiveCart(session: CartAuth, cartId: string | undefined, context: PricingContext) {
+// One read per page render (React cache): the header and the cart or checkout page share it.
+export const getActiveCart = cache(async (session: CartAuth, cartId: string | undefined, context: PricingContext) => {
   if (!cartId) return undefined;
   const cart = await myCarts(session, context)
     .withId({ ID: cartId })
@@ -85,7 +87,7 @@ export async function getActiveCart(session: CartAuth, cartId: string | undefine
   // A cart only counts if it is still open and belongs to the currently selected business unit
   // (the guest context has the empty key, and guest carts have no business unit).
   return cart?.cartState === "Active" && (cart.businessUnit?.key ?? "") === context.businessUnitKey ? cart : undefined;
-}
+});
 
 const lineDraft = (context: PricingContext, { sku, quantity }: QuickOrderLine) => ({
   sku,

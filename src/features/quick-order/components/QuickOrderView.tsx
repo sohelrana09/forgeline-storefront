@@ -16,27 +16,33 @@ const PAGE_SIZE = 20;
 export async function QuickOrderView({ context, page: requestedPage = 1 }: { context: BuyerContext; page?: number }) {
   // Up to the last page the API can serve (offset 10,000).
   const page = Math.min(Math.max(1, requestedPage), Math.floor(10_000 / PAGE_SIZE) + 1);
-  const { body } = await apiRoot
-    .productProjections()
-    .get({
-      queryArgs: {
-        limit: PAGE_SIZE,
-        offset: (page - 1) * PAGE_SIZE,
-        sort: ["name.en-US asc"],
-        storeProjection: context.storeKey,
-        priceCurrency: context.currency,
-        priceChannel: context.channelId,
-        ...(context.country && { priceCountry: context.country }),
-      },
-    })
-    .execute();
+  // The catalog page and (signed-in customers can send the pasted lines to a purchase list too) their lists, together.
+  const purchaseLists = async () => {
+    const session = context.guest ? undefined : await getSession();
+    if (!session) return undefined;
+    return listNames(session, context).catch((err) => {
+      if (isRedirectError(err)) throw err;
+      return [];
+    });
+  };
+  const [{ body }, lists] = await Promise.all([
+    apiRoot
+      .productProjections()
+      .get({
+        queryArgs: {
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+          sort: ["name.en-US asc"],
+          storeProjection: context.storeKey,
+          priceCurrency: context.currency,
+          priceChannel: context.channelId,
+          ...(context.country && { priceCountry: context.country }),
+        },
+      })
+      .execute(),
+    purchaseLists(),
+  ]);
   const note = taxNote(context.country);
-  // Signed-in customers can send the pasted lines to a purchase list too.
-  const session = context.guest ? undefined : await getSession();
-  const lists = session ? await listNames(session, context).catch((err) => {
-        if (isRedirectError(err)) throw err;
-        return [];
-      }) : undefined;
   const total = body.total ?? body.count;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const first = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;

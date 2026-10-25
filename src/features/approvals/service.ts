@@ -3,7 +3,7 @@ import type { ApprovalFlow, ApprovalFlowUpdateAction, Order } from "@commercetoo
 import { apiRoot, asAssociate } from "@/lib/commercetools/client";
 import { sendMail, siteUrl } from "@/lib/mailer";
 import { formatMoney } from "@/lib/utils";
-import { hasPermissionNow } from "@/features/business-units/service";
+import { businessUnitNow, hasPermissionNow } from "@/features/business-units/service";
 import type { PricingContext } from "@/features/business-units/types";
 import { orderReference } from "@/features/orders/service";
 import { UUID } from "@/features/orders/utils";
@@ -55,6 +55,13 @@ export async function approvalsForOrders(ctx: PricingContext, viewerId: string, 
   }
 }
 
+// A read started before a permission check: if the check refuses first, the read's own failure must not surface
+// as an unhandled rejection.
+function started<T>(promise: Promise<T>): Promise<T> {
+  promise.catch(() => undefined);
+  return promise;
+}
+
 async function requireApprover(ctx: PricingContext, approverId: string) {
   if (!ctx.businessUnitKey || !(await hasPermissionNow(ctx.businessUnitKey, approverId, "UpdateApprovalFlows"))) {
     throw new ApprovalError("You can't approve orders for this company.");
@@ -63,9 +70,10 @@ async function requireApprover(ctx: PricingContext, approverId: string) {
 
 // The approver's list (Magento "Order approvals"): pending first by default, newest first, with the orders.
 export async function pageApprovals(ctx: PricingContext, approverId: string, view: "pending" | "all", page: number, size: number) {
-  await requireApprover(ctx, approverId);
-  const { body } = await flows(ctx, approverId)
-    .get({
+  // The flows are read alongside the live permission check, whose refusal comes first; nothing is returned unless
+  // it passes.
+  const read = started(
+    flows(ctx, approverId).get({
       queryArgs: {
         ...(view === "pending" && { where: 'status="Pending"' }),
         expand: ["order"],
@@ -74,8 +82,10 @@ export async function pageApprovals(ctx: PricingContext, approverId: string, vie
         offset: (page - 1) * size,
         withTotal: true,
       },
-    })
-    .execute();
+    }).execute(),
+  );
+  await requireApprover(ctx, approverId);
+  const { body } = await read;
   // Flows always reference an existing order; one without it (deleted order) counts as gone from the total too.
   const items: ApprovalItem[] = body.results.filter((f) => f.order.obj).map((f) => ({ approval: toApproval(f), order: f.order.obj as Order }));
   return { items, total: (body.total ?? body.count) - (body.results.length - items.length) };
@@ -83,7 +93,7 @@ export async function pageApprovals(ctx: PricingContext, approverId: string, vie
 
 // The approver's roles in the unit right now (explicit and inherited).
 async function rolesOf(ctx: PricingContext, customerId: string): Promise<string[]> {
-  const { body: bu } = await apiRoot.businessUnits().withKey({ key: ctx.businessUnitKey }).get().execute();
+  const bu = await businessUnitNow(ctx.businessUnitKey);
   return [...bu.associates, ...(bu.inheritedAssociates ?? [])]
     .filter((a) => a.customer.id === customerId)
     .flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key));
@@ -93,17 +103,24 @@ async function rolesOf(ctx: PricingContext, customerId: string): Promise<string[
 // order, and one of their roles is among the current step's approvers (commercetools checks this again).
 export async function getApproval(ctx: PricingContext, approverId: string, flowId: string) {
   if (!UUID.test(flowId)) return undefined;
+  // Permission check, flow and the approver's roles together (the unit is read once for both); nothing is
+  // returned unless the check passes.
+  const read = started(
+    Promise.all([
+      flows(ctx, approverId)
+        .withId({ ID: flowId })
+        .get({ queryArgs: { expand: ["order"] } })
+        .execute()
+        .then((r) => r.body)
+        .catch((err) => (statusOf(err) === 404 ? undefined : Promise.reject(err))),
+      rolesOf(ctx, approverId),
+    ]),
+  );
   await requireApprover(ctx, approverId);
-  const flow = await flows(ctx, approverId)
-    .withId({ ID: flowId })
-    .get({ queryArgs: { expand: ["order"] } })
-    .execute()
-    .then((r) => r.body)
-    .catch((err) => (statusOf(err) === 404 ? undefined : Promise.reject(err)));
+  const [flow, roles] = await read;
   if (!flow?.order.obj) return undefined;
   const approval = toApproval(flow);
   const order = flow.order.obj as Order;
-  const roles = await rolesOf(ctx, approverId);
   // A rejection whose cancellation failed can be retried from the page.
   const cancelPending = approval.status === "Rejected" && order.orderState !== "Cancelled";
   const canDecide =
@@ -205,7 +222,10 @@ export async function notifyApprovers(ctx: PricingContext, order: Order, approva
     const ids = [...bu.associates, ...(bu.inheritedAssociates ?? [])]
       .filter((a) => a.customer.id !== order.customerId && a.associateRoleAssignments.some((r) => approval.pendingRoles.includes(r.associateRole.key)))
       .map((a) => a.customer.id);
-    const emails = (await Promise.all([...new Set(ids)].map(customerEmail))).filter((e): e is string => !!e);
+    const unique = [...new Set(ids)];
+    const emails = unique.length
+      ? (await apiRoot.customers().get({ queryArgs: { where: `id in (${unique.map((id) => `"${id}"`).join(", ")})`, limit: unique.length } }).execute()).body.results.map((c) => c.email)
+      : [];
     const ref = orderReference(order);
     await Promise.all(
       emails.map((to) =>

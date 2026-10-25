@@ -1,5 +1,6 @@
 import "server-only";
 import type { BusinessUnit, Permission } from "@commercetools/platform-sdk";
+import { cache } from "react";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
 import { B2C_STORE_KEY } from "@/lib/commercetools/stores";
@@ -131,10 +132,16 @@ async function queryIsAssociate(customerId: string): Promise<boolean> {
   return body.results.length > 0;
 }
 
+// The unit and the project's associate roles as they are now: read once per page render (React cache), so a page
+// that checks several permissions and lists members makes one call each instead of one per check. Outside a render
+// (Server Actions, Route Handlers) React's cache is off and every call reads live, which writes rely on.
+export const businessUnitNow = cache(async (key: string) => (await apiRoot.businessUnits().withKey({ key }).get().execute()).body);
+export const associateRolesNow = cache(async () => (await apiRoot.associateRoles().get({ queryArgs: { limit: 100 } }).execute()).body.results);
+
 // Order-critical paths (delivery, place order) must not trust the 5-minute memo: a revoked buyer role
 // or removed associate takes effect immediately here.
 export async function hasBuyerRoleNow(businessUnitKey: string, customerId: string): Promise<boolean> {
-  const { body: bu } = await apiRoot.businessUnits().withKey({ key: businessUnitKey }).get().execute();
+  const bu = await businessUnitNow(businessUnitKey);
   return [...bu.associates, ...(bu.inheritedAssociates ?? [])].some(
     (a) => a.customer.id === customerId && a.associateRoleAssignments.some((r) => r.associateRole.key === "buyer"),
   );
@@ -143,16 +150,13 @@ export async function hasBuyerRoleNow(businessUnitKey: string, customerId: strin
 // Live check of one associate-role permission (e.g. "RenegotiateMyQuotes"). Required wherever the admin client
 // acts for the buyer, because then commercetools doesn't check the associate's permissions itself.
 export async function hasPermissionNow(businessUnitKey: string, customerId: string, permission: Permission): Promise<boolean> {
-  const { body: bu } = await apiRoot.businessUnits().withKey({ key: businessUnitKey }).get().execute();
-  const roleKeys = [...bu.associates, ...(bu.inheritedAssociates ?? [])]
-    .filter((a) => a.customer.id === customerId)
-    .flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key));
-  if (roleKeys.length === 0) return false;
-  const { body: roles } = await apiRoot
-    .associateRoles()
-    .get({ queryArgs: { where: `key in (${[...new Set(roleKeys)].map(str).join(", ")})`, limit: 50 } })
-    .execute();
-  return roles.results.some((role) => role.permissions.includes(permission));
+  const [bu, roles] = await Promise.all([businessUnitNow(businessUnitKey), associateRolesNow()]);
+  const roleKeys = new Set(
+    [...bu.associates, ...(bu.inheritedAssociates ?? [])]
+      .filter((a) => a.customer.id === customerId)
+      .flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key)),
+  );
+  return roles.some((role) => roleKeys.has(role.key) && role.permissions.includes(permission));
 }
 
 // Business units, stores and channels change rarely: refresh them every 5 minutes in the background, so no

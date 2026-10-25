@@ -1,12 +1,12 @@
 import "server-only";
-import type { AssociateRoleAssignment, AssociateRoleAssignmentDraft, BusinessUnit, BusinessUnitUpdateAction, Order, Permission } from "@commercetools/platform-sdk";
+import type { AssociateRole, AssociateRoleAssignment, AssociateRoleAssignmentDraft, BusinessUnit, BusinessUnitUpdateAction, Order, Permission } from "@commercetools/platform-sdk";
 import { randomBytes } from "node:crypto";
 import { after } from "next/server";
 import { apiRoot } from "@/lib/commercetools/client";
 import { sendMail, siteUrl } from "@/lib/mailer";
 import { str } from "@/lib/predicate";
 import { staleWhileRevalidate } from "@/lib/memo";
-import { forgetBuyingContexts, hasPermissionNow } from "@/features/business-units/service";
+import { associateRolesNow, businessUnitNow, forgetBuyingContexts, hasPermissionNow } from "@/features/business-units/service";
 import type { PricingContext } from "@/features/business-units/types";
 import type { CompanyMember, CompanyRole, CompanyUnit } from "@/features/company/types";
 
@@ -23,7 +23,6 @@ export class CompanyError extends Error {
 }
 
 const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
-const unit = (ctx: PricingContext) => unitByKey(ctx.businessUnitKey);
 const unitByKey = (key: string) => apiRoot.businessUnits().withKey({ key });
 
 // Associate roles are project-wide and change rarely.
@@ -35,10 +34,14 @@ export const getRoles = () =>
   });
 
 // Fresh roles for decisions (writes, permission checks); getRoles() above is the cached copy for display.
+const toCompanyRoles = (roles: AssociateRole[]): CompanyRole[] =>
+  roles.map((r) => ({ key: r.key, name: r.name ?? r.key, permissions: r.buyerAssignable ? r.permissions : [] }));
 async function liveRoles(): Promise<CompanyRole[]> {
   const { body } = await apiRoot.associateRoles().get({ queryArgs: { limit: 100 } }).execute();
-  return body.results.map((r) => ({ key: r.key, name: r.name ?? r.key, permissions: r.buyerAssignable ? r.permissions : [] }));
+  return toCompanyRoles(body.results);
 }
+// Page reads share one roles read per render with the permission checks (writes use liveRoles).
+const pageRoles = async () => toCompanyRoles(await associateRolesNow());
 
 // What a customer may do in this unit right now: roles held directly or inherited, from the unit as just read.
 function permissionsIn(bu: BusinessUnit, customerId: string, roles: CompanyRole[]): Set<Permission> | undefined {
@@ -58,14 +61,14 @@ const toUnit = (bu: BusinessUnit): CompanyUnit => ({
 });
 
 export async function getCompanyUnit(ctx: PricingContext): Promise<CompanyUnit> {
-  return toUnit((await unit(ctx).get().execute()).body);
+  return toUnit(await businessUnitNow(ctx.businessUnitKey));
 }
 
 // Members of the selected unit: explicit associates (editable) and inherited ones (read-only). The viewer must
 // still be a member (checked on the unit just read, not the 5-minute memo); colleagues' emails are only shown to
 // those who manage users (Magento shows the users grid to everyone, contact details to admins).
 export async function getCompanyMembers(ctx: PricingContext, viewerId: string): Promise<CompanyMember[]> {
-  const [{ body: bu }, roles] = await Promise.all([unit(ctx).get().execute(), liveRoles()]);
+  const [bu, roles] = await Promise.all([businessUnitNow(ctx.businessUnitKey), pageRoles()]);
   const viewer = permissionsIn(bu, viewerId, roles);
   if (!viewer) throw new CompanyError("You are no longer a user of this company.");
   const showEmails = viewer.has("UpdateAssociates");
@@ -99,7 +102,7 @@ export async function getCompanyMembers(ctx: PricingContext, viewerId: string): 
 // The company tree as far as the viewer belongs to it: units they are a member of (live, from the units just
 // read) plus those units' parents, so the tree stays connected. Contact emails only for their own units.
 export async function getCompanyStructure(ctx: PricingContext, viewerId: string): Promise<(CompanyUnit & { member: boolean })[]> {
-  const { body: bu } = await unit(ctx).get().execute();
+  const bu = await businessUnitNow(ctx.businessUnitKey);
   const { body } = await apiRoot
     .businessUnits()
     .get({ queryArgs: { where: `topLevelUnit(key=${str(bu.topLevelUnit.key)})`, limit: 100, sort: ["name asc"] } })
@@ -120,20 +123,24 @@ export async function getCompanyStructure(ctx: PricingContext, viewerId: string)
 
 // All orders of the unit in its store (anyone's), for associates with ViewOthersOrders, checked live.
 export async function pageCompanyOrders(ctx: PricingContext, customerId: string, page: number, size: number) {
-  if (!(await hasPermissionNow(ctx.businessUnitKey, customerId, "ViewOthersOrders"))) throw new CompanyError("You can't view other people's orders.");
-  const { body } = await apiRoot
-    .inStoreKeyWithStoreKeyValue({ storeKey: ctx.storeKey })
-    .orders()
-    .get({
-      queryArgs: {
-        where: `businessUnit(key=${str(ctx.businessUnitKey)})`,
-        sort: ["createdAt desc"],
-        limit: size,
-        offset: (page - 1) * size,
-        withTotal: true,
-      },
-    })
-    .execute();
+  // The query runs alongside the live permission check; its result is only used if the check passes.
+  const [allowed, { body }] = await Promise.all([
+    hasPermissionNow(ctx.businessUnitKey, customerId, "ViewOthersOrders"),
+    apiRoot
+      .inStoreKeyWithStoreKeyValue({ storeKey: ctx.storeKey })
+      .orders()
+      .get({
+        queryArgs: {
+          where: `businessUnit(key=${str(ctx.businessUnitKey)})`,
+          sort: ["createdAt desc"],
+          limit: size,
+          offset: (page - 1) * size,
+          withTotal: true,
+        },
+      })
+      .execute(),
+  ]);
+  if (!allowed) throw new CompanyError("You can't view other people's orders.");
   return { orders: body.results as Order[], total: body.total ?? body.count };
 }
 

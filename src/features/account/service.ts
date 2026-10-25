@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { BaseAddress, Customer, MyCustomerUpdateAction } from "@commercetools/platform-sdk";
 import type { BuyerContext } from "@/features/business-units/types";
 import { customerApiRoot } from "@/lib/commercetools/client";
@@ -7,10 +8,11 @@ import { signOutOnAuthError, type Session } from "@/features/auth/session";
 // The signed-in customer's own profile (/me, scope manage_my_profile).
 const me = (session: Session) => customerApiRoot(session.accessToken).me();
 
-export async function getMe(session: Session): Promise<Customer> {
+// One read per page render (React cache); updateMe below runs in Server Actions, where the cache is off.
+export const getMe = cache(async (session: Session): Promise<Customer> => {
   const { body } = await me(session).get().execute().catch(signOutOnAuthError);
   return body;
-}
+});
 
 // Applies the change to the current version; on a 409 re-reads the profile and retries once.
 export async function updateMe(session: Session, actions: MyCustomerUpdateAction[]): Promise<Customer> {

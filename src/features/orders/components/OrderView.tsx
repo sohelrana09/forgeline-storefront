@@ -39,9 +39,12 @@ export async function OrderView({
   const order = own ?? (can(context, "ViewOthersOrders") ? await getCompanyOrder(context, session.customerId, id) : undefined);
   if (!order || (order.businessUnit?.key ?? "") !== context.businessUnitKey) notFound();
   const mine = order.customerId === session.customerId;
-  const approval = (await approvalsForOrders(context, session.customerId, [order.id]))[order.id];
-  // Colleagues' names: who placed the order (if not you) and who decided its approval.
-  const members = !mine || approval ? await getCompanyMembers(context, session.customerId).catch(() => []) : [];
+  // Its approval and the colleagues' names (who placed it, if not you, and who decided the approval), together.
+  const [approvals, members] = await Promise.all([
+    approvalsForOrders(context, session.customerId, [order.id]),
+    context.consumer ? [] : getCompanyMembers(context, session.customerId).catch(() => []),
+  ]);
+  const approval = approvals[order.id];
   const nameOf = (id?: string) => (id === session.customerId ? "you" : (members.find((m) => m.customerId === id)?.name ?? "a former user"));
   const placedBy = mine ? undefined : (members.find((m) => m.customerId === order.customerId)?.name ?? order.customerEmail ?? "a former user");
   const ref = orderReference(order);

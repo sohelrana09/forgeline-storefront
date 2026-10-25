@@ -163,6 +163,8 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 | `REVALIDATE_SECRET` | Lets content and catalog updates refresh cached guest pages (`POST /api/revalidate`). |
 | `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. |
 
+**Hosting region:** keep the storefront next to your commercetools region, because every page talks to the API. `vercel.json` pins Vercel functions to `cle1` (Cleveland), beside commercetools' AWS us-east-2. If your project is in another region, change it, for example to `fra1` for europe-west1. From far away, each API call adds a few hundred milliseconds.
+
 Store prices: the sample stores have no countries set, so the mapping from store to currency and country is in `STORE_PRICING` in `src/features/business-units/service.ts`. Adjust it for your own stores.
 
 ## Commands

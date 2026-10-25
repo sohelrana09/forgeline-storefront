@@ -25,11 +25,16 @@ export async function OrdersListView({
 }) {
   const seeOthers = can(context, "ViewOthersOrders");
   // The permission comes from the 5-minute memo; the service re-checks it live and refuses if it was just revoked.
-  const companyPage = company && seeOthers ? await pageCompanyOrders(context, session.customerId, page, size).catch(() => undefined) : undefined;
+  // Company orders and the members' names together (one unit read between them, shared per render).
+  const [companyPage, members] =
+    company && seeOthers
+      ? await Promise.all([
+          pageCompanyOrders(context, session.customerId, page, size).catch(() => undefined),
+          getCompanyMembers(context, session.customerId).catch(() => []),
+        ])
+      : [undefined, []];
   const all = Boolean(companyPage);
-  const names = all
-    ? Object.fromEntries((await getCompanyMembers(context, session.customerId)).map((m) => [m.customerId, m.name || m.email]))
-    : undefined;
+  const names = all ? Object.fromEntries(members.map((m) => [m.customerId, m.name || m.email])) : undefined;
   const { orders, total } = companyPage ?? (await pageMyOrders(session, context, page, size));
   // Orders that matched an approval rule (business units only).
   const approvals = await approvalsForOrders(context, session.customerId, orders.map((o) => o.id));
