@@ -237,3 +237,4 @@ It is a reference build with security in mind (narrowed customer tokens, server-
 ---
 
 Made with Next.js and commercetools. If Forgeline helps you, please give it a star.
+
