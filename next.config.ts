@@ -10,6 +10,10 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   // HTTPS only in production builds; a dev server on http://localhost must not pin itself.
   ...(process.env.NODE_ENV === "production" ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }] : []),
+  // Out of search engines unless SITE_INDEXABLE=true (siteIndexable() in src/lib/site-url.ts; robots.txt and the
+  // sitemap follow the same switch). Crawling stays allowed so crawlers can see this header: a page blocked in
+  // robots.txt can still be listed from links elsewhere.
+  ...(process.env.SITE_INDEXABLE === "true" ? [] : [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]),
 ];
 
 const nextConfig: NextConfig = {

@@ -6,3 +6,7 @@ export function siteUrl(): string {
   if (process.env.NODE_ENV === "production") throw new Error("SITE_URL is required in production");
   return "http://localhost:3000";
 }
+
+// Whether search engines may index the site. Off unless SITE_INDEXABLE=true: a sandbox or demo deployment stays out
+// of Google and Bing (noindex on every response, no sitemap). Read at build time too (next.config.ts headers).
+export const siteIndexable = () => process.env.SITE_INDEXABLE === "true";

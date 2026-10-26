@@ -160,6 +160,7 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 | `CTP_AUTH_URL`, `CTP_API_URL` | Your region, for example `https://auth.us-east-2.aws.commercetools.com`. |
 | `CTP_STOREFRONT_CLIENT_ID`, `CTP_STOREFRONT_CLIENT_SECRET` | Client for customer sign-in (password flow). |
 | `SITE_URL` | Public address of the shop. Needed for production builds, email links, canonicals and the sitemap. |
+| `SITE_INDEXABLE` | `true` lets search engines index the catalog. Anything else (the default) keeps the whole site out of Google and Bing: `noindex` on every response and an empty sitemap. |
 | `REVALIDATE_SECRET` | Lets content and catalog updates refresh cached guest pages (`POST /api/revalidate`). |
 | `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. |
 

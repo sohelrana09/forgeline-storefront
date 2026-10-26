@@ -1,9 +1,12 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "@/lib/site-url";
+import { siteIndexable, siteUrl } from "@/lib/site-url";
 
 // The public catalog (home, categories, products, content pages) is indexable at guest list prices. Everything
 // personal or transactional stays out, and so do search results (endless query URLs, thin content).
 export default function robots(): MetadataRoute.Robots {
+  // Not indexable: crawlers may still fetch pages (and so see the noindex header next.config.ts sends), but get no
+  // sitemap to work through.
+  if (!siteIndexable()) return { rules: { userAgent: "*", allow: "/" } };
   return {
     rules: {
       userAgent: "*",

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "@/lib/site-url";
+import { siteIndexable, siteUrl } from "@/lib/site-url";
 import { allProductSlugs, getCategoryTree } from "@/features/catalog/service";
 import { localize } from "@/features/catalog/utils";
 import { getPages } from "@/features/cms/service";
@@ -10,6 +10,7 @@ import { getGuestContext } from "@/features/business-units/service";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  if (!siteIndexable()) return []; // not listed while the site stays out of search engines
   const base = siteUrl();
   const [tree, products, pages] = await Promise.all([
     getCategoryTree(),
