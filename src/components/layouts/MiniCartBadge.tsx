@@ -1,14 +1,8 @@
-import Link from "next/link";
-
-// The header's cart link: icon with item count, and the total. Rendered by the server (per-visitor pages) or by the
-// client island on cached guest pages.
-export function MiniCartLink({ items, total }: { items: number; total?: string }) {
+// The header cart's face: icon with the item count, and "My cart" with the total. The minicart
+// (features/cart/components/MiniCart.tsx) wraps it in the link that opens its dropdown.
+export function MiniCartBadge({ items, total }: { items: number; total?: string }) {
   return (
-    <Link
-      href="/cart"
-      aria-label={`Cart, ${items} ${items === 1 ? "item" : "items"}${total ? `, ${total}` : ""}`}
-      className="ml-auto flex items-center gap-3 text-gray-50 no-underline hover:text-white sm:ml-0"
-    >
+    <>
       <span className="relative">
         <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 8H6.2" />
@@ -23,6 +17,6 @@ export function MiniCartLink({ items, total }: { items: number; total?: string }
         <span className="block text-xs text-gray-300">My cart</span>
         <span className="font-semibold">{total ?? "Empty"}</span>
       </span>
-    </Link>
+    </>
   );
 }

@@ -4,13 +4,13 @@ import { getGuestContext } from "@/features/business-units/service";
 import { SiteHeader } from "@/components/layouts/SiteHeader";
 import { SiteFooter } from "@/components/layouts/SiteFooter";
 import { BuyingContextBadge } from "@/features/business-units/components/BuyingContextBadge";
-import { MiniCartIsland } from "@/features/cart/components/MiniCartIsland";
+import { MiniCart } from "@/features/cart/components/MiniCart";
 import { logout } from "@/features/auth/actions";
 
 // Cached catalog for guests (home, categories, products, content pages without query parameters). src/middleware.ts
 // rewrites guests here; signed-in customers and URLs with parameters use the per-visitor pages in (shop).
 // Nothing here may read cookies or headers: the HTML is shared by every guest. The visitor's own cart is loaded in
-// the browser (MiniCartIsland).
+// the browser (MiniCart live).
 export const revalidate = 300;
 // Fails the build if anything in the header or footer starts reading cookies or headers.
 export const dynamic = "error";
@@ -30,7 +30,7 @@ export default async function CachedGuestLayout({ children }: { children: React.
           />
         }
         signOutAction={logout}
-        cartSlot={<MiniCartIsland />}
+        cart={<MiniCart live />}
         menu={categoryMenu(tree)}
       />
       {/* Grows to fill the window, so the footer stays at the bottom on short pages. */}

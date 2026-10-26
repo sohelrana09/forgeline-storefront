@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { SearchBox } from "@/components/layouts/SearchBox";
 import { SiteLogo } from "@/components/layouts/SiteLogo";
-import type { Cart } from "@commercetools/platform-sdk";
-import { formatMoney } from "@/lib/utils";
 import { CategoryMenu, type MenuItem } from "@/components/layouts/CategoryMenu";
-import { MiniCartLink } from "@/components/layouts/MiniCartLink";
 
 // Magento-style header, domain-agnostic: the shop layout fills in the buying-context area and the sign-out action
 // (src/components never imports features).
@@ -17,15 +14,14 @@ type Props = {
   // Who you're buying for (unit switcher, label or guest hint).
   context: React.ReactNode;
   signOutAction: () => Promise<void>;
-  cart?: Cart;
-  // Replaces the server-rendered mini-cart (cached guest pages load the visitor's cart in the browser).
-  cartSlot?: React.ReactNode;
+  // The minicart (features/cart MiniCart): built from the server cart, or loaded in the browser on cached pages.
+  cart: React.ReactNode;
   menu: MenuItem[];
 };
 
 const topLink = "flex min-h-11 items-center text-gray-200 no-underline hover:text-white hover:underline";
 
-export function SiteHeader({ welcome, context, signOutAction, cart, cartSlot, menu }: Props) {
+export function SiteHeader({ welcome, context, signOutAction, cart, menu }: Props) {
   return (
     <header className="bg-gray-900 text-gray-50">
       <div className="bg-gray-950 text-xs">
@@ -73,12 +69,7 @@ export function SiteHeader({ welcome, context, signOutAction, cart, cartSlot, me
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-3 px-4 py-4 sm:px-8">
         <SiteLogo />
         <SearchBox />
-        {cartSlot ?? (
-          <MiniCartLink
-            items={cart?.lineItems.reduce((n, l) => n + l.quantity, 0) ?? 0}
-            total={cart ? formatMoney(cart.taxedPrice?.totalGross ?? cart.totalPrice) : undefined}
-          />
-        )}
+        {cart}
       </div>
       <CategoryMenu items={menu} />
     </header>

@@ -6,6 +6,8 @@ import { currentBrowseContext, type BrowseContext } from "@/features/business-un
 import { getGuestContext } from "@/features/business-units/service";
 import { SiteHeader } from "@/components/layouts/SiteHeader";
 import { SiteFooter } from "@/components/layouts/SiteFooter";
+import { MiniCart } from "@/features/cart/components/MiniCart";
+import { toMiniCart } from "@/features/cart/minicart";
 import { BuyingContextBadge } from "@/features/business-units/components/BuyingContextBadge";
 import { logout } from "@/features/auth/actions";
 import { getSession } from "@/features/auth/session";
@@ -47,7 +49,7 @@ export async function SiteChrome({ children, lenient = false }: { children: Reac
           />
         }
         signOutAction={logout}
-        cart={cart}
+        cart={<MiniCart initial={toMiniCart(cart, context.canOrder)} />}
         menu={categoryMenu(tree)}
       />
       {/* Grows to fill the window, so the footer stays at the bottom on short pages. */}
