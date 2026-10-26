@@ -8,7 +8,12 @@ async function main() {
 
   // Associate roles are project-wide; create a basic buyer role if it doesn't exist yet.
   const roleKey = "buyer";
-  const existingRole = await apiRoot.associateRoles().withKey({ key: roleKey }).get().execute().catch(() => null);
+  const existingRole = await apiRoot
+    .associateRoles()
+    .withKey({ key: roleKey })
+    .get()
+    .execute()
+    .catch(() => null);
   if (!existingRole) {
     await apiRoot
       .associateRoles()
@@ -36,7 +41,10 @@ async function main() {
   }
 
   const existingCustomer = (
-    await apiRoot.customers().get({ queryArgs: { where: `lowercaseEmail=${str(email.toLowerCase())}` } }).execute()
+    await apiRoot
+      .customers()
+      .get({ queryArgs: { where: `lowercaseEmail=${str(email.toLowerCase())}` } })
+      .execute()
   ).body.results[0];
   const customer =
     existingCustomer ??
@@ -49,7 +57,8 @@ async function main() {
         .execute()
     ).body.customer;
   console.log(`Customer: ${customer.email} (${customer.id})`);
-  if (!existingCustomer) console.log("New customer has no password: run npm run ct:seed-buyers, or use Forgot your password? on the storefront.");
+  if (!existingCustomer)
+    console.log("New customer has no password: run npm run ct:seed-buyers, or use Forgot your password? on the storefront.");
 
   const unit = (
     await apiRoot

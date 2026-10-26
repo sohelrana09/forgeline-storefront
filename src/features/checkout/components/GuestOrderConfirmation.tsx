@@ -45,8 +45,8 @@ export async function GuestOrderConfirmation({
       </div>
       {totalChanged && (
         <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          Your cart changed while you were paying, so this order&apos;s total differs from the one you reviewed. Please check the items,
-          and contact us if something isn&apos;t right.
+          Your cart changed while you were paying, so this order&apos;s total differs from the one you reviewed. Please check the items, and
+          contact us if something isn&apos;t right.
         </p>
       )}
       <div className="flex flex-wrap items-start gap-6">

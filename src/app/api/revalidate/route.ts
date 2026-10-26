@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     : await merchantCenterUser(authorization, `${siteUrl()}/api/revalidate`).then((user) => user && `mc:${user}`);
   if (!caller) {
     // Throttle guessing; authorized callers aren't counted.
-    if (await tooManyAttempts(`revalidate:${await clientIp()}`, 20)) return NextResponse.json({ error: "too many attempts" }, { status: 429 });
+    if (await tooManyAttempts(`revalidate:${await clientIp()}`, 20))
+      return NextResponse.json({ error: "too many attempts" }, { status: 429 });
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -45,7 +46,12 @@ export async function POST(request: NextRequest) {
 
 function scopeOf(body: unknown): Scope {
   if (!body || typeof body !== "object") return "all";
-  const b = body as { scope?: unknown; detail?: unknown; message?: { data?: unknown }; resource?: { typeId?: unknown } };
+  const b = body as {
+    scope?: unknown;
+    detail?: unknown;
+    message?: { data?: unknown };
+    resource?: { typeId?: unknown };
+  };
   if (b.scope === "content" || b.scope === "catalog" || b.scope === "all") return b.scope;
   if (b.detail) return scopeOf(b.detail);
   if (typeof b.message?.data === "string") {

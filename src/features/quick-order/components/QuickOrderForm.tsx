@@ -34,10 +34,7 @@ export function QuickOrderForm({ lists }: { lists?: { id: string; name: string }
       <p id="qo-help" className="m-0 text-xs text-gray-600">
         One line per item: SKU, quantity. Duplicate SKUs are combined.
       </p>
-      <button
-        disabled={pending}
-        className="min-h-11 rounded bg-orange-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-      >
+      <button disabled={pending} className="min-h-11 rounded bg-orange-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
         {pending ? "Adding…" : "Add all to cart"}
       </button>
       {lists && (

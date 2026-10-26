@@ -12,7 +12,10 @@ export default async function RegisterPage() {
     <AuthShell title="Create new customer account">
       <RegisterForm />
       <p className="mb-0 mt-5 text-sm text-gray-600">
-        Already have an account? <Link href="/login" className="text-orange-800">Sign in</Link>
+        Already have an account?{" "}
+        <Link href="/login" className="text-orange-800">
+          Sign in
+        </Link>
       </p>
       <p className="mb-0 mt-2 text-xs text-gray-600">Buying for a company? Our sales team sets up business accounts with company prices.</p>
     </AuthShell>

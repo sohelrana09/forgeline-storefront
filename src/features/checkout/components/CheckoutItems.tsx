@@ -17,7 +17,14 @@ export function CheckoutItems({ cart }: { cart: Cart }) {
           return (
             <li key={l.id} className="flex items-start gap-3">
               {image ? (
-                <Image src={image} alt="" width={56} height={56} sizes="56px" className="size-14 shrink-0 rounded border border-gray-100 object-contain" />
+                <Image
+                  src={image}
+                  alt=""
+                  width={56}
+                  height={56}
+                  sizes="56px"
+                  className="size-14 shrink-0 rounded border border-gray-100 object-contain"
+                />
               ) : (
                 <span className="size-14 shrink-0 rounded bg-gray-100" />
               )}

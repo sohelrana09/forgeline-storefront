@@ -24,7 +24,11 @@ let changed = 0;
 async function allObjects(container: string): Promise<CustomObject[]> {
   const out: CustomObject[] = [];
   for (let offset = 0; ; offset += 500) {
-    const { body } = await apiRoot.customObjects().withContainer({ container }).get({ queryArgs: { limit: 500, offset } }).execute();
+    const { body } = await apiRoot
+      .customObjects()
+      .withContainer({ container })
+      .get({ queryArgs: { limit: 500, offset } })
+      .execute();
     out.push(...body.results);
     if (out.length >= (body.total ?? 0) || body.results.length === 0) return out;
   }
@@ -44,7 +48,10 @@ async function sync(dir: string, container: string, validate: (key: string, valu
       console.log(`= ${container}/${key}`);
       continue;
     }
-    await apiRoot.customObjects().post({ body: { container, key, value, ...(current && { version: current.version }) } }).execute();
+    await apiRoot
+      .customObjects()
+      .post({ body: { container, key, value, ...(current && { version: current.version }) } })
+      .execute();
     changed += 1;
     console.log(`${current ? "~" : "+"} ${container}/${key}`);
   }
@@ -81,7 +88,8 @@ function validateBlock(key: string, v: Record<string, unknown>) {
     if (typeof v.content !== "string") fail(`markdown blocks need "content"`);
   } else if (v.type === "banner") {
     if (typeof v.headline !== "string" || !v.headline.trim()) fail(`banner blocks need a "headline"`);
-    if (!isMediaUrl(v.image)) fail(`banner "image" must be a URL from the media library (${MEDIA_SOURCES.map((s) => `https://${s.host}${s.path}`).join(" or ")})`);
+    if (!isMediaUrl(v.image))
+      fail(`banner "image" must be a URL from the media library (${MEDIA_SOURCES.map((s) => `https://${s.host}${s.path}`).join(" or ")})`);
     if (v.mobileImage !== undefined && !isMediaUrl(v.mobileImage)) fail(`banner "mobileImage" must be a media library URL`);
     if (v.theme !== undefined && v.theme !== "dark" && v.theme !== "light") fail(`banner "theme" must be "dark" or "light"`);
     checkCta(v.secondaryCta, "secondaryCta", fail);

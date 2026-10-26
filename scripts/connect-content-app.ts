@@ -57,7 +57,11 @@ async function token() {
       scope: `manage_connectors:${projectKey} manage_connectors_deployments:${projectKey}`,
     }),
   });
-  const body = (await res.json().catch(() => ({}))) as { access_token?: string; error?: string; error_description?: string };
+  const body = (await res.json().catch(() => ({}))) as {
+    access_token?: string;
+    error?: string;
+    error_description?: string;
+  };
   if (!res.ok || !body.access_token) {
     throw new Error(
       `Connect token failed (${res.status} ${body.error ?? ""}): create an API client with manage_connectors and manage_connectors_deployments and set CONNECT_CLIENT_ID/CONNECT_CLIENT_SECRET`,
@@ -107,7 +111,9 @@ async function main() {
     return;
   }
   if (!apply) {
-    console.log(`Would ${connector ? "update" : "create"} the connector at ${repo} @ ${tag}, publish it for ${projectKey}, and deploy it. Re-run with --yes.`);
+    console.log(
+      `Would ${connector ? "update" : "create"} the connector at ${repo} @ ${tag}, publish it for ${projectKey}, and deploy it. Re-run with --yes.`,
+    );
     return;
   }
 
@@ -176,10 +182,13 @@ async function main() {
     current = await connect<Deployment>(auth, "GET", `/${projectKey}/deployments/key=${DEPLOYMENT_KEY}`);
     console.log(`  deployment status: ${current!.status}`);
   }
-  if (current!.status !== "Deployed") throw new Error(`Deployment ${current!.status}:\n${report(current!.details?.build?.report?.entries)}`);
+  if (current!.status !== "Deployed")
+    throw new Error(`Deployment ${current!.status}:\n${report(current!.details?.build?.report?.entries)}`);
   const url = current!.applications?.find((a) => a.applicationName === "cms-app")?.url;
   console.log(`Deployed. App URL: ${url}`);
-  console.log("Next: Merchant Center > Organization settings > Custom Applications > Content: set Application URL to it, change the state to Ready, install it for ctwara.");
+  console.log(
+    "Next: Merchant Center > Organization settings > Custom Applications > Content: set Application URL to it, change the state to Ready, install it for ctwara.",
+  );
 }
 
 main().catch((err) => {

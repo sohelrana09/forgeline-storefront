@@ -1,7 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategoryTree, getProductBySlug, getProductsByIds, getProductsInCategories } from "@/features/catalog/service";
-import { allVariants, availableQuantity, formatAttributeValue, galleryImages, isQuoteOnly, localize, relatedProductIds, specRows, variantAxis } from "@/features/catalog/utils";
+import {
+  allVariants,
+  availableQuantity,
+  formatAttributeValue,
+  galleryImages,
+  isQuoteOnly,
+  localize,
+  relatedProductIds,
+  specRows,
+  variantAxis,
+} from "@/features/catalog/utils";
 import { taxNote } from "@/features/catalog/utils";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { JsonLd } from "@/components/ui/JsonLd";
@@ -44,11 +54,16 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
   return (
     <div className="flex flex-col gap-8">
       {/* Structured data only in the guest view (what crawlers see): company contract prices never go into markup. */}
-      {context.guest && <JsonLd data={productJsonLd(product, variant, category ? [...tree.ancestors(category), category] : [], context.supplyChannelId)} />}
+      {context.guest && (
+        <JsonLd data={productJsonLd(product, variant, category ? [...tree.ancestors(category), category] : [], context.supplyChannelId)} />
+      )}
       <Breadcrumbs
         items={[
           ...(category
-            ? [...tree.ancestors(category), category].map((c) => ({ label: localize(c.name), href: `/c/${localize(c.slug)}` }))
+            ? [...tree.ancestors(category), category].map((c) => ({
+                label: localize(c.name),
+                href: `/c/${localize(c.slug)}`,
+              }))
             : []),
           { label: name },
         ]}
@@ -81,7 +96,9 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
                       href={`/p/${slug}?sku=${v.sku}`}
                       aria-current={selected ? "true" : undefined}
                       className={`min-w-16 rounded border px-4 py-2.5 text-center text-sm no-underline ${
-                        selected ? "border-orange-700 bg-orange-50 font-semibold text-orange-900" : "border-gray-300 bg-white text-gray-800 hover:border-gray-500"
+                        selected
+                          ? "border-orange-700 bg-orange-50 font-semibold text-orange-900"
+                          : "border-gray-300 bg-white text-gray-800 hover:border-gray-500"
                       }`}
                     >
                       {label}
@@ -103,7 +120,14 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
           </p>
 
           {variant.sku && (
-            <AddToCartForm sku={variant.sku} name={name} canOrder={context.canOrder} canQuote={!context.consumer} quoteOnly={isQuoteOnly(variant.price)} size="lg" />
+            <AddToCartForm
+              sku={variant.sku}
+              name={name}
+              canOrder={context.canOrder}
+              canQuote={!context.consumer}
+              quoteOnly={isQuoteOnly(variant.price)}
+              size="lg"
+            />
           )}
           {variant.sku && <AddToListPanel context={context} kind="product" sku={variant.sku} />}
           {isQuoteOnly(variant.price) && (

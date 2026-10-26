@@ -16,6 +16,9 @@ export type PurchaseList = {
   lines: PurchaseListLine[];
 };
 
-export type PurchaseListSummary = Pick<PurchaseList, "id" | "name" | "lastModifiedAt"> & { items: number; lines: number };
+export type PurchaseListSummary = Pick<PurchaseList, "id" | "name" | "lastModifiedAt"> & {
+  items: number;
+  lines: number;
+};
 
 export type ListActionState = { error?: string; saved?: string };

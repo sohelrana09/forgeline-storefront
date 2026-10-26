@@ -28,16 +28,38 @@ export function RegisterForm() {
       <div className="grid grid-cols-2 gap-3">
         <label className={label}>
           First name
-          <input name="firstName" required maxLength={60} autoComplete="given-name" defaultValue={state.values?.firstName} className={input} />
+          <input
+            name="firstName"
+            required
+            maxLength={60}
+            autoComplete="given-name"
+            defaultValue={state.values?.firstName}
+            className={input}
+          />
         </label>
         <label className={label}>
           Last name
-          <input name="lastName" required maxLength={60} autoComplete="family-name" defaultValue={state.values?.lastName} className={input} />
+          <input
+            name="lastName"
+            required
+            maxLength={60}
+            autoComplete="family-name"
+            defaultValue={state.values?.lastName}
+            className={input}
+          />
         </label>
       </div>
       <label className={label}>
         Email
-        <input name="email" type="email" required maxLength={254} autoComplete="email" defaultValue={state.values?.email} className={input} />
+        <input
+          name="email"
+          type="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          defaultValue={state.values?.email}
+          className={input}
+        />
       </label>
       <label className={label}>
         Password
@@ -46,7 +68,15 @@ export function RegisterForm() {
       </label>
       <label className={label}>
         Confirm password
-        <input name="confirmPassword" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={input} />
+        <input
+          name="confirmPassword"
+          type="password"
+          required
+          minLength={8}
+          maxLength={128}
+          autoComplete="new-password"
+          className={input}
+        />
       </label>
       <label htmlFor="terms" className="flex min-h-11 items-center gap-2 text-sm">
         <input id="terms" name="terms" type="checkbox" required className="h-5 w-5" />
@@ -102,7 +132,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
       </label>
       <label className={label}>
         Confirm new password
-        <input name="confirmPassword" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={input} />
+        <input
+          name="confirmPassword"
+          type="password"
+          required
+          minLength={8}
+          maxLength={128}
+          autoComplete="new-password"
+          className={input}
+        />
       </label>
       <Alert error={state.error} />
       <button disabled={pending} className={button}>

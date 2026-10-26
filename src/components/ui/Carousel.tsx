@@ -86,9 +86,7 @@ export function Carousel({
               >
                 <span
                   aria-hidden="true"
-                  className={`block h-2.5 rounded-full transition-all ${
-                    i === state.page ? "w-6 bg-orange-700" : "w-2.5 bg-gray-300 group-hover/dot:bg-gray-500"
-                  }`}
+                  className={`block h-2.5 rounded-full transition-all ${i === state.page ? "w-6 bg-orange-700" : "w-2.5 bg-gray-300 group-hover/dot:bg-gray-500"}`}
                 />
               </button>
             ))}
@@ -111,7 +109,17 @@ function SlideButton({ direction, disabled, onClick }: { direction: "previous" |
         direction === "previous" ? "-left-3" : "-right-3"
       }`}
     >
-      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        aria-hidden="true"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d={direction === "previous" ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
       </svg>
     </button>

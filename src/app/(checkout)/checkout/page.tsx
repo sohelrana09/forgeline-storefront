@@ -15,8 +15,8 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
     <div className="flex flex-col gap-4">
       {payment === "unconfirmed" && (
         <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          We couldn&apos;t confirm your order yet. If your card was charged, your order confirmation email has the details: please
-          contact us before paying again.
+          We couldn&apos;t confirm your order yet. If your card was charged, your order confirmation email has the details: please contact
+          us before paying again.
         </p>
       )}
       {session ? (

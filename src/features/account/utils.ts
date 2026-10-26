@@ -34,7 +34,18 @@ export const ADDRESS_FIELDS = {
   company: /^[\p{L}\p{M}\p{N}' .,&()/-]{0,100}$/u,
 };
 
-const ADDRESS_KEYS = ["firstName", "lastName", "company", "streetName", "streetNumber", "additionalStreetInfo", "postalCode", "city", "country", "phone"];
+const ADDRESS_KEYS = [
+  "firstName",
+  "lastName",
+  "company",
+  "streetName",
+  "streetNumber",
+  "additionalStreetInfo",
+  "postalCode",
+  "city",
+  "country",
+  "phone",
+];
 
 // Reads and validates an address form (address book, guest checkout). `countries`: where we deliver.
 export function parseAddress(formData: FormData, countries: string[]): { address: BaseAddress } | { error: string } {

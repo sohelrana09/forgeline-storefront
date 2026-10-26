@@ -27,4 +27,9 @@ export type PricingContext = Omit<BuyingContext, "members">;
 // `permissions` drive what the UI offers (company admin features); actions re-check them live (hasPermissionNow).
 // Without a business unit (empty key, priced from the B2C store): guests (guest: true) and signed-in consumers,
 // i.e. customers who aren't an associate of any unit (consumer: true; own addresses, no quotes or company).
-export type BuyerContext = PricingContext & { canOrder: boolean; permissions: Permission[]; guest?: boolean; consumer?: boolean };
+export type BuyerContext = PricingContext & {
+  canOrder: boolean;
+  permissions: Permission[];
+  guest?: boolean;
+  consumer?: boolean;
+};

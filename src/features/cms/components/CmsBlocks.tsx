@@ -34,12 +34,7 @@ export function CmsBlocks(props: Props) {
 
 // Renders every active block for a placement, filtered by store and (optionally) category slugs.
 // A broken CMS must never take the page down, so failures render nothing and are logged.
-async function CmsBlocksContent({
-  placement,
-  context,
-  categorySlugs,
-  className = "",
-}: Props) {
+async function CmsBlocksContent({ placement, context, categorySlugs, className = "" }: Props) {
   const blocks = await getBlocks({ placement, storeKey: context.storeKey, categorySlugs }).catch((err) => {
     console.error(`CMS blocks for ${placement} failed`, err?.body ?? err);
     return [];

@@ -8,7 +8,10 @@ import { can, roleLabel } from "@/features/company/utils";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
-const STATUS = { Active: { label: "Active", tone: "success" as const }, Inactive: { label: "Inactive", tone: "neutral" as const } };
+const STATUS = {
+  Active: { label: "Active", tone: "success" as const },
+  Inactive: { label: "Inactive", tone: "neutral" as const },
+};
 
 // Magento B2B "Approval rules": what needs approval in the selected unit, whose orders, and who approves.
 export async function ApprovalRulesView({ session, context, saved }: { session: Session; context: BuyerContext; saved: boolean }) {
@@ -35,7 +38,10 @@ export async function ApprovalRulesView({ session, context, saved }: { session: 
           </p>
         </div>
         {canCreate && (
-          <Link href="/account/company/approval-rules/new" className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline hover:bg-orange-800">
+          <Link
+            href="/account/company/approval-rules/new"
+            className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline hover:bg-orange-800"
+          >
             Add new rule
           </Link>
         )}

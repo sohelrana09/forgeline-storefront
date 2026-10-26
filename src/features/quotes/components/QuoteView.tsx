@@ -17,7 +17,13 @@ export async function QuoteView({ session, context, id }: { session: Session; co
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "My quotes", href: "/account/quotes" }, { label: `Quote ${shortRef(quote)}` }]} />
+      <Breadcrumbs
+        items={[
+          { label: "My account", href: "/account" },
+          { label: "My quotes", href: "/account/quotes" },
+          { label: `Quote ${shortRef(quote)}` },
+        ]}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="m-0 text-2xl font-bold">Quote {shortRef(quote)}</h1>
         <StateBadge state={quote.quoteState} map={QUOTE_STATES} />

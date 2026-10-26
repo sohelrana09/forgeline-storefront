@@ -36,10 +36,7 @@ export function LoginForm() {
           {state.error}
         </p>
       )}
-      <button
-        disabled={pending}
-        className="min-h-11 rounded bg-orange-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
-      >
+      <button disabled={pending} className="min-h-11 rounded bg-orange-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
         {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>

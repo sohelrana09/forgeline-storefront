@@ -38,7 +38,13 @@ function HeroBanner({ banner, first }: { banner: CmsBlock; first: boolean }) {
       {/* Art direction needs <picture>; the <img> props (alt included) come from getImageProps. */}
       <picture>
         {mobile && <source media="(max-width: 640px)" srcSet={mobile.srcSet} sizes="100vw" />}
-        <img {...desktop} alt={desktop.alt} fetchPriority={first ? "high" : undefined} loading={first ? "eager" : "lazy"} className="-z-20 object-cover" />
+        <img
+          {...desktop}
+          alt={desktop.alt}
+          fetchPriority={first ? "high" : undefined}
+          loading={first ? "eager" : "lazy"}
+          className="-z-20 object-cover"
+        />
       </picture>
       {/* Keeps the text readable on any picture: dark or light wash from the text side. */}
       <div

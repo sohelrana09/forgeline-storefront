@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { formatMoney } from "@/lib/utils";
-import { addListToCartAction, createListAction, deleteListAction, renameListAction, updateListAction } from "@/features/purchase-lists/actions";
+import {
+  addListToCartAction,
+  createListAction,
+  deleteListAction,
+  renameListAction,
+  updateListAction,
+} from "@/features/purchase-lists/actions";
 import { MAX_QUANTITY } from "@/features/purchase-lists/utils";
 import type { ListActionState } from "@/features/purchase-lists/types";
 import type { QuickOrderState } from "@/features/quick-order/types";
@@ -14,9 +20,18 @@ export function CreateListForm() {
     <form action={action} className="flex flex-wrap items-end gap-3">
       <label className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 text-sm font-semibold">
         New list name
-        <input name="name" required maxLength={100} placeholder="e.g. Monthly filters" className="min-h-11 rounded border border-gray-300 px-3 font-normal" />
+        <input
+          name="name"
+          required
+          maxLength={100}
+          placeholder="e.g. Monthly filters"
+          className="min-h-11 rounded border border-gray-300 px-3 font-normal"
+        />
       </label>
-      <button disabled={pending} className="min-h-11 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60">
+      <button
+        disabled={pending}
+        className="min-h-11 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+      >
         {pending ? "Creating…" : "Create list"}
       </button>
       {state.error && (
@@ -43,7 +58,14 @@ export function RenameListForm({ listId, name }: { listId: string; name: string 
       <input type="hidden" name="listId" value={listId} />
       <label className="flex flex-col gap-1 text-sm font-semibold">
         List name
-        <input name="name" required maxLength={100} defaultValue={name} autoFocus className="min-h-11 rounded border border-gray-300 px-3 font-normal" />
+        <input
+          name="name"
+          required
+          maxLength={100}
+          defaultValue={name}
+          autoFocus
+          className="min-h-11 rounded border border-gray-300 px-3 font-normal"
+        />
       </label>
       <button disabled={pending} className="min-h-11 rounded border border-gray-900 px-4 text-sm font-semibold">
         {pending ? "Saving…" : "Save name"}
@@ -78,7 +100,10 @@ export type EditorLine = {
 // quantities / remove lines and update the list. The two actions use separate forms over the same rows.
 export function ListEditor({ listId, lines, canOrder }: { listId: string; lines: EditorLine[]; canOrder: boolean }) {
   const [updateState, updateAction, updating] = useActionState(updateListAction, {} as ListActionState);
-  const [cartState, cartAction, adding] = useActionState(addListToCartAction, { added: [], errors: [] } as QuickOrderState);
+  const [cartState, cartAction, adding] = useActionState(addListToCartAction, {
+    added: [],
+    errors: [],
+  } as QuickOrderState);
   const updateForm = `update-${listId}`;
   const cartForm = `cart-${listId}`;
   return (
@@ -124,7 +149,13 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
                   <div className="flex items-start gap-3">
                     {l.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={l.image} alt="" width={48} height={48} className="size-12 shrink-0 rounded border border-gray-100 object-contain" />
+                      <img
+                        src={l.image}
+                        alt=""
+                        width={48}
+                        height={48}
+                        className="size-12 shrink-0 rounded border border-gray-100 object-contain"
+                      />
                     ) : (
                       <span className="size-12 shrink-0 rounded bg-gray-100" />
                     )}
@@ -161,7 +192,14 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
                   />
                 </td>
                 <td className="px-4 py-3">
-                  <input type="checkbox" name="remove" value={l.id} form={updateForm} aria-label={`Remove ${l.name}`} className="mt-1 size-4" />
+                  <input
+                    type="checkbox"
+                    name="remove"
+                    value={l.id}
+                    form={updateForm}
+                    aria-label={`Remove ${l.name}`}
+                    className="mt-1 size-4"
+                  />
                 </td>
               </tr>
             ))}
@@ -198,11 +236,19 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
           </ul>
         </div>
       )}
-      {canOrder && <p className="m-0 text-xs text-gray-600">Adding to the cart uses the saved quantities: update the list first after changing them.</p>}
+      {canOrder && (
+        <p className="m-0 text-xs text-gray-600">
+          Adding to the cart uses the saved quantities: update the list first after changing them.
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         {canOrder && (
           <>
-            <button form={cartForm} disabled={adding} className="min-h-11 rounded border border-gray-900 bg-white px-5 font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60">
+            <button
+              form={cartForm}
+              disabled={adding}
+              className="min-h-11 rounded border border-gray-900 bg-white px-5 font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
+            >
               {adding ? "Adding…" : "Add selected to cart"}
             </button>
             <button
@@ -216,7 +262,11 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
             </button>
           </>
         )}
-        <button form={updateForm} disabled={updating} className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60">
+        <button
+          form={updateForm}
+          disabled={updating}
+          className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+        >
           {updating ? "Saving…" : "Update list"}
         </button>
       </div>
@@ -246,7 +296,11 @@ export function DeleteListButton({ listId, name }: { listId: string; name: strin
       <button disabled={pending} className="min-h-11 rounded bg-red-700 px-4 font-semibold text-white disabled:opacity-60">
         {pending ? "Deleting…" : "Yes, delete"}
       </button>
-      <button type="button" onClick={() => setConfirming(false)} className="min-h-11 rounded border border-gray-300 bg-white px-4 font-semibold text-gray-800">
+      <button
+        type="button"
+        onClick={() => setConfirming(false)}
+        className="min-h-11 rounded border border-gray-300 bg-white px-4 font-semibold text-gray-800"
+      >
         Cancel
       </button>
       {state.error && (

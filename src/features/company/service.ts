@@ -1,5 +1,13 @@
 import "server-only";
-import type { AssociateRole, AssociateRoleAssignment, AssociateRoleAssignmentDraft, BusinessUnit, BusinessUnitUpdateAction, Order, Permission } from "@commercetools/platform-sdk";
+import type {
+  AssociateRole,
+  AssociateRoleAssignment,
+  AssociateRoleAssignmentDraft,
+  BusinessUnit,
+  BusinessUnitUpdateAction,
+  Order,
+  Permission,
+} from "@commercetools/platform-sdk";
 import { randomBytes } from "node:crypto";
 import { after } from "next/server";
 import { apiRoot } from "@/lib/commercetools/client";
@@ -17,7 +25,10 @@ import type { CompanyMember, CompanyRole, CompanyUnit } from "@/features/company
 
 export class CompanyError extends Error {
   // "forbidden": the acting associate lacks the permission or tried to give more than they hold.
-  constructor(message: string, readonly reason?: "forbidden") {
+  constructor(
+    message: string,
+    readonly reason?: "forbidden",
+  ) {
     super(message);
   }
 }
@@ -29,7 +40,10 @@ const unitByKey = (key: string) => apiRoot.businessUnits().withKey({ key });
 const rolesMemo = staleWhileRevalidate<CompanyRole[]>(5 * 60 * 1000);
 export const getRoles = () =>
   rolesMemo("roles", async () => {
-    const { body } = await apiRoot.associateRoles().get({ queryArgs: { limit: 100, sort: ["name asc"] } }).execute();
+    const { body } = await apiRoot
+      .associateRoles()
+      .get({ queryArgs: { limit: 100, sort: ["name asc"] } })
+      .execute();
     return body.results.filter((r) => r.buyerAssignable).map((r) => ({ key: r.key, name: r.name ?? r.key, permissions: r.permissions }));
   });
 
@@ -37,7 +51,10 @@ export const getRoles = () =>
 const toCompanyRoles = (roles: AssociateRole[]): CompanyRole[] =>
   roles.map((r) => ({ key: r.key, name: r.name ?? r.key, permissions: r.buyerAssignable ? r.permissions : [] }));
 async function liveRoles(): Promise<CompanyRole[]> {
-  const { body } = await apiRoot.associateRoles().get({ queryArgs: { limit: 100 } }).execute();
+  const { body } = await apiRoot
+    .associateRoles()
+    .get({ queryArgs: { limit: 100 } })
+    .execute();
   return toCompanyRoles(body.results);
 }
 // Page reads share one roles read per render with the permission checks (writes use liveRoles).
@@ -82,7 +99,8 @@ export async function getCompanyMembers(ctx: PricingContext, viewerId: string): 
     m.explicit = true;
     m.roles.push(...a.associateRoleAssignments.map((r) => r.associateRole.key));
   }
-  for (const a of bu.inheritedAssociates ?? []) entry(a.customer.id).inheritedRoles.push(...a.associateRoleAssignments.map((r) => r.associateRole.key));
+  for (const a of bu.inheritedAssociates ?? [])
+    entry(a.customer.id).inheritedRoles.push(...a.associateRoleAssignments.map((r) => r.associateRole.key));
 
   const ids = [...byCustomer.keys()];
   if (ids.length > 0) {
@@ -160,18 +178,28 @@ async function decide(businessUnitKey: string, actorId: string, permission: Mana
   const [{ body: bu }, roles] = await Promise.all([unitByKey(businessUnitKey).get().execute(), liveRoles()]);
   const actor = permissionsIn(bu, actorId, roles);
   if (!actor?.has(permission)) {
-    throw new CompanyError(permission === "UpdateAssociates" ? "You can't manage company users." : "You can't edit the company profile.", "forbidden");
+    throw new CompanyError(
+      permission === "UpdateAssociates" ? "You can't manage company users." : "You can't edit the company profile.",
+      "forbidden",
+    );
   }
   return { bu, roles, actor };
 }
 
-async function updateUnit(businessUnitKey: string, actorId: string, permission: Managing, actions: (d: Decision) => BusinessUnitUpdateAction[]) {
+async function updateUnit(
+  businessUnitKey: string,
+  actorId: string,
+  permission: Managing,
+  actions: (d: Decision) => BusinessUnitUpdateAction[],
+) {
   for (let attempt = 1; ; attempt++) {
     const d = await decide(businessUnitKey, actorId, permission);
     const body = actions(d);
     if (body.length === 0) return;
     try {
-      await unitByKey(businessUnitKey).post({ body: { version: d.bu.version, actions: body } }).execute();
+      await unitByKey(businessUnitKey)
+        .post({ body: { version: d.bu.version, actions: body } })
+        .execute();
       break;
     } catch (err) {
       if (statusOf(err) !== 409) throw err;
@@ -187,7 +215,9 @@ async function updateUnit(businessUnitKey: string, actorId: string, permission: 
 const ownOnly = (p: Permission) => p.includes("My");
 
 function grantable(keys: string[], { roles, actor }: Decision): string[] {
-  const chosen = [...new Set(keys)].map((k) => roles.find((r) => r.key === k && r.permissions.length > 0)).filter((r): r is CompanyRole => !!r);
+  const chosen = [...new Set(keys)]
+    .map((k) => roles.find((r) => r.key === k && r.permissions.length > 0))
+    .filter((r): r is CompanyRole => !!r);
   if (chosen.length === 0) throw new CompanyError("Choose at least one role.");
   const beyond = chosen.find((r) => r.permissions.some((p) => !ownOnly(p) && !actor.has(p)));
   if (beyond) throw new CompanyError(`You can't give the ${beyond.name} role: it allows more than your own roles do.`, "forbidden");
@@ -227,7 +257,15 @@ const assignments = (keys: string[], keep: AssociateRoleAssignment[] = []): Asso
 const INVITES = "company-invite";
 const INVITE_DAYS = 7;
 export const INVITE_CODE = /^[0-9a-f]{64}$/;
-type Invite = { businessUnitKey: string; unitName: string; customerId: string; email: string; roles: string[]; inviterId: string; expiresAt: number };
+type Invite = {
+  businessUnitKey: string;
+  unitName: string;
+  customerId: string;
+  email: string;
+  roles: string[];
+  inviterId: string;
+  expiresAt: number;
+};
 
 const invite = (key: string) => apiRoot.customObjects().withContainerAndKey({ container: INVITES, key });
 
@@ -258,7 +296,10 @@ async function sendInvite(d: Decision, email: string, roles: string[], actorId: 
     expiresAt: Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000,
   };
   const code = randomBytes(32).toString("hex");
-  await apiRoot.customObjects().post({ body: { container: INVITES, key: code, value } }).execute();
+  await apiRoot
+    .customObjects()
+    .post({ body: { container: INVITES, key: code, value } })
+    .execute();
   const roleNames = roles.map((k) => d.roles.find((r) => r.key === k)?.name ?? k).join(", ");
   await sendMail({
     to: customer.email,
@@ -279,7 +320,10 @@ async function readInvitation(code: string) {
       throw err;
     });
   if (found && found.value.expiresAt < Date.now()) {
-    await invite(code).delete({ queryArgs: { version: found.version } }).execute().catch(() => undefined);
+    await invite(code)
+      .delete({ queryArgs: { version: found.version } })
+      .execute()
+      .catch(() => undefined);
     return undefined;
   }
   return found;
@@ -312,7 +356,12 @@ export async function acceptInvitation(code: string, customerId: string): Promis
       if (d.bu.associateMode === "FromParent") throw new CompanyError("This company no longer adds users here. Ask whoever invited you.");
       if (d.bu.associates.some((a) => a.customer.id === customerId)) return [];
       const keys = grantable(pending.roles, d);
-      return [{ action: "addAssociate", associate: { customer: { typeId: "customer", id: customerId }, associateRoleAssignments: assignments(keys) } }];
+      return [
+        {
+          action: "addAssociate",
+          associate: { customer: { typeId: "customer", id: customerId }, associateRoleAssignments: assignments(keys) },
+        },
+      ];
     });
   } catch (err) {
     if (err instanceof CompanyError && err.reason === "forbidden") {
@@ -333,7 +382,9 @@ function editable({ bu, roles }: Decision, actorId: string, customerId: string) 
   if (customerId === actorId) throw new CompanyError("You can't change your own roles or remove yourself.");
   const current = bu.associates.find((a) => a.customer.id === customerId);
   if (!current) throw new CompanyError("This user's roles come from the parent unit. Change them there.");
-  const sellerRole = current.associateRoleAssignments.find((a) => !roles.some((r) => r.key === a.associateRole.key && r.permissions.length > 0));
+  const sellerRole = current.associateRoleAssignments.find(
+    (a) => !roles.some((r) => r.key === a.associateRole.key && r.permissions.length > 0),
+  );
   if (sellerRole) throw new CompanyError("This user has a role set by our team. Contact us to change or remove them.");
   return current;
 }
@@ -342,13 +393,19 @@ export async function changeCompanyUserRoles(ctx: PricingContext, actorId: strin
   await updateUnit(ctx.businessUnitKey, actorId, "UpdateAssociates", (d) => {
     const current = editable(d, actorId, customerId);
     // Nor take away a role the admin couldn't give: someone with more rights is left as they are.
-    grantable(current.associateRoleAssignments.map((r) => r.associateRole.key ?? ""), d);
+    grantable(
+      current.associateRoleAssignments.map((r) => r.associateRole.key ?? ""),
+      d,
+    );
     const keys = grantable(roleKeys, d);
     keepsAManager(d, { customerId, roles: keys });
     return [
       {
         action: "changeAssociate",
-        associate: { customer: { typeId: "customer", id: customerId }, associateRoleAssignments: assignments(keys, current.associateRoleAssignments) },
+        associate: {
+          customer: { typeId: "customer", id: customerId },
+          associateRoleAssignments: assignments(keys, current.associateRoleAssignments),
+        },
       },
     ];
   });
@@ -357,7 +414,10 @@ export async function changeCompanyUserRoles(ctx: PricingContext, actorId: strin
 export async function removeCompanyUser(ctx: PricingContext, actorId: string, customerId: string) {
   await updateUnit(ctx.businessUnitKey, actorId, "UpdateAssociates", (d) => {
     const current = editable(d, actorId, customerId);
-    grantable(current.associateRoleAssignments.map((r) => r.associateRole.key ?? ""), d);
+    grantable(
+      current.associateRoleAssignments.map((r) => r.associateRole.key ?? ""),
+      d,
+    );
     keepsAManager(d, { customerId });
     return [{ action: "removeAssociate", customer: { typeId: "customer", id: customerId } }];
   });

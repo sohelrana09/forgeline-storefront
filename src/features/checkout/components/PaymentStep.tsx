@@ -6,12 +6,18 @@ import { CardPayment } from "@/features/checkout/components/CardPayment";
 export type PaymentKind = "invoice" | "bank-transfer" | "card";
 
 const METHODS: Record<PaymentKind, { title: string; description: string }> = {
-  invoice: { title: "Purchase order (pay on invoice)", description: "Invoiced to your company under your payment terms." },
+  invoice: {
+    title: "Purchase order (pay on invoice)",
+    description: "Invoiced to your company under your payment terms.",
+  },
   "bank-transfer": {
     title: "Bank transfer",
     description: "Your order confirmation shows our bank details and the reference to use. We ship once the payment arrives.",
   },
-  card: { title: "Credit or debit card", description: "Handled by commercetools Checkout. We never see your card number." },
+  card: {
+    title: "Credit or debit card",
+    description: "Handled by commercetools Checkout. We never see your card number.",
+  },
 };
 
 // Step 3 of the one-step checkout (Magento "Payment Method"): the payment method for this kind of customer, the

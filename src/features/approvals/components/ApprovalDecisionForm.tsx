@@ -51,7 +51,12 @@ export function ApprovalDecisionForm({ flowId, version }: { flowId: string; vers
             >
               {pending ? "Saving…" : "Reject order"}
             </button>
-            <button type="button" onClick={() => setRejecting(false)} disabled={pending} className="min-h-11 rounded border border-gray-300 px-5 font-semibold">
+            <button
+              type="button"
+              onClick={() => setRejecting(false)}
+              disabled={pending}
+              className="min-h-11 rounded border border-gray-300 px-5 font-semibold"
+            >
               Cancel
             </button>
           </>
@@ -65,7 +70,12 @@ export function ApprovalDecisionForm({ flowId, version }: { flowId: string; vers
             >
               {pending ? "Saving…" : "Approve order"}
             </button>
-            <button type="button" onClick={() => setRejecting(true)} disabled={pending} className="min-h-11 rounded border border-gray-300 px-5 font-semibold">
+            <button
+              type="button"
+              onClick={() => setRejecting(true)}
+              disabled={pending}
+              className="min-h-11 rounded border border-gray-300 px-5 font-semibold"
+            >
               Reject…
             </button>
           </>
@@ -97,7 +107,12 @@ export function RetryCancelForm({ flowId, version }: { flowId: string; version: 
           {state.error}
         </p>
       )}
-      <button name="decision" value="retry-cancel" disabled={pending} className="min-h-11 self-start rounded bg-red-700 px-5 font-semibold text-white disabled:opacity-60">
+      <button
+        name="decision"
+        value="retry-cancel"
+        disabled={pending}
+        className="min-h-11 self-start rounded bg-red-700 px-5 font-semibold text-white disabled:opacity-60"
+      >
         {pending ? "Cancelling…" : "Retry cancellation"}
       </button>
     </form>

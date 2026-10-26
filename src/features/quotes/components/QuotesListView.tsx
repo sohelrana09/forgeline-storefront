@@ -79,7 +79,13 @@ export async function QuotesListView({ session, context, params }: { session: Se
           </div>
         )}
         <div className="border-t border-gray-200">
-          <ListToolbar page={q.page} size={q.size} total={quoteTotal} label="Quotes" hrefFor={(page, limit) => href({ page, limit }, "quotes")} />
+          <ListToolbar
+            page={q.page}
+            size={q.size}
+            total={quoteTotal}
+            label="Quotes"
+            hrefFor={(page, limit) => href({ page, limit }, "quotes")}
+          />
         </div>
       </section>
 

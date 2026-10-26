@@ -35,7 +35,10 @@ export function AccountInformationForm({ firstName, lastName, email }: { firstNa
         <span className="text-gray-700">{email}</span>
         <span className="text-xs text-gray-600">Your sign-in email is managed by your company administrator.</span>
       </div>
-      <button disabled={pending} className="min-h-11 self-start rounded bg-orange-700 px-6 font-semibold text-white hover:bg-orange-800 disabled:opacity-60">
+      <button
+        disabled={pending}
+        className="min-h-11 self-start rounded bg-orange-700 px-6 font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+      >
         {pending ? "Saving…" : "Save"}
       </button>
     </form>

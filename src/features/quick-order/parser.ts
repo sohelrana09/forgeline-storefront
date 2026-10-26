@@ -17,7 +17,7 @@ export function parseQuickOrder(input: string): { lines: QuickOrderLine[]; error
 
     const [sku, qtyText = "1", ...rest] = text.split(/\s*[,;\t]\s*|\s+/);
     if (rest.length > 0) {
-      errors.push({ line, text, reason: "Expected \"SKU, quantity\"" });
+      errors.push({ line, text, reason: 'Expected "SKU, quantity"' });
       return;
     }
     if (!/^[A-Za-z0-9._-]+$/.test(sku)) {

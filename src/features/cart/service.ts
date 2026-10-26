@@ -117,7 +117,9 @@ export async function getShippingOptions(ctx: PricingContext, address?: BaseAddr
   const { body } = await apiRoot
     .shippingMethods()
     .matchingLocation()
-    .get({ queryArgs: { country: address.country, ...(address.state && { state: address.state }), currency: ctx.currency } })
+    .get({
+      queryArgs: { country: address.country, ...(address.state && { state: address.state }), currency: ctx.currency },
+    })
     .execute();
   return body.results.flatMap((m: ShippingMethod) => {
     const rate = m.zoneRates.flatMap((z) => z.shippingRates).find((r) => r.isMatching ?? r.price.currencyCode === ctx.currency);
@@ -166,7 +168,9 @@ export async function addLinesToCart(
         body: {
           currency: context.currency,
           ...(context.country && { country: context.country }),
-          ...(context.businessUnitKey && { businessUnit: { typeId: "business-unit" as const, key: context.businessUnitKey } }),
+          ...(context.businessUnitKey && {
+            businessUnit: { typeId: "business-unit" as const, key: context.businessUnitKey },
+          }),
           shippingAddress: cartAddress(context.defaultShippingAddress),
           billingAddress: cartAddress(context.defaultBillingAddress),
           ...(defaultMethod && { shippingMethod: { typeId: "shipping-method" as const, key: defaultMethod.key } }),
@@ -208,7 +212,10 @@ export async function mergeGuestCart(
   if (!guestCart || guestCart.lineItems.length === 0) return { merged: 0, skipped: [] };
 
   const lines = guestCart.lineItems.flatMap((l) => (l.variant.sku ? [{ sku: l.variant.sku, quantity: l.quantity }] : []));
-  const skus = await lookupSkus(context, lines.map((l) => l.sku));
+  const skus = await lookupSkus(
+    context,
+    lines.map((l) => l.sku),
+  );
   // Consumers can't request quotes, so machines (quote only) are left out for them.
   const fits = (sku: string) => skus.get(sku)?.priced && !(context.consumer && skus.get(sku)?.quoteOnly);
   const addable = lines.filter((l) => fits(l.sku));

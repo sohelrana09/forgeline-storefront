@@ -19,7 +19,8 @@ const rules = (ctx: PricingContext, actorId: string) => asAssociate(actorId, ctx
 
 // "Order total above X": the only condition the form builds. Other predicates (made elsewhere) are shown as is.
 const TOTAL = /^totalPrice\.centAmount > (\d+) and totalPrice\.currencyCode = "([A-Z]{3})"$/;
-export const totalPredicate = (amount: number, currency: string) => `totalPrice.centAmount > ${Math.round(amount * 100)} and totalPrice.currencyCode = "${currency}"`;
+export const totalPredicate = (amount: number, currency: string) =>
+  `totalPrice.centAmount > ${Math.round(amount * 100)} and totalPrice.currencyCode = "${currency}"`;
 
 function summarize(rule: ApprovalRule): ApprovalRuleSummary {
   const total = TOTAL.exec(rule.predicate);
@@ -47,7 +48,9 @@ async function requirePermission(ctx: PricingContext, actorId: string, permissio
 
 export async function listApprovalRules(ctx: PricingContext, actorId: string): Promise<ApprovalRuleSummary[]> {
   await requirePermission(ctx, actorId, ["CreateApprovalRules", "UpdateApprovalRules"]);
-  const { body } = await rules(ctx, actorId).get({ queryArgs: { limit: 100, sort: ["createdAt desc"] } }).execute();
+  const { body } = await rules(ctx, actorId)
+    .get({ queryArgs: { limit: 100, sort: ["createdAt desc"] } })
+    .execute();
   return body.results.map(summarize);
 }
 
@@ -71,7 +74,10 @@ async function checkRoles(ctx: PricingContext, requesters: string[], approvers: 
   if (requesters.length === 0) throw new CompanyError("Choose whose orders the rule applies to.");
   if (approvers.length === 0) throw new CompanyError("Choose who can approve the orders.");
   const [{ body: found }, { body: bu }] = await Promise.all([
-    apiRoot.associateRoles().get({ queryArgs: { where: `key in (${keys.map(str).join(", ")})`, limit: 50 } }).execute(),
+    apiRoot
+      .associateRoles()
+      .get({ queryArgs: { where: `key in (${keys.map(str).join(", ")})`, limit: 50 } })
+      .execute(),
     apiRoot.businessUnits().withKey({ key: ctx.businessUnitKey }).get().execute(),
   ]);
   const known = found.results.filter((r) => r.buyerAssignable);
@@ -79,7 +85,9 @@ async function checkRoles(ctx: PricingContext, requesters: string[], approvers: 
   if (approvers.some((k) => !known.some((r) => r.key === k && r.permissions.includes("UpdateApprovalFlows")))) {
     throw new CompanyError("Choose approver roles that are allowed to approve orders.");
   }
-  const held = [...bu.associates, ...(bu.inheritedAssociates ?? [])].flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key));
+  const held = [...bu.associates, ...(bu.inheritedAssociates ?? [])].flatMap((a) =>
+    a.associateRoleAssignments.map((r) => r.associateRole.key),
+  );
   if (!approvers.some((k) => held.includes(k))) {
     throw new CompanyError("Nobody in this company holds an approver role you chose, so matching orders could never be approved.");
   }
@@ -99,7 +107,16 @@ export async function saveApprovalRule(ctx: PricingContext, actorId: string, inp
     await requirePermission(ctx, actorId, ["CreateApprovalRules"]);
     await checkRoles(ctx, input.requesters, input.approvers);
     const { body } = await rules(ctx, actorId)
-      .post({ body: { name: input.name, description: input.description || undefined, status, predicate, approvers, requesters } })
+      .post({
+        body: {
+          name: input.name,
+          description: input.description || undefined,
+          status,
+          predicate,
+          approvers,
+          requesters,
+        },
+      })
       .execute();
     return body.id;
   }
@@ -123,14 +140,18 @@ export async function saveApprovalRule(ctx: PricingContext, actorId: string, inp
   if (rolesChanged) await checkRoles(ctx, input.requesters, input.approvers);
   const actions: ApprovalRuleUpdateAction[] = [];
   if (current.name !== input.name) actions.push({ action: "setName", name: input.name });
-  if ((current.description ?? "") !== input.description) actions.push({ action: "setDescription", description: input.description || undefined });
+  if ((current.description ?? "") !== input.description)
+    actions.push({ action: "setDescription", description: input.description || undefined });
   if (current.status !== status) actions.push({ action: "setStatus", status });
   if (current.predicate !== predicate) actions.push({ action: "setPredicate", predicate });
   if (!sameSet(currentApprovers, input.approvers)) actions.push({ action: "setApprovers", approvers });
   if (!sameSet(currentRequesters, input.requesters)) actions.push({ action: "setRequesters", requesters });
   if (actions.length > 0) {
     try {
-      await rules(ctx, actorId).withId({ ID: input.id }).post({ body: { version: current.version, actions } }).execute();
+      await rules(ctx, actorId)
+        .withId({ ID: input.id })
+        .post({ body: { version: current.version, actions } })
+        .execute();
     } catch (err) {
       if (statusOf(err) === 409) throw new CompanyError("Someone else changed this rule. Please reload it and try again.");
       throw err;

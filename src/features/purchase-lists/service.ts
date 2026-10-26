@@ -79,8 +79,12 @@ export async function getList(session: Session, ctx: PricingContext, id: string)
 }
 
 export async function createList(session: Session, ctx: PricingContext, name: string, lines: Line[] = []): Promise<string> {
-  const { body: existing } = await myLists(session, ctx).get({ queryArgs: { limit: 1, withTotal: true } }).execute().catch(signOutOnAuthError);
-  if ((existing.total ?? 0) >= MAX_LISTS) throw new PurchaseListError(`You can keep up to ${MAX_LISTS} purchase lists. Delete one you no longer need.`);
+  const { body: existing } = await myLists(session, ctx)
+    .get({ queryArgs: { limit: 1, withTotal: true } })
+    .execute()
+    .catch(signOutOnAuthError);
+  if ((existing.total ?? 0) >= MAX_LISTS)
+    throw new PurchaseListError(`You can keep up to ${MAX_LISTS} purchase lists. Delete one you no longer need.`);
   const merged = mergeLines(lines);
   if (merged.length > MAX_LINES) throw new PurchaseListError(`A purchase list holds up to ${MAX_LINES} products.`);
   const { body } = await myLists(session, ctx)
@@ -111,7 +115,12 @@ async function update(session: Session, ctx: PricingContext, id: string, actions
     const body = actions(list);
     if (body.length === 0) return list;
     try {
-      return (await myLists(session, ctx).withId({ ID: id }).post({ body: { version: list.version, actions: body } }).execute()).body;
+      return (
+        await myLists(session, ctx)
+          .withId({ ID: id })
+          .post({ body: { version: list.version, actions: body } })
+          .execute()
+      ).body;
     } catch (err) {
       if (statusOf(err) !== 409 || attempt === 2) return signOutOnAuthError(err);
     }
@@ -150,7 +159,10 @@ export async function deleteList(session: Session, ctx: PricingContext, id: stri
     const list = await read(session, ctx, id);
     if (!list) return;
     try {
-      await myLists(session, ctx).withId({ ID: id }).delete({ queryArgs: { version: list.version } }).execute();
+      await myLists(session, ctx)
+        .withId({ ID: id })
+        .delete({ queryArgs: { version: list.version } })
+        .execute();
       return;
     } catch (err) {
       if (statusOf(err) !== 409 || attempt === 2) return signOutOnAuthError(err);

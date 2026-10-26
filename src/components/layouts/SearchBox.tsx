@@ -140,7 +140,9 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
         hidden={!showPanel}
         className="absolute top-full right-0 left-0 z-40 mt-1 overflow-hidden rounded-md border border-gray-200 bg-white text-gray-900 shadow-lg"
       >
-        {data?.corrected && <p className="m-0 border-b border-gray-100 px-3 py-2 text-xs text-gray-600">Showing results for &ldquo;{data.corrected}&rdquo;</p>}
+        {data?.corrected && (
+          <p className="m-0 border-b border-gray-100 px-3 py-2 text-xs text-gray-600">Showing results for &ldquo;{data.corrected}&rdquo;</p>
+        )}
         <ul id={listId} role="listbox" aria-label="Search suggestions" className="m-0 max-h-[70vh] list-none overflow-y-auto p-0">
           {options.map((o, i) => {
             const isCategory = i < (data?.categories.length ?? 0);
@@ -193,7 +195,9 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
           })}
         </ul>
         {data && data.total === 0 && (
-          <p className="m-0 px-3 py-3 text-sm text-gray-600">No products match &ldquo;{q}&rdquo;. Try a product name, a model code or a SKU.</p>
+          <p className="m-0 px-3 py-3 text-sm text-gray-600">
+            No products match &ldquo;{q}&rdquo;. Try a product name, a model code or a SKU.
+          </p>
         )}
       </div>
     </form>

@@ -46,17 +46,20 @@ export async function OrderView({
   ]);
   const approval = approvals[order.id];
   const nameOf = (id?: string) => (id === session.customerId ? "you" : (members.find((m) => m.customerId === id)?.name ?? "a former user"));
-  const placedBy = mine ? undefined : (members.find((m) => m.customerId === order.customerId)?.name ?? order.customerEmail ?? "a former user");
+  const placedBy = mine
+    ? undefined
+    : (members.find((m) => m.customerId === order.customerId)?.name ?? order.customerEmail ?? "a former user");
   const ref = orderReference(order);
   const isNew = Date.now() - new Date(order.createdAt).getTime() < 10 * 60 * 1000;
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "My orders", href: "/account/orders" }, { label: `Order ${ref}` }]} />
+      <Breadcrumbs
+        items={[{ label: "My account", href: "/account" }, { label: "My orders", href: "/account/orders" }, { label: `Order ${ref}` }]}
+      />
       {poFailed && !order.purchaseOrderNumber && (
         <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-900">
-          Your order was placed, but the PO number couldn&apos;t be saved. Please send it to our sales team with the order
-          reference.
+          Your order was placed, but the PO number couldn&apos;t be saved. Please send it to our sales team with the order reference.
         </p>
       )}
       {totalChanged && (
@@ -72,8 +75,8 @@ export async function OrderView({
       )}
       {isNew && mine && approval?.status === "Pending" ? (
         <p role="status" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          Thank you. Your order {ref} needs approval before it is processed ({approval.rules.join(", ")}). We&apos;ll email you when
-          it has been approved or rejected.
+          Thank you. Your order {ref} needs approval before it is processed ({approval.rules.join(", ")}). We&apos;ll email you when it has
+          been approved or rejected.
         </p>
       ) : (
         isNew && (
@@ -126,7 +129,8 @@ export async function OrderView({
             {approval.rejection && (
               <li>
                 Rejected by {nameOf(approval.rejection.by)} on {new Date(approval.rejection.at).toLocaleString("en-GB")}:{" "}
-                <q>{approval.rejection.reason}</q> {order.orderState === "Cancelled" ? "The order was cancelled." : "Cancelling the order is still pending."}
+                <q>{approval.rejection.reason}</q>{" "}
+                {order.orderState === "Cancelled" ? "The order was cancelled." : "Cancelling the order is still pending."}
               </li>
             )}
           </ul>
@@ -216,4 +220,3 @@ function InfoBlock({ title, children }: { title: string; children: React.ReactNo
     </div>
   );
 }
-

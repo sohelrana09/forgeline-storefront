@@ -10,7 +10,12 @@ import { apiRoot } from "../src/lib/commercetools/client";
 import { MEDIA_PRODUCT_KEY, MEDIA_PRODUCT_TYPE_KEY, MEDIA_SKU } from "../src/features/cms/types";
 
 // The only formats the commercetools image upload accepts.
-const TYPES: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif" };
+const TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+};
 const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 
 async function ensureProductType() {
@@ -24,7 +29,14 @@ async function ensureProductType() {
   if (found) return found;
   const { body } = await apiRoot
     .productTypes()
-    .post({ body: { key: MEDIA_PRODUCT_TYPE_KEY, name: "CMS media", description: "Holds CMS images on the commercetools CDN. Never published.", attributes: [] } })
+    .post({
+      body: {
+        key: MEDIA_PRODUCT_TYPE_KEY,
+        name: "CMS media",
+        description: "Holds CMS images on the commercetools CDN. Never published.",
+        attributes: [],
+      },
+    })
     .execute();
   console.log(`+ product type ${MEDIA_PRODUCT_TYPE_KEY}`);
   return body;

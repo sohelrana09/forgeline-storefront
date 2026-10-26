@@ -97,7 +97,13 @@ export async function CartView({
               return (
                 <li key={line.id} className="flex flex-wrap items-center gap-4 border-b border-gray-100 p-4 last:border-b-0">
                   {image ? (
-                    <Image src={image.url} alt="" width={64} height={64} className="h-16 w-16 flex-none rounded bg-gray-50 object-contain" />
+                    <Image
+                      src={image.url}
+                      alt=""
+                      width={64}
+                      height={64}
+                      className="h-16 w-16 flex-none rounded bg-gray-50 object-contain"
+                    />
                   ) : (
                     <div aria-hidden="true" className="h-16 w-16 flex-none rounded bg-gray-100" />
                   )}
@@ -120,7 +126,9 @@ export async function CartView({
                         label={`quantity for ${name}`}
                         className="w-32"
                       />
-                      <SubmitButton className="min-h-11 rounded border border-gray-300 bg-white px-3 text-sm disabled:opacity-60">Update</SubmitButton>
+                      <SubmitButton className="min-h-11 rounded border border-gray-300 bg-white px-3 text-sm disabled:opacity-60">
+                        Update
+                      </SubmitButton>
                       <button
                         name="intent"
                         value="remove"
@@ -143,7 +151,10 @@ export async function CartView({
           <AddToListPanel context={context} kind="cart" />
           {ship && (
             <p className="m-0 text-sm text-gray-600">
-              Ships to {[ship.company, ship.streetName && `${ship.streetName} ${ship.streetNumber ?? ""}`.trim(), ship.city, ship.country].filter(Boolean).join(", ")}
+              Ships to{" "}
+              {[ship.company, ship.streetName && `${ship.streetName} ${ship.streetNumber ?? ""}`.trim(), ship.city, ship.country]
+                .filter(Boolean)
+                .join(", ")}
             </p>
           )}
           {context.guest && quoteLines.length > 0 ? (
@@ -157,7 +168,10 @@ export async function CartView({
           ) : context.guest ? (
             // Guests check out with their email and pay by card, or sign in to use their account.
             <>
-              <Link href="/checkout" className="rounded bg-orange-700 px-5 py-3 text-center font-semibold text-white no-underline hover:bg-orange-800">
+              <Link
+                href="/checkout"
+                className="rounded bg-orange-700 px-5 py-3 text-center font-semibold text-white no-underline hover:bg-orange-800"
+              >
                 Check out as guest
               </Link>
               <Link
@@ -166,7 +180,9 @@ export async function CartView({
               >
                 Sign in to check out
               </Link>
-              <p className="m-0 text-sm text-gray-600">Signing in moves these lines to your account. Business customers see their company prices.</p>
+              <p className="m-0 text-sm text-gray-600">
+                Signing in moves these lines to your account. Business customers see their company prices.
+              </p>
             </>
           ) : context.consumer && quoteLines.length > 0 ? (
             // Consumers can't request quotes: machines must leave the cart before checkout.
@@ -183,14 +199,17 @@ export async function CartView({
                 Request a quote
               </h2>
               <p className="m-0 text-sm text-orange-950">
-                {quoteLines.length === 1 ? "One line is" : `${quoteLines.length} lines are`} priced on quote. Our sales team will reply with a
-                quote for the whole cart that you can accept online.
+                {quoteLines.length === 1 ? "One line is" : `${quoteLines.length} lines are`} priced on quote. Our sales team will reply with
+                a quote for the whole cart that you can accept online.
               </p>
               <RequestQuoteForm cartVersion={cart.version} primary />
             </section>
           ) : (
             <>
-              <Link href="/checkout" className="rounded bg-orange-700 px-5 py-3 text-center font-semibold text-white no-underline hover:bg-orange-800">
+              <Link
+                href="/checkout"
+                className="rounded bg-orange-700 px-5 py-3 text-center font-semibold text-white no-underline hover:bg-orange-800"
+              >
                 Checkout
               </Link>
               <details className="rounded-md border border-gray-200 bg-white p-4">

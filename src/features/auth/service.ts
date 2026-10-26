@@ -46,7 +46,11 @@ export async function resetPassword(tokenValue: string, newPassword: string): Pr
 }
 
 export async function sendEmailVerification(customerId: string, email: string) {
-  const { body: token } = await apiRoot.customers().emailToken().post({ body: { id: customerId, ttlMinutes: VERIFY_TTL_MINUTES } }).execute();
+  const { body: token } = await apiRoot
+    .customers()
+    .emailToken()
+    .post({ body: { id: customerId, ttlMinutes: VERIFY_TTL_MINUTES } })
+    .execute();
   await sendMail({
     to: email,
     subject: "Confirm your email for Ironline Supply",

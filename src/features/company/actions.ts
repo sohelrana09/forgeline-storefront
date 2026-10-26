@@ -8,7 +8,15 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireBusinessContext, requireShopContext } from "@/features/business-units/context";
-import { CompanyError, INVITE_CODE, acceptInvitation, changeCompanyUserRoles, inviteCompanyUser, removeCompanyUser, updateCompanyProfile } from "@/features/company/service";
+import {
+  CompanyError,
+  INVITE_CODE,
+  acceptInvitation,
+  changeCompanyUserRoles,
+  inviteCompanyUser,
+  removeCompanyUser,
+  updateCompanyProfile,
+} from "@/features/company/service";
 import { saveApprovalRule } from "@/features/company/approval-rules";
 import { COMPANY_NAME_PATTERN, EMAIL_PATTERN } from "@/features/company/utils";
 import type { CompanyActionState } from "@/features/company/types";
@@ -17,9 +25,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const str = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 const roles = (formData: FormData) => formData.getAll("roles").map(String).slice(0, 10);
 
-async function run(work: (ctx: Awaited<ReturnType<typeof requireBusinessContext>>) => Promise<void>, saved: string): Promise<CompanyActionState> {
+async function run(
+  work: (ctx: Awaited<ReturnType<typeof requireBusinessContext>>) => Promise<void>,
+  saved: string,
+): Promise<CompanyActionState> {
   const current = await requireBusinessContext();
-  if (await tooManyAttempts(`company:${current.session.customerId}`, 30)) return { error: "Too many changes. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`company:${current.session.customerId}`, 30))
+    return { error: "Too many changes. Please wait a few minutes and try again." };
   try {
     await work(current);
   } catch (err) {
@@ -37,7 +49,10 @@ export async function saveCompanyProfile(_prev: CompanyActionState, formData: Fo
   const contactEmail = str(formData, "contactEmail");
   if (!COMPANY_NAME_PATTERN.test(name)) return { error: "Enter a company name of 2 to 100 characters." };
   if (contactEmail && !EMAIL_PATTERN.test(contactEmail)) return { error: "Enter a valid contact email, or leave it empty." };
-  return run(({ context, session }) => updateCompanyProfile(context, session.customerId, name, contactEmail), "You saved the company profile.");
+  return run(
+    ({ context, session }) => updateCompanyProfile(context, session.customerId, name, contactEmail),
+    "You saved the company profile.",
+  );
 }
 
 export async function addUser(_prev: CompanyActionState, formData: FormData): Promise<CompanyActionState> {
@@ -46,7 +61,9 @@ export async function addUser(_prev: CompanyActionState, formData: FormData): Pr
   // Not the same person over and over (each invitation is an email to them).
   const { context } = await requireBusinessContext();
   if (await tooManyAttempts(`invite-send:${context.businessUnitKey}:${email.toLowerCase()}`, 3)) {
-    return { error: `${email} was invited a few times already. Please wait a while before sending another invitation.` };
+    return {
+      error: `${email} was invited a few times already. Please wait a while before sending another invitation.`,
+    };
   }
   return run(
     ({ context, session }) => inviteCompanyUser(context, session.customerId, email, roles(formData)),
@@ -59,7 +76,8 @@ export async function acceptInvitationAction(_prev: CompanyActionState, formData
   const code = str(formData, "code");
   if (!INVITE_CODE.test(code)) return { error: "This invitation link is not valid." };
   const { session } = await requireShopContext();
-  if (await tooManyAttempts(`invite:${session.customerId}`, 20)) return { error: "Too many attempts. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`invite:${session.customerId}`, 20))
+    return { error: "Too many attempts. Please wait a few minutes and try again." };
   try {
     await acceptInvitation(code, session.customerId);
   } catch (err) {
@@ -94,7 +112,8 @@ export async function saveApprovalRuleAction(_prev: CompanyActionState, formData
   if (id && (!UUID.test(id) || !Number.isInteger(version))) return { error: "Unknown rule." };
   if (name.length < 3 || name.length > 100) return { error: "Give the rule a name of 3 to 100 characters." };
   if (description.length > 500) return { error: "Keep the description under 500 characters." };
-  if (!Number.isInteger(amount) || amount < 1 || amount > 100_000_000) return { error: "Enter the order total as a whole amount, e.g. 10000." };
+  if (!Number.isInteger(amount) || amount < 1 || amount > 100_000_000)
+    return { error: "Enter the order total as a whole amount, e.g. 10000." };
   const input = {
     ...(id && { id, version }),
     name,

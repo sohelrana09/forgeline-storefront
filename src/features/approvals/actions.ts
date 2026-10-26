@@ -13,7 +13,8 @@ import type { ApprovalActionState } from "@/features/approvals/types";
 
 export async function decideApprovalAction(_prev: ApprovalActionState, formData: FormData): Promise<ApprovalActionState> {
   const { session, context } = await requireBusinessContext();
-  if (await tooManyAttempts(`approval:${session.customerId}`, 60)) return { error: "Too many decisions. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`approval:${session.customerId}`, 60))
+    return { error: "Too many decisions. Please wait a few minutes and try again." };
   const flowId = String(formData.get("flowId") ?? "");
   const version = Number(formData.get("version"));
   const decision = formData.get("decision");
@@ -26,7 +27,9 @@ export async function decideApprovalAction(_prev: ApprovalActionState, formData:
     const result = await decideApproval(context, session.customerId, flowId, version, decision, reason);
     revalidatePath("/(shop)", "layout");
     if (result.cancelFailed) {
-      return { error: "You rejected the order, but it couldn't be cancelled yet. Use Retry cancellation, or tell our sales team." };
+      return {
+        error: "You rejected the order, but it couldn't be cancelled yet. Use Retry cancellation, or tell our sales team.",
+      };
     }
     return {
       done:

@@ -36,7 +36,10 @@ export async function CompanyUsersView({ session, context }: { session: Session;
             const self = m.customerId === session.customerId;
             const name = m.name || m.email || "Unnamed user";
             return (
-              <li key={m.customerId} className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-5 last:border-b-0">
+              <li
+                key={m.customerId}
+                className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-5 last:border-b-0"
+              >
                 <div className="min-w-0 flex-[1_1_240px]">
                   <p className="m-0 font-semibold">
                     {name}
@@ -50,7 +53,11 @@ export async function CompanyUsersView({ session, context }: { session: Session;
                       </span>
                     ))}
                     {m.inheritedRoles.map((r) => (
-                      <span key={`i-${r}`} className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-900" title="From the parent unit">
+                      <span
+                        key={`i-${r}`}
+                        className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-900"
+                        title="From the parent unit"
+                      >
                         {roleLabel(r, roles)} (from parent unit)
                       </span>
                     ))}

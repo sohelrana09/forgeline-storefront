@@ -74,15 +74,24 @@ async function main() {
     return;
   }
   if (!args.includes("--yes")) {
-    console.log(`Would ${current ? `update (${actions.map((a) => a.action).join(", ")})` : "create"} ${KEY} → ${JSON.stringify(destination)}. Re-run with --yes.`);
+    console.log(
+      `Would ${current ? `update (${actions.map((a) => a.action).join(", ")})` : "create"} ${KEY} → ${JSON.stringify(destination)}. Re-run with --yes.`,
+    );
     return;
   }
   if (current) {
-    await apiRoot.subscriptions().withKey({ key: KEY }).post({ body: { version: current.version, actions } }).execute();
+    await apiRoot
+      .subscriptions()
+      .withKey({ key: KEY })
+      .post({ body: { version: current.version, actions } })
+      .execute();
     console.log(`~ ${KEY}: ${actions.map((a) => a.action).join(", ")}`);
   } else {
     // commercetools sends a test message on create, so the destination must already accept messages.
-    await apiRoot.subscriptions().post({ body: { key: KEY, destination, changes: CHANGES } }).execute();
+    await apiRoot
+      .subscriptions()
+      .post({ body: { key: KEY, destination, changes: CHANGES } })
+      .execute();
     console.log(`+ ${KEY} → ${JSON.stringify(destination)}`);
   }
 }

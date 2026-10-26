@@ -10,7 +10,10 @@ async function main() {
   const password = process.env.DEMO_BUYER_PASSWORD;
   if (!password) throw new Error("DEMO_BUYER_PASSWORD missing (create .env.demo)");
 
-  const { body: units } = await apiRoot.businessUnits().get({ queryArgs: { limit: 100 } }).execute();
+  const { body: units } = await apiRoot
+    .businessUnits()
+    .get({ queryArgs: { limit: 100 } })
+    .execute();
   const allRoles = process.argv.includes("--all-roles");
   const buyerIds = new Set(
     units.results.flatMap((bu) =>
@@ -32,8 +35,16 @@ async function main() {
       console.log(`= ${customer.email} (already set)`);
       continue;
     }
-    const { body: token } = await apiRoot.customers().passwordToken().post({ body: { email: customer.email } }).execute();
-    await apiRoot.customers().passwordReset().post({ body: { tokenValue: token.value, newPassword: password } }).execute();
+    const { body: token } = await apiRoot
+      .customers()
+      .passwordToken()
+      .post({ body: { email: customer.email } })
+      .execute();
+    await apiRoot
+      .customers()
+      .passwordReset()
+      .post({ body: { tokenValue: token.value, newPassword: password } })
+      .execute();
     console.log(`+ ${customer.email} (password set)`);
   }
 }

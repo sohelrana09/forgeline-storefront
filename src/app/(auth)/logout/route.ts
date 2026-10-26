@@ -31,5 +31,7 @@ function confirmPage() {
 <button style="min-height:2.75rem;padding:0 1.25rem;border:0;border-radius:.25rem;background:#c2410c;color:#fff;font-weight:600">Sign out</button>
 <a href="/" style="min-height:2.75rem;display:inline-flex;align-items:center;padding:0 1.25rem;color:#111827">Back to the shop</a>
 </form></body></html>`;
-  return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+  return new NextResponse(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+  });
 }

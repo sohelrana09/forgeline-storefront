@@ -12,7 +12,11 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
         <ResetPasswordForm token={token} />
       ) : (
         <p className="m-0 text-sm">
-          This link is incomplete. <Link href="/forgot-password" className="text-orange-800">Request a new reset link</Link>.
+          This link is incomplete.{" "}
+          <Link href="/forgot-password" className="text-orange-800">
+            Request a new reset link
+          </Link>
+          .
         </p>
       )}
     </AuthShell>

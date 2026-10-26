@@ -19,7 +19,15 @@ const SORTS: Record<string, { label: string; sort: string }> = {
   newest: { label: "Newest", sort: "createdAt desc" },
 };
 
-export async function CategoryView({ context, slug, query }: { context: BuyerContext; slug: string; query: { sort?: string; page?: string } }) {
+export async function CategoryView({
+  context,
+  slug,
+  query,
+}: {
+  context: BuyerContext;
+  slug: string;
+  query: { sort?: string; page?: string };
+}) {
   const tree = await getCategoryTree();
   const category = tree.bySlug(slug);
   if (!category) notFound();

@@ -32,7 +32,14 @@ function RoleChoices({ roles, selected, idPrefix }: { roles: Role[]; selected: s
       <legend className="sr-only">Roles</legend>
       {roles.map((r) => (
         <label key={r.key} htmlFor={`${idPrefix}-${r.key}`} className="flex min-h-11 items-center gap-2 text-sm">
-          <input id={`${idPrefix}-${r.key}`} type="checkbox" name="roles" value={r.key} defaultChecked={selected.includes(r.key)} className="h-5 w-5" />
+          <input
+            id={`${idPrefix}-${r.key}`}
+            type="checkbox"
+            name="roles"
+            value={r.key}
+            defaultChecked={selected.includes(r.key)}
+            className="h-5 w-5"
+          />
           {r.name}
         </label>
       ))}
@@ -77,7 +84,17 @@ export function AddUserForm({ roles }: { roles: Role[] }) {
   );
 }
 
-export function UserRolesForm({ customerId, name, roles, selected }: { customerId: string; name: string; roles: Role[]; selected: string[] }) {
+export function UserRolesForm({
+  customerId,
+  name,
+  roles,
+  selected,
+}: {
+  customerId: string;
+  name: string;
+  roles: Role[];
+  selected: string[];
+}) {
   const [state, action, pending] = useActionState(changeUserRoles, initial);
   const [removeState, removeAction, removing] = useActionState(removeUser, initial);
   return (
@@ -85,18 +102,25 @@ export function UserRolesForm({ customerId, name, roles, selected }: { customerI
       <form action={action} aria-label={`Roles for ${name}`} className="flex flex-wrap items-center gap-x-4">
         <input type="hidden" name="customerId" value={customerId} />
         <RoleChoices roles={roles} selected={selected} idPrefix={customerId} />
-        <button disabled={pending || removing} className="min-h-11 rounded border border-gray-300 bg-white px-3 text-sm hover:bg-gray-50 disabled:opacity-60">
+        <button
+          disabled={pending || removing}
+          className="min-h-11 rounded border border-gray-300 bg-white px-3 text-sm hover:bg-gray-50 disabled:opacity-60"
+        >
           {pending ? "Saving…" : "Save roles"}
         </button>
       </form>
       <form
         action={removeAction}
         onSubmit={(e) => {
-          if (!window.confirm(`Remove ${name} from the company? They will lose access to its prices, carts and orders.`)) e.preventDefault();
+          if (!window.confirm(`Remove ${name} from the company? They will lose access to its prices, carts and orders.`))
+            e.preventDefault();
         }}
       >
         <input type="hidden" name="customerId" value={customerId} />
-        <button disabled={pending || removing} className="min-h-11 px-1 text-sm text-red-800 underline underline-offset-2 disabled:opacity-60">
+        <button
+          disabled={pending || removing}
+          className="min-h-11 px-1 text-sm text-red-800 underline underline-offset-2 disabled:opacity-60"
+        >
           {removing ? "Removing…" : `Remove ${name}`}
         </button>
       </form>

@@ -21,7 +21,10 @@ export function CancelRequestForm({ id }: { id: string }) {
     <form action={action} className="flex flex-col gap-2">
       <input type="hidden" name="id" value={id} />
       <ErrorNote error={state.error} />
-      <button disabled={pending} className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60">
+      <button
+        disabled={pending}
+        className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+      >
         {pending ? "Cancelling…" : "Cancel request"}
       </button>
     </form>
@@ -44,10 +47,18 @@ export function QuoteDecisionForms({ id, version }: { id: string; version: numbe
         <h2 className="m-0 text-lg font-semibold text-green-950">Accept and place order</h2>
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Purchase order number (optional)
-          <input name="purchaseOrderNumber" maxLength={35} placeholder="e.g. PO-4711" className="min-h-11 rounded border border-gray-300 bg-white px-3 font-normal" />
+          <input
+            name="purchaseOrderNumber"
+            maxLength={35}
+            placeholder="e.g. PO-4711"
+            className="min-h-11 rounded border border-gray-300 bg-white px-3 font-normal"
+          />
         </label>
         <ErrorNote error={orderState.error} />
-        <button disabled={busy} className="min-h-12 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60">
+        <button
+          disabled={busy}
+          className="min-h-12 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+        >
           {ordering ? "Placing order…" : "Accept quote and place order"}
         </button>
       </form>
@@ -59,10 +70,19 @@ export function QuoteDecisionForms({ id, version }: { id: string; version: numbe
           <input type="hidden" name="version" value={version} />
           <label className="flex flex-col gap-1 text-sm font-semibold">
             What should change?
-            <textarea name="comment" required maxLength={COMMENT_MAX} rows={3} className="rounded border border-gray-300 p-2.5 font-normal" />
+            <textarea
+              name="comment"
+              required
+              maxLength={COMMENT_MAX}
+              rows={3}
+              className="rounded border border-gray-300 p-2.5 font-normal"
+            />
           </label>
           <ErrorNote error={renegotiateState.error} />
-          <button disabled={busy} className="min-h-11 rounded border border-orange-700 bg-white px-5 font-semibold text-orange-800 hover:bg-orange-50 disabled:opacity-60">
+          <button
+            disabled={busy}
+            className="min-h-11 rounded border border-orange-700 bg-white px-5 font-semibold text-orange-800 hover:bg-orange-50 disabled:opacity-60"
+          >
             {renegotiating ? "Sending…" : "Request changes"}
           </button>
         </form>
@@ -72,7 +92,10 @@ export function QuoteDecisionForms({ id, version }: { id: string; version: numbe
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="version" value={version} />
         <ErrorNote error={declineState.error} />
-        <button disabled={busy} className="min-h-11 rounded px-5 text-sm font-semibold text-red-800 underline underline-offset-2 disabled:opacity-60">
+        <button
+          disabled={busy}
+          className="min-h-11 rounded px-5 text-sm font-semibold text-red-800 underline underline-offset-2 disabled:opacity-60"
+        >
           {declining ? "Declining…" : "Decline quote"}
         </button>
       </form>

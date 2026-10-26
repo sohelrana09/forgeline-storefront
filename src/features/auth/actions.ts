@@ -29,7 +29,9 @@ import { resetPassword, sendEmailVerification, startPasswordReset, verifyEmail }
 import { NAME_PATTERN } from "@/features/account/utils";
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return { error: "Enter your email and password.", email };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE, email };
@@ -40,7 +42,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   // would lock out everybody.
   const ip = await clientIp();
   const keys = [`login:${ip}:${email}`, `login-email:${email}`, ...(ip === "no-proxy" ? [] : [`login-ip:${ip}`])];
-  if (await isLimited(keys[0], 10) || await isLimited(keys[1], 50) || (keys[2] !== undefined && await isLimited(keys[2], 100))) {
+  if ((await isLimited(keys[0], 10)) || (await isLimited(keys[1], 50)) || (keys[2] !== undefined && (await isLimited(keys[2], 100)))) {
     return { error: "Too many attempts. Please wait a few minutes and try again.", email };
   }
   const result = await signIn(email, password);
@@ -59,12 +61,19 @@ async function signIn(email: string, password: string): Promise<Session | { erro
   if (!token.ok) {
     await new Promise((r) => setTimeout(r, 500)); // slow down guessing
     return {
-      error: token.reason === "credentials" ? "Email or password is incorrect." : "Sign-in is unavailable right now. Please try again later.",
+      error:
+        token.reason === "credentials" ? "Email or password is incorrect." : "Sign-in is unavailable right now. Please try again later.",
     };
   }
   try {
     const { body: me } = await customerApiRoot(token.accessToken).me().get().execute();
-    const session = { accessToken: token.accessToken, expiresAt: token.expiresAt, customerId: me.id, email: me.email, name: me.firstName };
+    const session = {
+      accessToken: token.accessToken,
+      expiresAt: token.expiresAt,
+      customerId: me.id,
+      email: me.email,
+      name: me.firstName,
+    };
     await saveSession(session);
     return session;
   } catch (err) {
@@ -81,7 +90,9 @@ const EMAIL = /^[^\s@"\\]{1,64}@[^\s@"\\]{1,190}\.[A-Za-z]{2,}$/;
 export async function register(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
   const values = { firstName, lastName, email };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE, values };
@@ -92,7 +103,8 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
   if (!strongEnough(password)) return { error: PASSWORD_RULE, values };
   if (password !== String(formData.get("confirmPassword") ?? "")) return { error: "The passwords don't match.", values };
   if (formData.get("terms") !== "on") return { error: "Please accept the terms of sale.", values };
-  if (await tooManyAttempts(`signup:${await ipKey()}`, 5)) return { error: "Too many sign-ups from your network. Please try again later.", values };
+  if (await tooManyAttempts(`signup:${await ipKey()}`, 5))
+    return { error: "Too many sign-ups from your network. Please try again later.", values };
 
   const created = await signUpCustomer({ email, password, firstName, lastName });
   if (!created.ok) {
@@ -112,13 +124,15 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
 
 // Public endpoint: always the same answer, so it can't be used to find out who has an account.
 export async function requestPasswordReset(_prev: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   if (!EMAIL.test(email)) return { error: "Enter a valid email address." };
   // A bot gets the usual answer, so it can't tell it was spotted, but no email is sent.
   if (await isAutomated(formData)) return { sent: true };
   // Own counters (not the sign-in ones, so reset requests can't lock someone out of signing in), and the lookup
   // and email run after the response, so its timing doesn't tell whether the account exists.
-  if (!await tooManyAttempts(`reset-ip:${await clientIp()}`) && !await tooManyAttempts(`reset:${email}`, 3)) {
+  if (!(await tooManyAttempts(`reset-ip:${await clientIp()}`)) && !(await tooManyAttempts(`reset:${email}`, 3))) {
     after(() => startPasswordReset(email).catch((err) => console.error("password reset failed", (err as { body?: unknown })?.body ?? err)));
   }
   return { sent: true };
@@ -154,7 +168,13 @@ async function mergeGuestCartOnLogin(session: Session): Promise<string> {
   if (!context.canOrder) return "/"; // nowhere to put the lines: keep the guest cart for a later guest visit
 
   try {
-    const result = await mergeGuestCart(guest, await getGuestContext(), session, jar.get(cartCookie(context.businessUnitKey))?.value, context);
+    const result = await mergeGuestCart(
+      guest,
+      await getGuestContext(),
+      session,
+      jar.get(cartCookie(context.businessUnitKey))?.value,
+      context,
+    );
     jar.delete(GUEST_COOKIE); // first: once merged, a later sign-in must never merge the same lines again
     if (result.cart) jar.set(cartCookie(context.businessUnitKey), result.cart.id, cookieOptions);
     void revokeToken(guest.refreshToken, "refresh_token");
@@ -177,7 +197,10 @@ export async function logout() {
 // Public endpoint: confirms the email address with the token from the verification link (a button, not the GET).
 export async function confirmEmail(formData: FormData) {
   const token = String(formData.get("token") ?? "");
-  const ok = /^[A-Za-z0-9_-]{10,200}$/.test(token) && !await tooManyAttempts(`verify-${await ipKey()}`) && (await verifyEmail(token).catch(() => false));
+  const ok =
+    /^[A-Za-z0-9_-]{10,200}$/.test(token) &&
+    !(await tooManyAttempts(`verify-${await ipKey()}`)) &&
+    (await verifyEmail(token).catch(() => false));
   redirect(`/account?email=${ok ? "verified" : "invalid"}`);
 }
 
@@ -186,6 +209,8 @@ export async function resendVerification(): Promise<{ sent?: boolean; error?: st
   const session = await getSession();
   if (!session) redirect("/login");
   if (await tooManyAttempts(`verify:${session.customerId}`, 3)) return { error: "We already sent a few links. Please check your inbox." };
-  await sendEmailVerification(session.customerId, session.email).catch((err) => console.error("verification email failed", err?.body ?? err));
+  await sendEmailVerification(session.customerId, session.email).catch((err) =>
+    console.error("verification email failed", err?.body ?? err),
+  );
   return { sent: true };
 }

@@ -17,10 +17,20 @@ export default async function EditApprovalRulePage({ params }: { params: Promise
   });
   // The form edits "order total above" rules with one approval step only.
   if (!rule || rule.amount === undefined || rule.steps !== 1) notFound();
-  const roles = (await getRoles()).map((r) => ({ key: r.key, name: r.name, canApprove: r.permissions.includes("UpdateApprovalFlows") }));
+  const roles = (await getRoles()).map((r) => ({
+    key: r.key,
+    name: r.name,
+    canApprove: r.permissions.includes("UpdateApprovalFlows"),
+  }));
   return (
     <div className="flex flex-col gap-4">
-      <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "Approval rules", href: "/account/company/approval-rules" }, { label: rule.name }]} />
+      <Breadcrumbs
+        items={[
+          { label: "My account", href: "/account" },
+          { label: "Approval rules", href: "/account/company/approval-rules" },
+          { label: rule.name },
+        ]}
+      />
       <h1 className="m-0 text-2xl font-bold">Edit approval rule</h1>
       <ApprovalRuleForm rule={rule} roles={roles} currency={context.currency} />
     </div>

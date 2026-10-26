@@ -11,7 +11,10 @@ type Search = { q?: string | string[]; page?: string; limit?: string };
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
   const { q } = await searchParams;
-  return { title: `Search results for "${(firstParam(q) ?? "").slice(0, 100)}"`, robots: { index: false, follow: true } };
+  return {
+    title: `Search results for "${(firstParam(q) ?? "").slice(0, 100)}"`,
+    robots: { index: false, follow: true },
+  };
 }
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<Search> }) {

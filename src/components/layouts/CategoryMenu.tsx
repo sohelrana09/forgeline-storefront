@@ -32,7 +32,11 @@ function DesktopMenu({ items }: { items: MenuItem[] }) {
               className="block whitespace-nowrap px-3 py-3 text-sm font-medium text-gray-200 no-underline hover:bg-gray-800 hover:text-white group-focus-within/top:bg-gray-800 group-focus-within/top:text-white group-hover/top:bg-gray-800 group-hover/top:text-white"
             >
               {item.label}
-              {item.children.length > 0 && <span aria-hidden="true" className="ml-1 text-gray-400">▾</span>}
+              {item.children.length > 0 && (
+                <span aria-hidden="true" className="ml-1 text-gray-400">
+                  ▾
+                </span>
+              )}
             </Link>
             {item.children.length > 0 && (
               <Dropdown
@@ -93,7 +97,9 @@ function MobileMenu({ items }: { items: MenuItem[] }) {
     <details className="group/mobile md:hidden">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-gray-100">
         Categories
-        <span aria-hidden="true" className="transition-transform group-open/mobile:rotate-180">▾</span>
+        <span aria-hidden="true" className="transition-transform group-open/mobile:rotate-180">
+          ▾
+        </span>
       </summary>
       <div className="border-t border-gray-800 bg-white px-4 py-2 text-gray-800">
         <MobileLevel items={items} depth={0} />
@@ -117,7 +123,9 @@ function MobileLevel({ items, depth }: { items: MenuItem[]; depth: number }) {
             <details className="group/item">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between py-2 font-medium">
                 {item.label}
-                <span aria-hidden="true" className="text-gray-500 transition-transform group-open/item:rotate-45">+</span>
+                <span aria-hidden="true" className="text-gray-500 transition-transform group-open/item:rotate-45">
+                  +
+                </span>
               </summary>
               <Link href={item.href} className="block py-2 pl-3 text-sm font-semibold text-orange-800">
                 All {item.label}

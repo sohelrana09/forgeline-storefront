@@ -35,12 +35,20 @@ const pageArgs = (ctx: PricingContext, page: number, size: number, extra?: strin
 });
 
 export async function pageMyQuoteRequests(session: Session, ctx: PricingContext, page = 1, size = 10) {
-  const { body } = await me(session).quoteRequests().get({ queryArgs: pageArgs(ctx, page, size) }).execute().catch(signOutOnAuthError);
+  const { body } = await me(session)
+    .quoteRequests()
+    .get({ queryArgs: pageArgs(ctx, page, size) })
+    .execute()
+    .catch(signOutOnAuthError);
   return { items: body.results.filter((r) => belongs(r, ctx)), total: body.total ?? body.count };
 }
 
 export async function pageMyQuotes(session: Session, ctx: PricingContext, page = 1, size = 10, where?: string) {
-  const { body } = await me(session).quotes().get({ queryArgs: pageArgs(ctx, page, size, where) }).execute().catch(signOutOnAuthError);
+  const { body } = await me(session)
+    .quotes()
+    .get({ queryArgs: pageArgs(ctx, page, size, where) })
+    .execute()
+    .catch(signOutOnAuthError);
   return { items: body.results.filter((q) => belongs(q, ctx)), total: body.total ?? body.count };
 }
 

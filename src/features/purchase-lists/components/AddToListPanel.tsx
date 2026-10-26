@@ -16,7 +16,9 @@ export async function AddToListPanel({ context, kind, sku }: { context: BuyerCon
   });
   return (
     <details className="rounded-md border border-gray-200 bg-white p-4">
-      <summary className="cursor-pointer text-sm font-semibold">{kind === "product" ? "Add to purchase list" : "Save cart to purchase list"}</summary>
+      <summary className="cursor-pointer text-sm font-semibold">
+        {kind === "product" ? "Add to purchase list" : "Save cart to purchase list"}
+      </summary>
       <div className="mt-3">
         <AddToListForm lists={lists} sku={sku} kind={kind} />
       </div>

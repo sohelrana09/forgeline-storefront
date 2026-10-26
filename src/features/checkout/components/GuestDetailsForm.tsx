@@ -47,7 +47,9 @@ export function GuestDetailsForm({
             defaultValue={email}
             className="min-h-11 rounded border border-gray-300 px-3 text-base font-normal"
           />
-          <span className="text-xs font-normal text-gray-600">We send your order confirmation here. You can create an account after checkout.</span>
+          <span className="text-xs font-normal text-gray-600">
+            We send your order confirmation here. You can create an account after checkout.
+          </span>
         </label>
         <fieldset className="m-0 flex flex-col gap-3 border-0 p-0">
           <legend className="sr-only">Ship to</legend>

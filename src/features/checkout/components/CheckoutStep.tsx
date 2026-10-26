@@ -2,7 +2,17 @@ import type { ReactNode } from "react";
 
 // One section of the one-step checkout (Magento: 1 Shipping Address, 2 Shipping Methods, 3 Payment Method).
 // The numbers are the order the buyer fills them in; a later step says what it is waiting for until then.
-export function CheckoutStep({ step, title, waitingFor, children }: { step: number; title: string; waitingFor?: string; children?: ReactNode }) {
+export function CheckoutStep({
+  step,
+  title,
+  waitingFor,
+  children,
+}: {
+  step: number;
+  title: string;
+  waitingFor?: string;
+  children?: ReactNode;
+}) {
   const headingId = `checkout-step-${step}`;
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md border border-gray-200 bg-white p-5">

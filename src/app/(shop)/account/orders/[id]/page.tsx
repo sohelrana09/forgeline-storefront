@@ -11,5 +11,14 @@ export default async function OrderPage({
   searchParams: Promise<{ po?: string; reorder?: string; changed?: string }>;
 }) {
   const [{ id }, { po, reorder, changed }, { session, context }] = await Promise.all([params, searchParams, requireShopContext()]);
-  return <OrderView session={session} context={context} id={id} poFailed={po === "failed"} reorderFailed={reorder === "failed"} totalChanged={changed === "1"} />;
+  return (
+    <OrderView
+      session={session}
+      context={context}
+      id={id}
+      poFailed={po === "failed"}
+      reorderFailed={reorder === "failed"}
+      totalChanged={changed === "1"}
+    />
+  );
 }

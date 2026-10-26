@@ -26,10 +26,17 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
 
   const { lines, errors } = parseQuickOrder(input);
   if (lines.length === 0) {
-    return { added: [], errors: errors.length ? errors : [{ line: 0, text: "", reason: "Enter at least one SKU" }], submitted: input };
+    return {
+      added: [],
+      errors: errors.length ? errors : [{ line: 0, text: "", reason: "Enter at least one SKU" }],
+      submitted: input,
+    };
   }
 
-  const skus = await lookupSkus(context, lines.map((l) => l.sku));
+  const skus = await lookupSkus(
+    context,
+    lines.map((l) => l.sku),
+  );
   // Consumers can't request quotes, so machines (quote only) can't go into their cart.
   const quoteBlocked = (sku: string) => Boolean(context.consumer && skus.get(sku)?.quoteOnly);
   const addable = lines.filter((l) => skus.get(l.sku)?.priced && !quoteBlocked(l.sku));
@@ -38,7 +45,12 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     const text = `${l.sku}, ${l.quantity}`;
     if (!info) errors.push({ line: 0, text, reason: `Unknown SKU for ${context.storeName}` });
     else if (quoteBlocked(l.sku)) errors.push({ line: 0, text, reason: "Sold to business customers on quote" });
-    else if (!info.priced) errors.push({ line: 0, text, reason: `No ${context.currency} price for ${context.guest ? context.storeName : context.businessUnitName}` });
+    else if (!info.priced)
+      errors.push({
+        line: 0,
+        text,
+        reason: `No ${context.currency} price for ${context.guest ? context.storeName : context.businessUnitName}`,
+      });
   }
   if (addable.length === 0) return { added: [], errors, submitted: input };
 
@@ -49,7 +61,7 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     } else {
       // A guest's first line creates their anonymous token; the cart id travels in the sealed guest cookie.
       // Each new guest is a token and a cart in the project: throttle per IP so a cookie-less script can't pile them up.
-      if (!current.guest && await tooManyAttempts(`guest-cart:${await clientIp()}`, 30)) {
+      if (!current.guest && (await tooManyAttempts(`guest-cart:${await clientIp()}`, 30))) {
         return fail("Too many new carts from your network. Please wait a few minutes and try again.", input);
       }
       const guest = current.guest ?? (await requestAnonymousToken(guestScopes(context.storeKey)));
@@ -62,7 +74,11 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     if (isRedirectError(err)) throw err;
     // Log the details server-side; the browser only gets a generic reason.
     console.error("quick order failed", (err as { body?: unknown })?.body ?? err);
-    return { added: [], errors: [...errors, { line: 0, text: "", reason: "The cart could not be updated. Please try again." }], submitted: input };
+    return {
+      added: [],
+      errors: [...errors, { line: 0, text: "", reason: "The cart could not be updated. Please try again." }],
+      submitted: input,
+    };
   }
 
   revalidatePath("/(shop)", "layout");
@@ -70,6 +86,9 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     added: addable.map((l) => ({ ...l, name: skus.get(l.sku)!.name })),
     errors,
     // Keep only the lines that failed in the box, so the buyer can fix them.
-    submitted: errors.map((e) => e.text).filter(Boolean).join("\n"),
+    submitted: errors
+      .map((e) => e.text)
+      .filter(Boolean)
+      .join("\n"),
   };
 }

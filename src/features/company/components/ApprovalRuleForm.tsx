@@ -23,11 +23,25 @@ export function ApprovalRuleForm({ rule, roles, currency }: { rule?: ApprovalRul
       )}
       <label className="flex flex-col gap-1 text-sm font-semibold">
         Rule name
-        <input name="name" required minLength={3} maxLength={100} defaultValue={rule?.name} placeholder="e.g. Orders over €10,000" className="min-h-11 rounded border border-gray-300 px-3 font-normal" />
+        <input
+          name="name"
+          required
+          minLength={3}
+          maxLength={100}
+          defaultValue={rule?.name}
+          placeholder="e.g. Orders over €10,000"
+          className="min-h-11 rounded border border-gray-300 px-3 font-normal"
+        />
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold">
         Description (optional)
-        <textarea name="description" maxLength={500} rows={2} defaultValue={rule?.description} className="rounded border border-gray-300 p-3 font-normal" />
+        <textarea
+          name="description"
+          maxLength={500}
+          rows={2}
+          defaultValue={rule?.description}
+          className="rounded border border-gray-300 p-3 font-normal"
+        />
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold">
         Needs approval when the order total is above ({currency})
@@ -40,7 +54,9 @@ export function ApprovalRuleForm({ rule, roles, currency }: { rule?: ApprovalRul
           placeholder="10000"
           className="min-h-11 rounded border border-gray-300 px-3 font-normal sm:max-w-xs"
         />
-        <span className="text-xs font-normal text-gray-600">The order total as the buyer sees it, including VAT where prices include it.</span>
+        <span className="text-xs font-normal text-gray-600">
+          The order total as the buyer sees it, including VAT where prices include it.
+        </span>
       </label>
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
         <legend className="mb-1 text-sm font-semibold">Applies to orders placed by</legend>
@@ -72,10 +88,16 @@ export function ApprovalRuleForm({ rule, roles, currency }: { rule?: ApprovalRul
         </p>
       )}
       <div className="flex flex-wrap gap-3">
-        <button disabled={pending} className="min-h-11 rounded bg-orange-700 px-6 font-semibold text-white hover:bg-orange-800 disabled:opacity-60">
+        <button
+          disabled={pending}
+          className="min-h-11 rounded bg-orange-700 px-6 font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+        >
           {pending ? "Saving…" : "Save rule"}
         </button>
-        <Link href="/account/company/approval-rules" className="flex min-h-11 items-center rounded border border-gray-300 px-5 font-semibold text-gray-800 no-underline">
+        <Link
+          href="/account/company/approval-rules"
+          className="flex min-h-11 items-center rounded border border-gray-300 px-5 font-semibold text-gray-800 no-underline"
+        >
           Cancel
         </Link>
       </div>

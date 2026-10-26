@@ -24,7 +24,8 @@ const str = (formData: FormData, key: string) => String(formData.get(key) ?? "")
 
 async function run(work: (shop: Shop) => Promise<string>): Promise<ListActionState> {
   const shop = await requireShopContext();
-  if (await tooManyAttempts(`lists:${shop.session.customerId}`, 120)) return { error: "Too many changes. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`lists:${shop.session.customerId}`, 120))
+    return { error: "Too many changes. Please wait a few minutes and try again." };
   try {
     const saved = await work(shop);
     revalidatePath("/(shop)", "layout");
@@ -44,10 +45,14 @@ const checkName = (name: string) => {
 
 // Lines that exist in the selected unit's store; the rest are reported back.
 async function knownLines(shop: Shop, lines: { sku: string; quantity: number }[]) {
-  const found = await lookupSkus(shop.context, lines.map((l) => l.sku));
+  const found = await lookupSkus(
+    shop.context,
+    lines.map((l) => l.sku),
+  );
   const known = lines.filter((l) => found.has(l.sku));
   const unknown = lines.filter((l) => !found.has(l.sku)).map((l) => l.sku);
-  if (known.length === 0) throw new PurchaseListError(unknown.length ? `Unknown SKU for ${shop.context.storeName}: ${unknown.join(", ")}` : "Nothing to add.");
+  if (known.length === 0)
+    throw new PurchaseListError(unknown.length ? `Unknown SKU for ${shop.context.storeName}: ${unknown.join(", ")}` : "Nothing to add.");
   return { known, unknown };
 }
 
@@ -85,7 +90,8 @@ export async function addProductToListAction(_prev: ListActionState, formData: F
   const sku = str(formData, "sku");
   const quantity = Number(formData.get("quantity"));
   if (!/^[A-Za-z0-9._-]{1,100}$/.test(sku)) return { error: "Unknown product." };
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) return { error: `Enter a quantity from 1 to ${MAX_QUANTITY}.` };
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY)
+    return { error: `Enter a quantity from 1 to ${MAX_QUANTITY}.` };
   return run((shop) => addTo(shop, formData, [{ sku, quantity }]));
 }
 
@@ -102,7 +108,10 @@ export async function saveCartToListAction(_prev: ListActionState, formData: For
 // Quick order: the pasted "SKU, quantity" lines; lines that don't parse are reported.
 export async function addQuickOrderToListAction(_prev: ListActionState, formData: FormData): Promise<ListActionState> {
   const { lines, errors } = parseQuickOrder(str(formData, "lines"));
-  if (lines.length === 0) return { error: errors.length ? `Check these lines: ${errors.map((e) => e.text).join("; ")}` : "Enter at least one SKU." };
+  if (lines.length === 0)
+    return {
+      error: errors.length ? `Check these lines: ${errors.map((e) => e.text).join("; ")}` : "Enter at least one SKU.",
+    };
   const result = await run((shop) => addTo(shop, formData, lines));
   return result.saved && errors.length ? { saved: `${result.saved} Skipped: ${errors.map((e) => e.text).join("; ")}.` } : result;
 }
@@ -153,7 +162,8 @@ export async function deleteListAction(_prev: ListActionState, formData: FormDat
 export async function addListToCartAction(_prev: QuickOrderState, formData: FormData): Promise<QuickOrderState> {
   const fail = (reason: string): QuickOrderState => ({ added: [], errors: [{ line: 0, text: "", reason }] });
   const shop = await requireShopContext();
-  if (await tooManyAttempts(`lists:cart:${shop.session.customerId}`, 60)) return fail("Too many attempts. Please wait a few minutes and try again.");
+  if (await tooManyAttempts(`lists:cart:${shop.session.customerId}`, 60))
+    return fail("Too many attempts. Please wait a few minutes and try again.");
   const id = str(formData, "listId");
   try {
     const list = UUID.test(id) ? await getList(shop.session, shop.context, id) : undefined;
@@ -162,12 +172,27 @@ export async function addListToCartAction(_prev: QuickOrderState, formData: Form
     const all = formData.get("scope") === "all";
     const lines = list.lines.filter((l) => l.available && l.sku && (all || selected.has(l.id)));
     if (lines.length === 0) return fail(all ? "No products on this list can be ordered." : "Tick the products to add.");
-    const result = await addParsedLines(lines.slice(0, CART_BATCH).map((l) => `${l.sku}, ${l.quantity}`).join("\n"));
+    const result = await addParsedLines(
+      lines
+        .slice(0, CART_BATCH)
+        .map((l) => `${l.sku}, ${l.quantity}`)
+        .join("\n"),
+    );
     const rest = lines.length - CART_BATCH;
     return {
       ...result,
       submitted: undefined,
-      errors: rest > 0 ? [...result.errors, { line: 0, text: "", reason: `Only the first ${CART_BATCH} products were added. Tick the other ${rest} and use Add selected.` }] : result.errors,
+      errors:
+        rest > 0
+          ? [
+              ...result.errors,
+              {
+                line: 0,
+                text: "",
+                reason: `Only the first ${CART_BATCH} products were added. Tick the other ${rest} and use Add selected.`,
+              },
+            ]
+          : result.errors,
     };
   } catch (err) {
     if (isRedirectError(err)) throw err;

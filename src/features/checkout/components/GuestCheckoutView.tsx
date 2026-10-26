@@ -46,22 +46,26 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
       </div>
       <div className="flex flex-wrap items-start gap-6">
         <CheckoutStatusProvider>
-        <div className="flex min-w-0 flex-[999_1_480px] flex-col gap-6">
-          <GuestDetailsForm
-            email={cart.customerEmail}
-            address={cart.shippingAddress}
-            countries={countries}
-            methods={methodOptions(options, cart)}
-            methodKey={options.find((o) => o.name === cart.shippingInfo?.shippingMethodName)?.key}
-          />
-          <PaymentStep
-            kind={cardPaymentsEnabled() ? "card" : "bank-transfer"}
-            billing={cart.shippingAddress ? `Same as the shipping address\n${addressLabel(cart.shippingAddress)}` : "Same as the shipping address"}
-            cartVersion={cart.version}
-            ready={ready}
-            waitingFor={ready ? undefined : "Save your shipping address and method first."}
-          />
-        </div>
+          <div className="flex min-w-0 flex-[999_1_480px] flex-col gap-6">
+            <GuestDetailsForm
+              email={cart.customerEmail}
+              address={cart.shippingAddress}
+              countries={countries}
+              methods={methodOptions(options, cart)}
+              methodKey={options.find((o) => o.name === cart.shippingInfo?.shippingMethodName)?.key}
+            />
+            <PaymentStep
+              kind={cardPaymentsEnabled() ? "card" : "bank-transfer"}
+              billing={
+                cart.shippingAddress
+                  ? `Same as the shipping address\n${addressLabel(cart.shippingAddress)}`
+                  : "Same as the shipping address"
+              }
+              cartVersion={cart.version}
+              ready={ready}
+              waitingFor={ready ? undefined : "Save your shipping address and method first."}
+            />
+          </div>
         </CheckoutStatusProvider>
         <aside aria-label="Order summary" className="flex w-full flex-col gap-4 md:sticky md:top-4 md:max-w-sm md:flex-[1_1_320px]">
           <CartSummary cart={cart} title="Order summary" />

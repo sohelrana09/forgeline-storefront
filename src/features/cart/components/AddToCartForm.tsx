@@ -38,10 +38,16 @@ export function AddToCartForm({
       className={size === "md" ? "flex w-full flex-col gap-2" : "flex items-center gap-3"}
     >
       <input type="hidden" name="sku" value={sku} />
-      <QuantityInput name="quantity" label={`quantity for ${name}`} className={size === "lg" ? "w-36" : size === "row" ? "w-32" : "w-full"} />
+      <QuantityInput
+        name="quantity"
+        label={`quantity for ${name}`}
+        className={size === "lg" ? "w-36" : size === "row" ? "w-32" : "w-full"}
+      />
       <SubmitButton
         className={`min-h-11 rounded px-4 text-sm font-semibold disabled:opacity-60 ${
-          quoteOnly ? "border border-orange-700 bg-white text-orange-800 hover:bg-orange-50" : "bg-orange-700 text-white hover:bg-orange-800"
+          quoteOnly
+            ? "border border-orange-700 bg-white text-orange-800 hover:bg-orange-50"
+            : "bg-orange-700 text-white hover:bg-orange-800"
         } ${size === "lg" ? "flex-1 text-base" : size === "row" ? "whitespace-nowrap" : "w-full"}`}
       >
         {quoteOnly ? "Add for quote" : "Add to cart"}

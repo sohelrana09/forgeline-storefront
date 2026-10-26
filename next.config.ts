@@ -4,7 +4,10 @@ import { withBotId } from "botid/next/config";
 // Sent with every response. The CSP only covers what can't break the pages (framing, plugins, <base>, form
 // targets); a script-src policy needs nonces for Next's inline scripts and the Checkout SDK hosts first.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" },
+  {
+    key: "Content-Security-Policy",
+    value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+  },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -25,7 +28,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "storage.googleapis.com", pathname: "/merchant-center-europe/**" },
       // This project's folder only: the CDN host is shared by every commercetools project.
-      { protocol: "https", hostname: "images.us-east-2.aws.commercetools.com", pathname: "/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/**" },
+      {
+        protocol: "https",
+        hostname: "images.us-east-2.aws.commercetools.com",
+        pathname: "/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/**",
+      },
     ],
   },
   async headers() {

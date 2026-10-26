@@ -46,8 +46,5 @@ export function customerApiRoot(accessToken: string) {
 // URL: call this only with ids from the signed-in session (never from form data), after reading the resource with
 // the customer's own token and a live permission check (hasPermissionNow).
 export function asAssociate(associateId: string, businessUnitKey: string) {
-  return apiRoot
-    .asAssociate()
-    .withAssociateIdValue({ associateId })
-    .inBusinessUnitKeyWithBusinessUnitKeyValue({ businessUnitKey });
+  return apiRoot.asAssociate().withAssociateIdValue({ associateId }).inBusinessUnitKeyWithBusinessUnitKeyValue({ businessUnitKey });
 }

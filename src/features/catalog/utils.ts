@@ -13,7 +13,6 @@ export function localize(value: LocalizedString | undefined): string {
 export const QUOTE_THRESHOLD_CENTS = 500000;
 export const isQuoteOnly = (price?: Price) => (price?.value.centAmount ?? 0) >= QUOTE_THRESHOLD_CENTS;
 
-
 // EU prices include VAT; US prices are net and sales tax is added at checkout.
 export const taxNote = (country?: string) => (country === "US" ? "excl. tax" : "incl. VAT");
 

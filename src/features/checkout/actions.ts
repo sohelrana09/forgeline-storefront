@@ -7,7 +7,15 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { hasBuyerRoleNow } from "@/features/business-units/service";
 import { getActiveCart } from "@/features/cart/service";
-import { applyCheckoutDetails, applyDelivery, CheckoutError, paidOrder, placeBankTransferOrder, placeOrder, prepareCardPayment } from "@/features/checkout/service";
+import {
+  applyCheckoutDetails,
+  applyDelivery,
+  CheckoutError,
+  paidOrder,
+  placeBankTransferOrder,
+  placeOrder,
+  prepareCardPayment,
+} from "@/features/checkout/service";
 import { approvalsForOrders, notifyApprovers } from "@/features/approvals/service";
 import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { CheckoutSession } from "@/lib/commercetools/checkout-session";
@@ -111,7 +119,7 @@ export async function startCardPayment(_prev: CardPaymentState, formData: FormDa
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const { session, auth, context, cartId } = await requireBrowseContext();
   if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
-  if (await tooManyAttempts(`pay:${cartId}`, 20) || await tooManyAttempts(`pay-ip:${await clientIp()}`, 40)) {
+  if ((await tooManyAttempts(`pay:${cartId}`, 20)) || (await tooManyAttempts(`pay-ip:${await clientIp()}`, 40))) {
     return { error: "Too many payment attempts. Please wait a few minutes and try again." };
   }
   if (context.consumer && session && !(await getMe(session)).isEmailVerified) {
@@ -153,10 +161,12 @@ export async function saveGuestDetails(_prev: GuestDetailsState, formData: FormD
   const { guest, context, cartId } = await requireBrowseContext();
   if (!guest || !cartId) return { error: "Your cart is no longer open." };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
-  if (await tooManyAttempts(`guest-details:${cartId}`, 20) || await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60)) {
+  if ((await tooManyAttempts(`guest-details:${cartId}`, 20)) || (await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60))) {
     return { error: "Too many changes. Please wait a few minutes and try again." };
   }
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   if (!EMAIL.test(email)) return { error: "Enter a valid email address." };
   const parsed = parseAddress(formData, CONSUMER_COUNTRIES);
   if ("error" in parsed) return parsed;
@@ -190,7 +200,7 @@ export async function placeBankTransferOrderAction(_prev: BankTransferState, for
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const { session, guest, auth, context, cartId } = await requireBrowseContext();
   if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
-  if (await tooManyAttempts(`order:${cartId}`, 10) || await tooManyAttempts(`order-ip:${await clientIp()}`, 30)) {
+  if ((await tooManyAttempts(`order:${cartId}`, 10)) || (await tooManyAttempts(`order-ip:${await clientIp()}`, 30))) {
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
   if (context.consumer && session && !(await getMe(session)).isEmailVerified) {

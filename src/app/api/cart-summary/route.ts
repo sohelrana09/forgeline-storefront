@@ -12,7 +12,10 @@ export async function GET() {
     const { auth, context, cartId } = await currentBrowseContext();
     const cart = auth ? await getActiveCart(auth, cartId, context) : undefined;
     if (cart) {
-      summary = { items: cart.lineItems.reduce((n, l) => n + l.quantity, 0), total: formatMoney(cart.taxedPrice?.totalGross ?? cart.totalPrice) };
+      summary = {
+        items: cart.lineItems.reduce((n, l) => n + l.quantity, 0),
+        total: formatMoney(cart.taxedPrice?.totalGross ?? cart.totalPrice),
+      };
     }
   } catch (err) {
     // An expired or revoked token means "no cart" here; the full pages handle signing out.

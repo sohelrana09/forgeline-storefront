@@ -22,7 +22,12 @@ export async function applyCheckoutDetails(
   const address = ctx.addresses.find((a) => a.id === addressId);
   if (!address) throw new CheckoutError("Choose a delivery address.");
   // Choosing another address must stick even when no method (or one this address doesn't offer) is picked yet.
-  return applyDelivery(session, ctx, cart, { address, billing: ctx.defaultBillingAddress ?? address, shippingMethodKey, methodOptional: true });
+  return applyDelivery(session, ctx, cart, {
+    address,
+    billing: ctx.defaultBillingAddress ?? address,
+    shippingMethodKey,
+    methodOptional: true,
+  });
 }
 
 // Sets the delivery address (and billing address, and for guests the email) and the shipping method on the cart.
@@ -36,7 +41,13 @@ export async function applyDelivery(
     shippingMethodKey,
     email,
     methodOptional,
-  }: { address: BaseAddress; billing: BaseAddress; shippingMethodKey: string; email?: string; methodOptional?: boolean },
+  }: {
+    address: BaseAddress;
+    billing: BaseAddress;
+    shippingMethodKey: string;
+    email?: string;
+    methodOptional?: boolean;
+  },
 ) {
   const options = await getShippingOptions(ctx, address);
   const methodOffered = options.some((o) => o.key === shippingMethodKey);
@@ -55,7 +66,11 @@ export async function applyDelivery(
     ...(!methodOffered && c.shippingInfo ? [{ action: "setShippingMethod" as const }] : []),
   ]);
   if (!methodOffered) return withAddress;
-  const { body: matching } = await apiRoot.shippingMethods().matchingCart().get({ queryArgs: { cartId: withAddress.id } }).execute();
+  const { body: matching } = await apiRoot
+    .shippingMethods()
+    .matchingCart()
+    .get({ queryArgs: { cartId: withAddress.id } })
+    .execute();
   if (!matching.results.some((m) => m.key === shippingMethodKey)) {
     throw new CheckoutError("That delivery method isn't available for this cart.");
   }
@@ -72,7 +87,13 @@ export const PO_PATTERN = /^[A-Za-z0-9 ._/#-]{1,35}$/;
 
 // Places the buyer's cart as an order. The PO number can't be set through /me endpoints, so the admin client sets
 // it on the cart, but only after the customer token has just read that same cart (proving ownership, unit, store).
-export async function placeOrder(session: Session, ctx: PricingContext, cartId: string, expectedVersion: number, purchaseOrderNumber: string) {
+export async function placeOrder(
+  session: Session,
+  ctx: PricingContext,
+  cartId: string,
+  expectedVersion: number,
+  purchaseOrderNumber: string,
+) {
   const cart = await getActiveCart(session, cartId, ctx);
   if (!cart) throw new CheckoutError("Your cart is no longer open.");
   if (cart.version !== expectedVersion) throw new CheckoutError("Your cart changed. Please review it and place the order again.");
@@ -144,7 +165,13 @@ export async function prepareCardPayment(
 
 // While card payments are switched off (B2C_CARD_PAYMENTS): the B2C order is placed straight away with the caller's
 // own token and paid by bank transfer afterwards. The version check makes a double submit fail instead of ordering twice.
-export async function placeBankTransferOrder(auth: CartAuth, ctx: PricingContext, cartId: string, expectedVersion: number, email: string | undefined) {
+export async function placeBankTransferOrder(
+  auth: CartAuth,
+  ctx: PricingContext,
+  cartId: string,
+  expectedVersion: number,
+  email: string | undefined,
+) {
   const cart = await readyB2CCart(auth, ctx, cartId, expectedVersion, email);
   const { body: order } = await customerApiRoot(auth.accessToken)
     .inStoreKeyWithStoreKeyValue({ storeKey: ctx.storeKey })

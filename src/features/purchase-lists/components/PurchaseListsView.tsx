@@ -4,7 +4,13 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ListToolbar } from "@/components/ui/ListToolbar";
 import { lookupSkus } from "@/features/cart/service";
 import { getList, pageLists } from "@/features/purchase-lists/service";
-import { CreateListForm, DeleteListButton, ListEditor, RenameListForm, type EditorLine } from "@/features/purchase-lists/components/ListForms";
+import {
+  CreateListForm,
+  DeleteListButton,
+  ListEditor,
+  RenameListForm,
+  type EditorLine,
+} from "@/features/purchase-lists/components/ListForms";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
@@ -96,7 +102,10 @@ export async function PurchaseListsView({
 export async function PurchaseListView({ session, context, id }: { session: Session; context: BuyerContext; id: string }) {
   const list = await getList(session, context, id);
   if (!list) notFound();
-  const skus = await lookupSkus(context, list.lines.flatMap((l) => (l.sku ? [l.sku] : [])));
+  const skus = await lookupSkus(
+    context,
+    list.lines.flatMap((l) => (l.sku ? [l.sku] : [])),
+  );
   const lines: EditorLine[] = list.lines.map((l) => {
     const info = l.sku ? skus.get(l.sku) : undefined;
     const note = !info
@@ -114,7 +123,11 @@ export async function PurchaseListView({ session, context, id }: { session: Sess
       available: l.available,
       slug: info?.slug,
       image: info?.image,
-      price: info?.price && { centAmount: info.price.centAmount, currencyCode: info.price.currencyCode, fractionDigits: info.price.fractionDigits },
+      price: info?.price && {
+        centAmount: info.price.centAmount,
+        currencyCode: info.price.currencyCode,
+        fractionDigits: info.price.fractionDigits,
+      },
       note,
       quoteOnly: Boolean(info?.quoteOnly),
     };
@@ -123,7 +136,13 @@ export async function PurchaseListView({ session, context, id }: { session: Sess
 
   return (
     <div className="flex flex-col gap-4">
-      <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "Purchase lists", href: "/account/purchase-lists" }, { label: list.name }]} />
+      <Breadcrumbs
+        items={[
+          { label: "My account", href: "/account" },
+          { label: "Purchase lists", href: "/account/purchase-lists" },
+          { label: list.name },
+        ]}
+      />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col items-start gap-1">
           <h1 className="m-0 text-2xl font-bold">{list.name}</h1>

@@ -24,12 +24,19 @@ export async function ApprovalView({ session, context, id }: { session: Session;
   if (!result || (result.order.businessUnit?.key ?? "") !== context.businessUnitKey) notFound();
   const { approval, order, canDecide, cancelPending, ownOrder } = result;
   const [members, roles] = await Promise.all([getCompanyMembers(context, session.customerId).catch(() => []), getRoles()]);
-  const nameOf = (cid?: string) => (cid === session.customerId ? "you" : (members.find((m) => m.customerId === cid)?.name ?? "a former user"));
+  const nameOf = (cid?: string) =>
+    cid === session.customerId ? "you" : (members.find((m) => m.customerId === cid)?.name ?? "a former user");
   const ref = orderReference(order);
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "Order approvals", href: "/account/approvals" }, { label: `Order ${ref}` }]} />
+      <Breadcrumbs
+        items={[
+          { label: "My account", href: "/account" },
+          { label: "Order approvals", href: "/account/approvals" },
+          { label: `Order ${ref}` },
+        ]}
+      />
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="m-0 text-2xl font-bold">Order # {ref}</h1>
@@ -37,7 +44,8 @@ export async function ApprovalView({ session, context, id }: { session: Session;
         </div>
         <p className="m-0 text-sm text-gray-600">
           Requested {new Date(order.createdAt).toLocaleString("en-GB")} by {nameOf(order.customerId)}
-          {order.purchaseOrderNumber && ` · PO ${order.purchaseOrderNumber}`} · {formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}
+          {order.purchaseOrderNumber && ` · PO ${order.purchaseOrderNumber}`} ·{" "}
+          {formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}
         </p>
       </div>
 
@@ -47,8 +55,7 @@ export async function ApprovalView({ session, context, id }: { session: Session;
         </h2>
         <p className="m-0 text-gray-700">
           Rule: {approval.rules.join(", ")}.
-          {approval.status === "Pending" &&
-            ` Can approve: ${approval.pendingRoles.map((r) => roleLabel(r, roles)).join(" or ")}.`}
+          {approval.status === "Pending" && ` Can approve: ${approval.pendingRoles.map((r) => roleLabel(r, roles)).join(" or ")}.`}
         </p>
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-gray-700">
           {approval.approvals.map((a) => (
@@ -59,7 +66,8 @@ export async function ApprovalView({ session, context, id }: { session: Session;
           {approval.rejection && (
             <li>
               Rejected by {nameOf(approval.rejection.by)} on {new Date(approval.rejection.at).toLocaleString("en-GB")}:{" "}
-              <q>{approval.rejection.reason}</q> {order.orderState === "Cancelled" ? "The order was cancelled." : "Cancelling the order is still pending."}
+              <q>{approval.rejection.reason}</q>{" "}
+              {order.orderState === "Cancelled" ? "The order was cancelled." : "Cancelling the order is still pending."}
             </li>
           )}
         </ul>

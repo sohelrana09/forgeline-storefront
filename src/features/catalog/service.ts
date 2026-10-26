@@ -116,7 +116,13 @@ export async function getProductsBySkus(ctx: PricingContext, skus: unknown): Pro
   const list = safe.map((s) => `"${s}"`).join(", ");
   const { body } = await apiRoot
     .productProjections()
-    .get({ queryArgs: { where: `masterVariant(sku in (${list})) or variants(sku in (${list}))`, limit: safe.length, ...priceSelection(ctx) } })
+    .get({
+      queryArgs: {
+        where: `masterVariant(sku in (${list})) or variants(sku in (${list}))`,
+        limit: safe.length,
+        ...priceSelection(ctx),
+      },
+    })
     .execute();
   // Keep the editor's order.
   return safe
@@ -146,7 +152,13 @@ export function getCategoryTiles(ctx: PricingContext, categories: Category[], tr
       categories.map(async (category) => {
         const { body } = await apiRoot
           .productProjections()
-          .get({ queryArgs: { where: `categories(id in (${idList(tree.subtreeIds(category.id))}))`, limit: 1, storeProjection: ctx.storeKey } })
+          .get({
+            queryArgs: {
+              where: `categories(id in (${idList(tree.subtreeIds(category.id))}))`,
+              limit: 1,
+              storeProjection: ctx.storeKey,
+            },
+          })
           .execute();
         return {
           id: category.id,
@@ -159,7 +171,6 @@ export function getCategoryTiles(ctx: PricingContext, categories: Category[], tr
     ),
   );
 }
-
 
 // After catalog changes made elsewhere (Merchant Center, imports): the next read loads the tree, tiles and search
 // index fresh. Per process, like the memos themselves.
@@ -203,7 +214,8 @@ const searchIndex = (ctx: PricingContext) =>
           sku: priced.sku,
           image: priced.images?.[0]?.url ?? p.masterVariant.images?.[0]?.url,
           price: priced.price?.discounted?.value ?? priced.price?.value,
-          fromPrice: new Set(prices.map((m) => m.centAmount)).size > 1 ? prices.reduce((a, b) => (b.centAmount < a.centAmount ? b : a)) : undefined,
+          fromPrice:
+            new Set(prices.map((m) => m.centAmount)).size > 1 ? prices.reduce((a, b) => (b.centAmount < a.centAmount ? b : a)) : undefined,
           nameWords: words(localize(p.name)),
           codes: [...new Set(variants.flatMap((v) => (v.sku ? codeWords(v.sku) : [])))],
           categories: [...new Set(categories.flatMap(words))],

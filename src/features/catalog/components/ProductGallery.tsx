@@ -19,7 +19,10 @@ export function ProductGallery({
   slug: string;
   selectedSku?: string;
 }) {
-  const start = Math.max(0, images.findIndex((img) => selectedSku !== undefined && img.skus.includes(selectedSku)));
+  const start = Math.max(
+    0,
+    images.findIndex((img) => selectedSku !== undefined && img.skus.includes(selectedSku)),
+  );
   const [index, setIndex] = useState(start);
   const dialog = useRef<HTMLDialogElement>(null);
   const swipeStart = useRef<number | undefined>(undefined);
@@ -67,7 +70,8 @@ export function ProductGallery({
   const onPointerCancel = () => {
     swipeStart.current = undefined;
   };
-  const arrow = "absolute top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 bg-white/90 text-xl text-gray-800 shadow-sm hover:bg-white";
+  const arrow =
+    "absolute top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-gray-300 bg-white/90 text-xl text-gray-800 shadow-sm hover:bg-white";
   const position = `Image ${index + 1} of ${count}${label(current) ? `: ${label(current)}` : ""}`;
 
   // Arrow keys work in the gallery and in the full-screen view (its key events bubble up to this element).
@@ -162,7 +166,15 @@ export function ProductGallery({
             </form>
           </div>
           <div className="relative min-h-0 flex-1 touch-pan-y">
-            <Image key={current.url} src={current.url} alt={alt(current)} fill sizes="100vw" className="object-contain p-4" draggable={false} />
+            <Image
+              key={current.url}
+              src={current.url}
+              alt={alt(current)}
+              fill
+              sizes="100vw"
+              className="object-contain p-4"
+              draggable={false}
+            />
             {count > 1 && (
               <>
                 <button type="button" onClick={() => go(-1)} className={`${arrow} left-3`} aria-label="Previous image">

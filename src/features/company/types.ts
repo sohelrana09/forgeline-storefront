@@ -12,7 +12,14 @@ export type CompanyMember = {
 
 export type CompanyRole = { key: string; name: string; permissions: Permission[] };
 
-export type CompanyUnit = { key: string; name: string; unitType: string; parentKey?: string; status: string; contactEmail?: string };
+export type CompanyUnit = {
+  key: string;
+  name: string;
+  unitType: string;
+  parentKey?: string;
+  status: string;
+  contactEmail?: string;
+};
 
 export type CompanyActionState = { error?: string; saved?: string };
 

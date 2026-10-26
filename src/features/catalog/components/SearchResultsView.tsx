@@ -6,7 +6,17 @@ import { ListToolbar } from "@/components/ui/ListToolbar";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import type { BuyerContext } from "@/features/business-units/types";
 
-export async function SearchResultsView({ context, query, page, size }: { context: BuyerContext; query: string; page: number; size: number }) {
+export async function SearchResultsView({
+  context,
+  query,
+  page,
+  size,
+}: {
+  context: BuyerContext;
+  query: string;
+  page: number;
+  size: number;
+}) {
   const { products, total, corrected } = await searchProducts(context, query, page, size);
   const hrefFor = (p: number, s: number) =>
     `/search?${new URLSearchParams({ q: query, ...(p > 1 && { page: String(p) }), ...(s !== 20 && { limit: String(s) }) })}`;
@@ -34,7 +44,13 @@ export async function SearchResultsView({ context, query, page, size }: { contex
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {products.map((p) => (
-              <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={taxNote(context.country)} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                canOrder={context.canOrder}
+                canQuote={!context.consumer}
+                note={taxNote(context.country)}
+              />
             ))}
           </div>
         </>

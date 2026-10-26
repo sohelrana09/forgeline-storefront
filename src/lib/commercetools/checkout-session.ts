@@ -27,7 +27,10 @@ async function sessionToken(): Promise<string> {
   const res = await fetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token`, {
     method: "POST",
     headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "client_credentials", scope: `manage_sessions:${projectKey} manage_orders:${projectKey}:${B2C_STORE_KEY}` }),
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: `manage_sessions:${projectKey} manage_orders:${projectKey}:${B2C_STORE_KEY}`,
+    }),
   });
   const body = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string };
   if (!res.ok || !body.access_token || !body.expires_in) throw new Error(`checkout token failed: ${res.status} ${body.error ?? ""}`);

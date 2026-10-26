@@ -88,7 +88,13 @@ export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData
   if (!context.canOrder) return { error: "Only buyers can accept quotes." };
   let target: string;
   try {
-    const { order, poSaved } = await orderFromQuote(session, context, str(formData, "id"), Number(str(formData, "version")), str(formData, "purchaseOrderNumber"));
+    const { order, poSaved } = await orderFromQuote(
+      session,
+      context,
+      str(formData, "id"),
+      Number(str(formData, "version")),
+      str(formData, "purchaseOrderNumber"),
+    );
     target = `/account/orders/${order.id}${poSaved ? "" : "?po=failed"}`;
   } catch (err) {
     return failed(err, "The order could not be placed.");

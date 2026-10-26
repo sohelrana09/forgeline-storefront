@@ -34,7 +34,10 @@ export function productJsonLd(product: ProductProjection, variant: ProductVarian
           },
         }),
     },
-    breadcrumbJsonLd([...trail.map((c) => ({ name: localize(c.name), url: `${base}/c/${localize(c.slug)}` })), { name: localize(product.name), url }]),
+    breadcrumbJsonLd([
+      ...trail.map((c) => ({ name: localize(c.name), url: `${base}/c/${localize(c.slug)}` })),
+      { name: localize(product.name), url },
+    ]),
   ];
 }
 
@@ -42,7 +45,12 @@ export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: items.map((item, i) => ({ "@type": "ListItem", position: i + 1, name: item.name, item: item.url })),
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
   };
 }
 
@@ -67,5 +75,10 @@ export function categoryMetadata(category: Category, page = 1) {
     metaDescription(localize(category.description)) || `${name} from Ironline Supply: prices, stock and specifications for every model.`;
   // Self-referencing canonical per page (sort orders point to the default order).
   const canonical = `/c/${localize(category.slug)}${page > 1 ? `?page=${page}` : ""}`;
-  return { title: page > 1 ? `${name} (page ${page})` : name, description, alternates: { canonical }, openGraph: { title: name, description, url: canonical } };
+  return {
+    title: page > 1 ? `${name} (page ${page})` : name,
+    description,
+    alternates: { canonical },
+    openGraph: { title: name, description, url: canonical },
+  };
 }

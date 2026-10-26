@@ -19,7 +19,11 @@ export const forgetContentCache = () => memo.clear();
 
 const allBlocks = () =>
   cached(BLOCK_CONTAINER, async () => {
-    const { body } = await apiRoot.customObjects().withContainer({ container: BLOCK_CONTAINER }).get({ queryArgs: { limit: 500 } }).execute();
+    const { body } = await apiRoot
+      .customObjects()
+      .withContainer({ container: BLOCK_CONTAINER })
+      .get({ queryArgs: { limit: 500 } })
+      .execute();
     return body.results.map((o) => ({ ...(o.value as CmsBlock), identifier: o.key }));
   });
 
@@ -40,6 +44,10 @@ export async function getPage(slug: string): Promise<CmsPage | undefined> {
 
 export const getPages = () =>
   cached(PAGE_CONTAINER, async () => {
-    const { body } = await apiRoot.customObjects().withContainer({ container: PAGE_CONTAINER }).get({ queryArgs: { limit: 200 } }).execute();
+    const { body } = await apiRoot
+      .customObjects()
+      .withContainer({ container: PAGE_CONTAINER })
+      .get({ queryArgs: { limit: 200 } })
+      .execute();
     return body.results.map((o) => ({ ...(o.value as CmsPage), slug: o.key })).filter((p) => p.active);
   });

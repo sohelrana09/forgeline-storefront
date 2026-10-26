@@ -7,7 +7,11 @@ import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
 export async function CompanyProfileView({ session, context }: { session: Session; context: BuyerContext }) {
-  const [company, members, roles] = await Promise.all([getCompanyUnit(context), getCompanyMembers(context, session.customerId), getRoles()]);
+  const [company, members, roles] = await Promise.all([
+    getCompanyUnit(context),
+    getCompanyMembers(context, session.customerId),
+    getRoles(),
+  ]);
   const self = members.find((m) => m.customerId === session.customerId);
   const myRoles = [...new Set([...(self?.roles ?? []), ...(self?.inheritedRoles ?? [])])].map((k) => roleLabel(k, roles));
   const editable = can(context, "UpdateBusinessUnitDetails");

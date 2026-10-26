@@ -19,7 +19,13 @@ export async function QuoteRequestView({ session, context, id }: { session: Sess
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "My quotes", href: "/account/quotes" }, { label: `Request ${shortRef(request)}` }]} />
+      <Breadcrumbs
+        items={[
+          { label: "My account", href: "/account" },
+          { label: "My quotes", href: "/account/quotes" },
+          { label: `Request ${shortRef(request)}` },
+        ]}
+      />
       {justSent && (
         <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-green-900">
           Your quote request was sent. Our sales team will reply with a quote here.

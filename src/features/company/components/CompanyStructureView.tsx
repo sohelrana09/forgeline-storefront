@@ -37,11 +37,7 @@ export async function CompanyStructureView({ session, context }: { session: Sess
           <span className="text-sm text-gray-500">Parent unit</span>
         )}
       </div>
-      {children(unit.key).length > 0 && (
-        <ul className="m-0 list-none border-l-2 border-gray-200 pl-6">
-          {children(unit.key).map(node)}
-        </ul>
-      )}
+      {children(unit.key).length > 0 && <ul className="m-0 list-none border-l-2 border-gray-200 pl-6">{children(unit.key).map(node)}</ul>}
     </li>
   );
 
@@ -51,9 +47,7 @@ export async function CompanyStructureView({ session, context }: { session: Sess
         <h1 className="m-0 text-2xl font-bold">Company structure</h1>
         <p className="m-0 mt-1 text-sm text-gray-600">The units you buy for, and the units above them.</p>
       </div>
-      <ul className="m-0 list-none p-0">
-        {roots.map(node)}
-      </ul>
+      <ul className="m-0 list-none p-0">{roots.map(node)}</ul>
     </div>
   );
 }

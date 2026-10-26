@@ -70,12 +70,16 @@ async function main() {
     actions.push({ action: "setRequesters", requesters: draft.requesters });
   }
   const approverKeys = existing.approvers.tiers.map((t) => t.and.map((d) => d.or.map((o) => o.associateRole.key)));
-  if (JSON.stringify(approverKeys) !== JSON.stringify([[["approver", "admin"]]])) actions.push({ action: "setApprovers", approvers: draft.approvers });
+  if (JSON.stringify(approverKeys) !== JSON.stringify([[["approver", "admin"]]]))
+    actions.push({ action: "setApprovers", approvers: draft.approvers });
   if (actions.length === 0) {
     console.log(`= ${unitKey}: ${draft.name} (${status}) unchanged`);
     return;
   }
-  await rules.withKey({ key }).post({ body: { version: existing.version, actions } }).execute();
+  await rules
+    .withKey({ key })
+    .post({ body: { version: existing.version, actions } })
+    .execute();
   console.log(`~ ${unitKey}: ${draft.name}: ${actions.map((a) => a.action).join(", ")}`);
 }
 

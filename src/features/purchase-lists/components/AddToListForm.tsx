@@ -11,7 +11,15 @@ type ListOption = { id: string; name: string };
 // Which list: one of the customer's lists, or a new one named here (Magento "Add to Requisition List").
 // `nameRequired` false when the fields sit inside another form (quick order), whose own submit must not be blocked;
 // the server action checks the name either way.
-export function ListTargetFields({ lists, idPrefix, nameRequired = true }: { lists: ListOption[]; idPrefix: string; nameRequired?: boolean }) {
+export function ListTargetFields({
+  lists,
+  idPrefix,
+  nameRequired = true,
+}: {
+  lists: ListOption[];
+  idPrefix: string;
+  nameRequired?: boolean;
+}) {
   const [choice, setChoice] = useState(lists[0]?.id ?? "new");
   return (
     <>
@@ -70,7 +78,10 @@ export function ListResult({ state }: { state: ListActionState }) {
 
 // Product page (one SKU with a quantity) or cart page (every cart line).
 export function AddToListForm({ lists, sku, kind }: { lists: ListOption[]; sku?: string; kind: "product" | "cart" }) {
-  const [state, action, pending] = useActionState(kind === "product" ? addProductToListAction : saveCartToListAction, {} as ListActionState);
+  const [state, action, pending] = useActionState(
+    kind === "product" ? addProductToListAction : saveCartToListAction,
+    {} as ListActionState,
+  );
   return (
     <form action={action} className="flex flex-col gap-3">
       {sku && <input type="hidden" name="sku" value={sku} />}
@@ -92,7 +103,10 @@ export function AddToListForm({ lists, sku, kind }: { lists: ListOption[]; sku?:
         </label>
       )}
       <ListResult state={state} />
-      <button disabled={pending} className="min-h-11 self-start rounded border border-gray-900 bg-white px-5 font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60">
+      <button
+        disabled={pending}
+        className="min-h-11 self-start rounded border border-gray-900 bg-white px-5 font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
+      >
         {pending ? "Saving…" : kind === "product" ? "Add to purchase list" : "Save cart to purchase list"}
       </button>
     </form>

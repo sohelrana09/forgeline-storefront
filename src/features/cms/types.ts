@@ -9,7 +9,15 @@ export const MEDIA_PRODUCT_KEY = "cms-media-library";
 export const MEDIA_SKU = "cms-media-library";
 
 // Where a block can appear. Add a placement here and render <CmsBlocks placement="…"> where it should show.
-export const PLACEMENTS = ["home.hero", "home.top", "home.featured", "plp.top", "pdp.below-add-to-cart", "pdp.bottom", "cart.sidebar"] as const;
+export const PLACEMENTS = [
+  "home.hero",
+  "home.top",
+  "home.featured",
+  "plp.top",
+  "pdp.below-add-to-cart",
+  "pdp.bottom",
+  "cart.sidebar",
+] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
 export type CmsBlock = {
@@ -42,6 +50,5 @@ export type CmsBlock = {
 };
 
 export type CmsPage = { slug: string; title: string; metaDescription?: string; active: boolean; content: string };
-
 
 export type BlockQuery = { placement: Placement; storeKey: string; categorySlugs?: string[] };

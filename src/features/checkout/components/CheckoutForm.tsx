@@ -36,13 +36,23 @@ export function DeliveryForm({
               key={a.key}
               className="flex cursor-pointer items-start gap-3 rounded border-2 border-gray-200 p-4 has-[:checked]:border-orange-700 has-[:checked]:bg-orange-50"
             >
-              <input type="radio" name="addressId" value={a.key} defaultChecked={a.key === addressId} onChange={submitOnChange} className="mt-1" />
+              <input
+                type="radio"
+                name="addressId"
+                value={a.key}
+                defaultChecked={a.key === addressId}
+                onChange={submitOnChange}
+                className="mt-1"
+              />
               <span className="whitespace-pre-line text-sm">{a.label}</span>
             </label>
           ))}
         </fieldset>
         {addAddressHref && (
-          <Link href={addAddressHref} className="self-start rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 no-underline hover:bg-gray-50">
+          <Link
+            href={addAddressHref}
+            className="self-start rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 no-underline hover:bg-gray-50"
+          >
             + New address
           </Link>
         )}
@@ -93,7 +103,14 @@ export function MethodTable({
       <div className="flex flex-col divide-y divide-gray-200 rounded border border-gray-200">
         {methods.map((m) => (
           <label key={m.key} className="flex min-h-12 cursor-pointer items-center gap-4 px-4 py-3 text-sm has-[:checked]:bg-orange-50">
-            <input type="radio" name="shippingMethodKey" value={m.key} defaultChecked={m.key === methodKey} onChange={onChange} required={required} />
+            <input
+              type="radio"
+              name="shippingMethodKey"
+              value={m.key}
+              defaultChecked={m.key === methodKey}
+              onChange={onChange}
+              required={required}
+            />
             <span className="w-24 shrink-0 font-semibold">{m.price}</span>
             <span className="flex min-w-0 flex-col">
               <span>{m.name}</span>
@@ -107,7 +124,15 @@ export function MethodTable({
 }
 
 // Business orders (step 3): purchase order number and payment on company invoice.
-export function PlaceOrderForm({ cartVersion, purchaseOrderNumber, ready }: { cartVersion: number; purchaseOrderNumber?: string; ready: boolean }) {
+export function PlaceOrderForm({
+  cartVersion,
+  purchaseOrderNumber,
+  ready,
+}: {
+  cartVersion: number;
+  purchaseOrderNumber?: string;
+  ready: boolean;
+}) {
   const [state, action, pending] = useActionState(placeOrderAction, {} as PlaceOrderState);
   return (
     <form action={action} onSubmit={keepFields(action)} className="flex flex-col gap-3">

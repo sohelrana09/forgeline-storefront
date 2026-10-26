@@ -6,9 +6,7 @@ import { projectKey, requireEnv } from "@/lib/commercetools/client";
 const storefrontAuth = () =>
   `Basic ${Buffer.from(`${requireEnv("CTP_STOREFRONT_CLIENT_ID")}:${requireEnv("CTP_STOREFRONT_CLIENT_SECRET")}`).toString("base64")}`;
 
-export type TokenResult =
-  | { ok: true; accessToken: string; expiresAt: number }
-  | { ok: false; reason: "credentials" | "unavailable" };
+export type TokenResult = { ok: true; accessToken: string; expiresAt: number } | { ok: false; reason: "credentials" | "unavailable" };
 
 // Customer password flow: exchanges email + password for a customer-bound token limited to `scopes`.
 // Always pass an explicit list: without one the token inherits every scope of the storefront client.
@@ -76,10 +74,18 @@ async function tokenRequest(path: string, params: Record<string, string>): Promi
 // Guest (anonymous) session: commercetools generates an anonymous_id and only lets the token see that
 // guest's own carts in the stores of `scopes`. Lasts 3h; the refresh token keeps the same anonymous_id.
 export async function requestAnonymousToken(scopes: string[]): Promise<AnonymousToken | undefined> {
-  const body = await tokenRequest(`/oauth/${projectKey}/anonymous/token`, { grant_type: "client_credentials", scope: scopes.join(" ") });
+  const body = await tokenRequest(`/oauth/${projectKey}/anonymous/token`, {
+    grant_type: "client_credentials",
+    scope: scopes.join(" "),
+  });
   const anonymousId = body?.scope?.match(/(?:^| )anonymous_id:(\S+)/)?.[1];
   if (!body?.access_token || !body.refresh_token || !anonymousId) return undefined;
-  return { accessToken: body.access_token, refreshToken: body.refresh_token, expiresAt: Date.now() + body.expires_in! * 1000, anonymousId };
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token,
+    expiresAt: Date.now() + body.expires_in! * 1000,
+    anonymousId,
+  };
 }
 
 // A new access token for the same guest (undefined when the refresh token was revoked or expired).
@@ -94,16 +100,26 @@ export type SignUpResult = { ok: true; customerId: string } | { ok: false; reaso
 // Self-service sign-up (/me/signup) with a storefront client token limited to manage_my_profile: the token can
 // create this one customer, nothing else. No admin client involved.
 export async function signUpCustomer(draft: SignUpDraft): Promise<SignUpResult> {
-  const token = await tokenRequest("/oauth/token", { grant_type: "client_credentials", scope: `manage_my_profile:${projectKey}` });
+  const token = await tokenRequest("/oauth/token", {
+    grant_type: "client_credentials",
+    scope: `manage_my_profile:${projectKey}`,
+  });
   if (!token?.access_token) return { ok: false, reason: "unavailable" };
   const res = await fetch(`${requireEnv("CTP_API_URL")}/${projectKey}/me/signup`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" },
     body: JSON.stringify(draft),
   }).catch(() => undefined);
-  const body = (await res?.json().catch(() => ({}))) as { customer?: { id: string }; errors?: { code?: string; field?: string }[] };
+  const body = (await res?.json().catch(() => ({}))) as {
+    customer?: { id: string };
+    errors?: { code?: string; field?: string }[];
+  };
   if (res?.ok && body.customer) return { ok: true, customerId: body.customer.id };
   if (body.errors?.some((e) => e.code === "DuplicateField" && e.field === "email")) return { ok: false, reason: "exists" };
-  console.error("sign-up failed", res?.status, body.errors?.map((e) => e.code));
+  console.error(
+    "sign-up failed",
+    res?.status,
+    body.errors?.map((e) => e.code),
+  );
   return { ok: false, reason: "unavailable" };
 }

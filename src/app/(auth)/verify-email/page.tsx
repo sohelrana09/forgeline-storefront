@@ -9,7 +9,11 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
   const { token } = await searchParams;
   return (
     <AuthShell title="Confirm your email address">
-      {token ? <VerifyEmailForm token={token} /> : <p className="m-0 text-sm">This link is incomplete. Request a new one from your account.</p>}
+      {token ? (
+        <VerifyEmailForm token={token} />
+      ) : (
+        <p className="m-0 text-sm">This link is incomplete. Request a new one from your account.</p>
+      )}
     </AuthShell>
   );
 }

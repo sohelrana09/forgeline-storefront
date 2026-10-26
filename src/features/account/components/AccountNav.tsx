@@ -40,15 +40,21 @@ const BUSINESS_ONLY = new Set([
 // Magento's account sidebar. The current section stays highlighted on its detail pages too (an order, a quote).
 // `business`: a company buyer (quotes and the Company group); consumers see their personal sections only.
 // `approver` / `ruleManager`: the approval links, for associates whose roles allow them (pages re-check live).
-export function AccountNav({ business, approver = false, ruleManager = false }: { business: boolean; approver?: boolean; ruleManager?: boolean }) {
+export function AccountNav({
+  business,
+  approver = false,
+  ruleManager = false,
+}: {
+  business: boolean;
+  approver?: boolean;
+  ruleManager?: boolean;
+}) {
   const pathname = usePathname();
   const allowed = (href: string) =>
     (business || !BUSINESS_ONLY.has(href)) &&
     (href !== "/account/approvals" || approver) &&
     (href !== "/account/company/approval-rules" || ruleManager);
-  const groups = GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => allowed(l.href)) })).filter(
-    (g) => g.links.length > 0,
-  );
+  const groups = GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => allowed(l.href)) })).filter((g) => g.links.length > 0);
   const ALL = groups.flatMap((g) => g.links.map((l) => l.href));
   // The longest matching link wins, so /account/company/users highlights "Company users", not "Company profile".
   const current = ALL.filter((h) => pathname === h || (h !== "/account" && pathname.startsWith(`${h}/`))).sort(

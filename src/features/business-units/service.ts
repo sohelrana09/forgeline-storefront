@@ -28,7 +28,10 @@ function effectiveStoreKey(bu: BusinessUnit): string | undefined {
 async function allBusinessUnits(): Promise<{ results: BusinessUnit[] }> {
   const results: BusinessUnit[] = [];
   for (let offset = 0; ; offset += 500) {
-    const { body } = await apiRoot.businessUnits().get({ queryArgs: { limit: 500, offset, sort: ["key asc"], withTotal: false } }).execute();
+    const { body } = await apiRoot
+      .businessUnits()
+      .get({ queryArgs: { limit: 500, offset, sort: ["key asc"], withTotal: false } })
+      .execute();
     results.push(...body.results);
     if (body.results.length < 500) return { results };
   }
@@ -37,8 +40,14 @@ async function allBusinessUnits(): Promise<{ results: BusinessUnit[] }> {
 async function loadBuyingContexts(): Promise<BuyingContext[]> {
   const [units, { body: stores }, { body: roles }] = await Promise.all([
     allBusinessUnits(),
-    apiRoot.stores().get({ queryArgs: { limit: 100, expand: ["distributionChannels[*]"] } }).execute(),
-    apiRoot.associateRoles().get({ queryArgs: { limit: 100 } }).execute(),
+    apiRoot
+      .stores()
+      .get({ queryArgs: { limit: 100, expand: ["distributionChannels[*]"] } })
+      .execute(),
+    apiRoot
+      .associateRoles()
+      .get({ queryArgs: { limit: 100 } })
+      .execute(),
   ]);
   const rolePermissions = new Map(roles.results.map((r) => [r.key, r.permissions]));
 
@@ -127,7 +136,13 @@ async function queryIsAssociate(customerId: string): Promise<boolean> {
   const id = str(customerId);
   const { body } = await apiRoot
     .businessUnits()
-    .get({ queryArgs: { where: `associates(customer(id=${id})) or inheritedAssociates(customer(id=${id}))`, limit: 1, withTotal: false } })
+    .get({
+      queryArgs: {
+        where: `associates(customer(id=${id})) or inheritedAssociates(customer(id=${id}))`,
+        limit: 1,
+        withTotal: false,
+      },
+    })
     .execute();
   return body.results.length > 0;
 }
@@ -136,7 +151,15 @@ async function queryIsAssociate(customerId: string): Promise<boolean> {
 // that checks several permissions and lists members makes one call each instead of one per check. Outside a render
 // (Server Actions, Route Handlers) React's cache is off and every call reads live, which writes rely on.
 export const businessUnitNow = cache(async (key: string) => (await apiRoot.businessUnits().withKey({ key }).get().execute()).body);
-export const associateRolesNow = cache(async () => (await apiRoot.associateRoles().get({ queryArgs: { limit: 100 } }).execute()).body.results);
+export const associateRolesNow = cache(
+  async () =>
+    (
+      await apiRoot
+        .associateRoles()
+        .get({ queryArgs: { limit: 100 } })
+        .execute()
+    ).body.results,
+);
 
 // Order-critical paths (delivery, place order) must not trust the 5-minute memo: a revoked buyer role
 // or removed associate takes effect immediately here.

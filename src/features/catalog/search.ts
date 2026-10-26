@@ -22,7 +22,10 @@ export type SearchEntry = {
 };
 
 export const fold = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
-export const words = (s: string) => fold(s).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+export const words = (s: string) =>
+  fold(s)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
 
 // SKU forms people type: "s567-uv", "s567uv", "suv" (letters only, for model codes like S567 UV).
 export function codeWords(sku: string): string[] {
@@ -66,7 +69,15 @@ function wordScore(entry: SearchEntry, w: string, fuzzy: boolean): number {
   for (const [field, weight] of FIELDS) {
     for (const t of entry[field]) {
       const s =
-        t === w ? weight * 3 : t.startsWith(w) ? weight * 2 : w.length >= 3 && t.includes(w) ? weight : fuzzy && t.length >= 4 && distance(w, t, editLimit(w)) <= editLimit(w) ? weight / 2 : 0;
+        t === w
+          ? weight * 3
+          : t.startsWith(w)
+            ? weight * 2
+            : w.length >= 3 && t.includes(w)
+              ? weight
+              : fuzzy && t.length >= 4 && distance(w, t, editLimit(w)) <= editLimit(w)
+                ? weight / 2
+                : 0;
       if (s > best) best = s;
     }
   }

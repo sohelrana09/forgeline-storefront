@@ -51,7 +51,11 @@ export function OrdersTable({
               <tr key={o.id} className="border-t border-gray-100">
                 <td className="px-5 py-3 font-mono">{orderReference(o)}</td>
                 <td className="px-3 py-3">{date(o.createdAt)}</td>
-                {ownerId && <td className="px-3 py-3">{o.customerId === ownerId ? "You" : (names[o.customerId ?? ""] ?? o.customerEmail ?? "Former user")}</td>}
+                {ownerId && (
+                  <td className="px-3 py-3">
+                    {o.customerId === ownerId ? "You" : (names[o.customerId ?? ""] ?? o.customerEmail ?? "Former user")}
+                  </td>
+                )}
                 <td className="px-3 py-3">{ship ? [ship.company, ship.city].filter(Boolean).join(", ") : "None"}</td>
                 <td className="px-3 py-3">{o.purchaseOrderNumber ?? "None"}</td>
                 <td className="px-3 py-3 text-right font-semibold">{formatMoney(o.taxedPrice?.totalGross ?? o.totalPrice)}</td>
@@ -67,7 +71,9 @@ export function OrdersTable({
                     <Link href={`/account/orders/${o.id}`} className="text-orange-800" aria-label={`View order ${orderReference(o)}`}>
                       View order
                     </Link>
-                    {canOrder && (!ownerId || o.customerId === ownerId) && <ReorderButton orderId={o.id} label={`Reorder ${orderReference(o)}`} />}
+                    {canOrder && (!ownerId || o.customerId === ownerId) && (
+                      <ReorderButton orderId={o.id} label={`Reorder ${orderReference(o)}`} />
+                    )}
                   </div>
                 </td>
               </tr>

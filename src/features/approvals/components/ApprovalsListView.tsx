@@ -92,7 +92,9 @@ export async function ApprovalsListView({
                       <td className="px-3 py-3">{date(order.createdAt)}</td>
                       <td className="px-3 py-3">{nameOf(order.customerId)}</td>
                       <td className="px-3 py-3">{approval.rules.join(", ")}</td>
-                      <td className="px-3 py-3 text-right font-semibold">{formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}</td>
+                      <td className="px-3 py-3 text-right font-semibold">
+                        {formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}
+                      </td>
                       <td className="px-3 py-3">
                         {order.orderState === "Cancelled" && approval.status === "Pending" ? (
                           <StateBadge state="Cancelled" map={{ Cancelled: { label: "Order cancelled", tone: "neutral" } }} />

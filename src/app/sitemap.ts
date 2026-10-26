@@ -19,8 +19,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
   return [
     { url: `${base}/`, changeFrequency: "daily", priority: 1 },
-    ...tree.all.map((c) => ({ url: `${base}/c/${localize(c.slug)}`, lastModified: c.lastModifiedAt, changeFrequency: "weekly" as const, priority: 0.7 })),
-    ...products.map((p) => ({ url: `${base}/p/${p.slug}`, lastModified: p.lastModified, changeFrequency: "weekly" as const, priority: 0.8 })),
+    ...tree.all.map((c) => ({
+      url: `${base}/c/${localize(c.slug)}`,
+      lastModified: c.lastModifiedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...products.map((p) => ({
+      url: `${base}/p/${p.slug}`,
+      lastModified: p.lastModified,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    })),
     ...pages.filter((p) => p.active).map((p) => ({ url: `${base}/pages/${p.slug}`, changeFrequency: "monthly" as const, priority: 0.3 })),
   ];
 }

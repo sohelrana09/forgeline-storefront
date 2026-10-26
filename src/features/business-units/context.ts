@@ -2,7 +2,13 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BU_COOKIE, SESSION_COOKIE, cartCookie, getGuest, getSession, type GuestSession, type Session } from "@/features/auth/session";
-import { forgetBuyingContexts, getBuyingContexts, getConsumerContext, getGuestContext, isAssociateNow } from "@/features/business-units/service";
+import {
+  forgetBuyingContexts,
+  getBuyingContexts,
+  getConsumerContext,
+  getGuestContext,
+  isAssociateNow,
+} from "@/features/business-units/service";
 import type { BuyerContext, BuyingContext } from "@/features/business-units/types";
 
 // Business units where this customer is an associate (explicit or inherited), with their buyer flag.
@@ -11,7 +17,13 @@ export function contextsFor(all: BuyingContext[], customerId: string): BuyerCont
     // A customer can be listed twice (explicit + inherited): merge their roles and permissions.
     const self = members.filter((m) => m.customerId === customerId);
     if (self.length === 0) return [];
-    return [{ ...c, canOrder: self.some((m) => m.roles.includes("buyer")), permissions: [...new Set(self.flatMap((m) => m.permissions))] }];
+    return [
+      {
+        ...c,
+        canOrder: self.some((m) => m.roles.includes("buyer")),
+        permissions: [...new Set(self.flatMap((m) => m.permissions))],
+      },
+    ];
   });
 }
 

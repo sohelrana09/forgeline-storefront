@@ -21,10 +21,13 @@ test("public forms carry the honeypot and refuse it when filled", async ({ page 
   // A bot filling every field: refused before any account is created.
   await page.waitForTimeout(2000);
   await honeypot.evaluate((el: HTMLInputElement) => (el.value = "http://spam.example"));
-  await page.locator("form").filter({ has: honeypot }).evaluate((form: HTMLFormElement) => {
-    form.querySelectorAll("[required]").forEach((e) => e.removeAttribute("required"));
-    form.requestSubmit();
-  });
+  await page
+    .locator("form")
+    .filter({ has: honeypot })
+    .evaluate((form: HTMLFormElement) => {
+      form.querySelectorAll("[required]").forEach((e) => e.removeAttribute("required"));
+      form.requestSubmit();
+    });
   // Scoped to the form: Next.js also renders an (empty) role="alert" route announcer.
   await expect(page.locator("form").getByRole("alert")).toContainText("couldn't verify this request");
 });

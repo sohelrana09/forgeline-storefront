@@ -73,10 +73,15 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
       <section className="min-w-0 flex-[999_1_560px] rounded-md border border-gray-200 bg-white">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 px-5 py-4">
           <h2 className="m-0 text-xl font-semibold">
-            Catalog <span className="text-base font-normal text-gray-600">· {first}–{last} of {total}</span>
+            Catalog{" "}
+            <span className="text-base font-normal text-gray-600">
+              · {first}–{last} of {total}
+            </span>
           </h2>
           <span className="text-sm text-gray-600">
-            {context.guest || context.consumer ? `List prices incl. VAT · ${context.storeName}` : `Prices for ${context.businessUnitName} · ${context.storeName}`}
+            {context.guest || context.consumer
+              ? `List prices incl. VAT · ${context.storeName}`
+              : `Prices for ${context.businessUnitName} · ${context.storeName}`}
           </span>
         </div>
         <div className="relative overflow-x-auto">
@@ -101,7 +106,13 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         {image ? (
-                          <Image src={image.url} alt="" width={44} height={44} className="h-11 w-11 flex-none rounded bg-gray-100 object-contain" />
+                          <Image
+                            src={image.url}
+                            alt=""
+                            width={44}
+                            height={44}
+                            className="h-11 w-11 flex-none rounded bg-gray-100 object-contain"
+                          />
                         ) : (
                           <div aria-hidden="true" className="h-11 w-11 flex-none rounded bg-gray-200" />
                         )}
@@ -119,7 +130,14 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
                     <td className="px-5 py-3">
                       <div className="flex justify-end">
                         {variant.price && variant.sku && (
-                          <AddToCartForm sku={variant.sku} name={name} canOrder={context.canOrder} canQuote={!context.consumer} quoteOnly={quoteOnly} size="row" />
+                          <AddToCartForm
+                            sku={variant.sku}
+                            name={name}
+                            canOrder={context.canOrder}
+                            canQuote={!context.consumer}
+                            quoteOnly={quoteOnly}
+                            size="row"
+                          />
                         )}
                       </div>
                     </td>

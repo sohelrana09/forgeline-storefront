@@ -18,9 +18,7 @@ export function BuyingContextBadge({
   options: { key: string; label: string }[];
 }) {
   if (guest) {
-    return (
-      <span className="text-sm text-gray-300">Welcome to Ironline Supply</span>
-    );
+    return <span className="text-sm text-gray-300">Welcome to Ironline Supply</span>;
   }
   if (consumer) {
     return (
