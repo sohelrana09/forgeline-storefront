@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 100);
   const empty: Suggestions = { products: [], categories: [], total: 0 };
   if (q.length < 2) return json(empty);
-  if (tooManyAttempts(`suggest:${await clientIp()}`, 3000)) return json(empty, 429);
+  if (await tooManyAttempts(`suggest:${await clientIp()}`, 3000)) return json(empty, 429);
   try {
     const { context } = await currentBrowseContext();
     const r = await suggestProducts(context, q);

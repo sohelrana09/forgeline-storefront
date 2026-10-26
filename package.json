@@ -25,6 +25,8 @@
     "@commercetools/checkout-browser-sdk": "^1.7.5",
     "@commercetools/platform-sdk": "^9.7.0",
     "@commercetools/ts-client": "^5.1.1",
+    "@upstash/redis": "^1.39.0",
+    "botid": "^1.5.11",
     "next": "15.5.28",
     "react": "19.1.0",
     "react-dom": "19.1.0",

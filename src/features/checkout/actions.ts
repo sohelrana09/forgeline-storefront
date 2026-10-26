@@ -19,6 +19,7 @@ import { requireBrowseContext, requireShopContext } from "@/features/business-un
 import { getMe, withMyAddresses } from "@/features/account/service";
 import type { BuyerContext } from "@/features/business-units/types";
 import type { Order } from "@commercetools/platform-sdk";
+import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
 
 // Checkout has its own layout (route group "(checkout)"): refresh it as well as the shop pages (header cart, totals).
 function refreshPages() {
@@ -58,6 +59,7 @@ export async function chooseDelivery(_prev: DeliveryState, formData: FormData): 
 export type PlaceOrderState = { error?: string };
 
 export async function placeOrderAction(_prev: PlaceOrderState, formData: FormData): Promise<PlaceOrderState> {
+  if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const { session, context, cartId } = await requireShopContext();
   if (!cartId || !(await mayOrder(context, session.customerId))) {
     return { error: "Only buyers with an open cart can place orders." };
@@ -106,9 +108,10 @@ export type CardPaymentState = { error?: string; session?: CheckoutSession; revi
 // invoice instead. Consumers confirm their email first (an account can't order under someone else's address).
 export async function startCardPayment(_prev: CardPaymentState, formData: FormData): Promise<CardPaymentState> {
   if (!cardPaymentsEnabled()) return { error: "Card payments are not available right now." };
+  if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const { session, auth, context, cartId } = await requireBrowseContext();
   if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
-  if (tooManyAttempts(`pay:${cartId}`, 20) || tooManyAttempts(`pay-ip:${await clientIp()}`, 40)) {
+  if (await tooManyAttempts(`pay:${cartId}`, 20) || await tooManyAttempts(`pay-ip:${await clientIp()}`, 40)) {
     return { error: "Too many payment attempts. Please wait a few minutes and try again." };
   }
   if (context.consumer && session && !(await getMe(session)).isEmailVerified) {
@@ -149,7 +152,8 @@ const EMAIL = /^[^\s@"\\]{1,64}@[^\s@"\\]{1,190}\.[A-Za-z]{2,}$/;
 export async function saveGuestDetails(_prev: GuestDetailsState, formData: FormData): Promise<GuestDetailsState> {
   const { guest, context, cartId } = await requireBrowseContext();
   if (!guest || !cartId) return { error: "Your cart is no longer open." };
-  if (tooManyAttempts(`guest-details:${cartId}`, 20) || tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60)) {
+  if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
+  if (await tooManyAttempts(`guest-details:${cartId}`, 20) || await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60)) {
     return { error: "Too many changes. Please wait a few minutes and try again." };
   }
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -183,9 +187,10 @@ export type BankTransferState = { error?: string };
 // payments are off; business buyers use placeOrderAction (invoice + PO).
 export async function placeBankTransferOrderAction(_prev: BankTransferState, formData: FormData): Promise<BankTransferState> {
   if (cardPaymentsEnabled()) return { error: "Please pay by card." };
+  if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const { session, guest, auth, context, cartId } = await requireBrowseContext();
   if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
-  if (tooManyAttempts(`order:${cartId}`, 10) || tooManyAttempts(`order-ip:${await clientIp()}`, 30)) {
+  if (await tooManyAttempts(`order:${cartId}`, 10) || await tooManyAttempts(`order-ip:${await clientIp()}`, 30)) {
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
   if (context.consumer && session && !(await getMe(session)).isEmailVerified) {

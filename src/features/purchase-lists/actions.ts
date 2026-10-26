@@ -24,7 +24,7 @@ const str = (formData: FormData, key: string) => String(formData.get(key) ?? "")
 
 async function run(work: (shop: Shop) => Promise<string>): Promise<ListActionState> {
   const shop = await requireShopContext();
-  if (tooManyAttempts(`lists:${shop.session.customerId}`, 120)) return { error: "Too many changes. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`lists:${shop.session.customerId}`, 120)) return { error: "Too many changes. Please wait a few minutes and try again." };
   try {
     const saved = await work(shop);
     revalidatePath("/(shop)", "layout");
@@ -153,7 +153,7 @@ export async function deleteListAction(_prev: ListActionState, formData: FormDat
 export async function addListToCartAction(_prev: QuickOrderState, formData: FormData): Promise<QuickOrderState> {
   const fail = (reason: string): QuickOrderState => ({ added: [], errors: [{ line: 0, text: "", reason }] });
   const shop = await requireShopContext();
-  if (tooManyAttempts(`lists:cart:${shop.session.customerId}`, 60)) return fail("Too many attempts. Please wait a few minutes and try again.");
+  if (await tooManyAttempts(`lists:cart:${shop.session.customerId}`, 60)) return fail("Too many attempts. Please wait a few minutes and try again.");
   const id = str(formData, "listId");
   try {
     const list = UUID.test(id) ? await getList(shop.session, shop.context, id) : undefined;

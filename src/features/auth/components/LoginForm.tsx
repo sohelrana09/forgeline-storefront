@@ -3,11 +3,13 @@
 import { useActionState } from "react";
 import { login } from "@/features/auth/actions";
 import type { LoginState } from "@/features/auth/types";
+import { FormGuardFields } from "@/components/ui/FormGuardFields";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(login, {} as LoginState);
   return (
     <form action={action} className="flex flex-col gap-4">
+      <FormGuardFields />
       <label className="flex flex-col gap-1 text-sm font-semibold">
         Email
         <input

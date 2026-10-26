@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 
 // Sent with every response. The CSP only covers what can't break the pages (framing, plugins, <base>, form
 // targets); a script-src policy needs nonces for Next's inline scripts and the Checkout SDK hosts first.
@@ -50,4 +51,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Vercel BotID: proxies its challenge script and API through this site (Vercel routes them itself in production;
+// needed for local development and other hosts) and lets that one path be framed by this site.
+export default withBotId(nextConfig);

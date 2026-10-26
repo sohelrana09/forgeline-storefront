@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { confirmEmail, register, requestPasswordReset, resendVerification, resetPasswordAction } from "@/features/auth/actions";
 import type { ForgotPasswordState, RegisterState, ResetPasswordState } from "@/features/auth/types";
+import { FormGuardFields } from "@/components/ui/FormGuardFields";
 
 const input = "min-h-11 rounded border border-gray-300 px-3 text-base font-normal";
 const label = "flex flex-col gap-1 text-sm font-semibold";
@@ -23,6 +24,7 @@ export function RegisterForm() {
   const [state, action, pending] = useActionState(register, {} as RegisterState);
   return (
     <form action={action} className="flex flex-col gap-4">
+      <FormGuardFields />
       <div className="grid grid-cols-2 gap-3">
         <label className={label}>
           First name
@@ -74,6 +76,7 @@ export function ForgotPasswordForm() {
   }
   return (
     <form action={action} className="flex flex-col gap-4">
+      <FormGuardFields />
       <label className={label}>
         Email
         <input name="email" type="email" required maxLength={254} autoComplete="email" className={input} />
@@ -90,6 +93,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState(resetPasswordAction, {} as ResetPasswordState);
   return (
     <form action={action} className="flex flex-col gap-4">
+      <FormGuardFields />
       <input type="hidden" name="token" value={token} />
       <label className={label}>
         New password

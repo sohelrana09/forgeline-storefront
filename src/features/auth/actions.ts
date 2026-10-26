@@ -8,6 +8,7 @@ import { customerApiRoot } from "@/lib/commercetools/client";
 import { requestCustomerToken, revokeToken, signUpCustomer } from "@/lib/commercetools/customer-token";
 import { clientIp, isLimited, recordFailure, tooManyAttempts } from "@/lib/rate-limit";
 import { after } from "next/server";
+import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
 import {
   BU_COOKIE,
   GUEST_COOKIE,
@@ -31,6 +32,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return { error: "Enter your email and password.", email };
+  if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE, email };
 
   // Only failed attempts count, so colleagues behind one office address can all sign in. The tight limit is per
   // address AND email: a stranger guessing a buyer's password can't lock the buyer out from elsewhere.
@@ -38,12 +40,12 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   // would lock out everybody.
   const ip = await clientIp();
   const keys = [`login:${ip}:${email}`, `login-email:${email}`, ...(ip === "no-proxy" ? [] : [`login-ip:${ip}`])];
-  if (isLimited(keys[0], 10) || isLimited(keys[1], 50) || (keys[2] !== undefined && isLimited(keys[2], 100))) {
+  if (await isLimited(keys[0], 10) || await isLimited(keys[1], 50) || (keys[2] !== undefined && await isLimited(keys[2], 100))) {
     return { error: "Too many attempts. Please wait a few minutes and try again.", email };
   }
   const result = await signIn(email, password);
   if ("error" in result) {
-    keys.forEach(recordFailure);
+    await Promise.all(keys.map(recordFailure));
     return { ...result, email };
   }
   redirect(await mergeGuestCartOnLogin(result));
@@ -82,6 +84,7 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const values = { firstName, lastName, email };
+  if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE, values };
   if (!NAME_PATTERN.test(firstName) || !/\p{L}/u.test(firstName) || !NAME_PATTERN.test(lastName) || !/\p{L}/u.test(lastName)) {
     return { error: "Enter your first and last name.", values };
   }
@@ -89,7 +92,7 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
   if (!strongEnough(password)) return { error: PASSWORD_RULE, values };
   if (password !== String(formData.get("confirmPassword") ?? "")) return { error: "The passwords don't match.", values };
   if (formData.get("terms") !== "on") return { error: "Please accept the terms of sale.", values };
-  if (tooManyAttempts(`signup:${await ipKey()}`, 5)) return { error: "Too many sign-ups from your network. Please try again later.", values };
+  if (await tooManyAttempts(`signup:${await ipKey()}`, 5)) return { error: "Too many sign-ups from your network. Please try again later.", values };
 
   const created = await signUpCustomer({ email, password, firstName, lastName });
   if (!created.ok) {
@@ -111,9 +114,11 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
 export async function requestPasswordReset(_prev: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!EMAIL.test(email)) return { error: "Enter a valid email address." };
+  // A bot gets the usual answer, so it can't tell it was spotted, but no email is sent.
+  if (await isAutomated(formData)) return { sent: true };
   // Own counters (not the sign-in ones, so reset requests can't lock someone out of signing in), and the lookup
   // and email run after the response, so its timing doesn't tell whether the account exists.
-  if (!tooManyAttempts(`reset-ip:${await clientIp()}`) && !tooManyAttempts(`reset:${email}`, 3)) {
+  if (!await tooManyAttempts(`reset-ip:${await clientIp()}`) && !await tooManyAttempts(`reset:${email}`, 3)) {
     after(() => startPasswordReset(email).catch((err) => console.error("password reset failed", (err as { body?: unknown })?.body ?? err)));
   }
   return { sent: true };
@@ -126,7 +131,8 @@ export async function resetPasswordAction(_prev: ResetPasswordState, formData: F
   if (!/^[A-Za-z0-9_-]{10,200}$/.test(token)) return { error: "This reset link is not valid. Request a new one." };
   if (!strongEnough(password)) return { error: PASSWORD_RULE };
   if (password !== String(formData.get("confirmPassword") ?? "")) return { error: "The passwords don't match." };
-  if (tooManyAttempts(`resetpw-${await ipKey()}`)) return { error: "Too many attempts. Please wait a few minutes and try again." };
+  if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
+  if (await tooManyAttempts(`resetpw-${await ipKey()}`)) return { error: "Too many attempts. Please wait a few minutes and try again." };
   const result = await resetPassword(token, password).catch((err) => {
     console.error("password reset failed", (err as { body?: unknown })?.body ?? err);
     return "error" as const;
@@ -171,7 +177,7 @@ export async function logout() {
 // Public endpoint: confirms the email address with the token from the verification link (a button, not the GET).
 export async function confirmEmail(formData: FormData) {
   const token = String(formData.get("token") ?? "");
-  const ok = /^[A-Za-z0-9_-]{10,200}$/.test(token) && !tooManyAttempts(`verify-${await ipKey()}`) && (await verifyEmail(token).catch(() => false));
+  const ok = /^[A-Za-z0-9_-]{10,200}$/.test(token) && !await tooManyAttempts(`verify-${await ipKey()}`) && (await verifyEmail(token).catch(() => false));
   redirect(`/account?email=${ok ? "verified" : "invalid"}`);
 }
 
@@ -179,7 +185,7 @@ export async function confirmEmail(formData: FormData) {
 export async function resendVerification(): Promise<{ sent?: boolean; error?: string }> {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (tooManyAttempts(`verify:${session.customerId}`, 3)) return { error: "We already sent a few links. Please check your inbox." };
+  if (await tooManyAttempts(`verify:${session.customerId}`, 3)) return { error: "We already sent a few links. Please check your inbox." };
   await sendEmailVerification(session.customerId, session.email).catch((err) => console.error("verification email failed", err?.body ?? err));
   return { sent: true };
 }

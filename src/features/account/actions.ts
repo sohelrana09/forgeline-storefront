@@ -15,7 +15,7 @@ export async function updateAccountInformation(_prev: AccountInfoState, formData
   const { session } = await requireShopContext();
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
-  if (tooManyAttempts(`profile:${session.customerId}`, 20)) return { error: "Too many changes. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`profile:${session.customerId}`, 20)) return { error: "Too many changes. Please wait a few minutes and try again." };
   if (![firstName, lastName].every((n) => NAME_PATTERN.test(n) && /\p{L}/u.test(n))) {
     return { error: "Enter a first and last name (letters, spaces, apostrophes, dots and hyphens; up to 60 characters)." };
   }
@@ -41,7 +41,7 @@ const ADDRESS_ID = /^[A-Za-z0-9_-]{1,64}$/;
 // Public endpoint: add or edit one of the signed-in customer's own addresses (the address book used at checkout).
 export async function saveAddress(_prev: AddressFormState, formData: FormData): Promise<AddressFormState> {
   const { session } = await requireShopContext();
-  if (tooManyAttempts(`address:${session.customerId}`, 30)) return { error: "Too many changes. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`address:${session.customerId}`, 30)) return { error: "Too many changes. Please wait a few minutes and try again." };
   const id = field(formData, "id");
   if (id && !ADDRESS_ID.test(id)) return { error: "Unknown address." };
   const parsed = parseAddress(formData, CONSUMER_COUNTRIES);
@@ -65,7 +65,7 @@ export async function saveAddress(_prev: AddressFormState, formData: FormData): 
 export async function deleteAddress(formData: FormData) {
   const { session } = await requireShopContext();
   const id = field(formData, "id");
-  if (!ADDRESS_ID.test(id) || tooManyAttempts(`address:${session.customerId}`, 30)) return;
+  if (!ADDRESS_ID.test(id) || await tooManyAttempts(`address:${session.customerId}`, 30)) return;
   try {
     await removeMyAddress(session, id);
   } catch (err) {

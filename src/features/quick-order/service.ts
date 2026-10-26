@@ -49,7 +49,7 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     } else {
       // A guest's first line creates their anonymous token; the cart id travels in the sealed guest cookie.
       // Each new guest is a token and a cart in the project: throttle per IP so a cookie-less script can't pile them up.
-      if (!current.guest && tooManyAttempts(`guest-cart:${await clientIp()}`, 30)) {
+      if (!current.guest && await tooManyAttempts(`guest-cart:${await clientIp()}`, 30)) {
         return fail("Too many new carts from your network. Please wait a few minutes and try again.", input);
       }
       const guest = current.guest ?? (await requestAnonymousToken(guestScopes(context.storeKey)));

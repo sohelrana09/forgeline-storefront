@@ -19,7 +19,7 @@ const roles = (formData: FormData) => formData.getAll("roles").map(String).slice
 
 async function run(work: (ctx: Awaited<ReturnType<typeof requireBusinessContext>>) => Promise<void>, saved: string): Promise<CompanyActionState> {
   const current = await requireBusinessContext();
-  if (tooManyAttempts(`company:${current.session.customerId}`, 30)) return { error: "Too many changes. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`company:${current.session.customerId}`, 30)) return { error: "Too many changes. Please wait a few minutes and try again." };
   try {
     await work(current);
   } catch (err) {
@@ -45,7 +45,7 @@ export async function addUser(_prev: CompanyActionState, formData: FormData): Pr
   if (!EMAIL_PATTERN.test(email)) return { error: "Enter the user's email address." };
   // Not the same person over and over (each invitation is an email to them).
   const { context } = await requireBusinessContext();
-  if (tooManyAttempts(`invite-send:${context.businessUnitKey}:${email.toLowerCase()}`, 3)) {
+  if (await tooManyAttempts(`invite-send:${context.businessUnitKey}:${email.toLowerCase()}`, 3)) {
     return { error: `${email} was invited a few times already. Please wait a while before sending another invitation.` };
   }
   return run(
@@ -59,7 +59,7 @@ export async function acceptInvitationAction(_prev: CompanyActionState, formData
   const code = str(formData, "code");
   if (!INVITE_CODE.test(code)) return { error: "This invitation link is not valid." };
   const { session } = await requireShopContext();
-  if (tooManyAttempts(`invite:${session.customerId}`, 20)) return { error: "Too many attempts. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`invite:${session.customerId}`, 20)) return { error: "Too many attempts. Please wait a few minutes and try again." };
   try {
     await acceptInvitation(code, session.customerId);
   } catch (err) {

@@ -8,7 +8,7 @@ import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import { keepFields, MethodTable } from "@/features/checkout/components/CheckoutForm";
 import { useReportBusy } from "@/features/checkout/components/CheckoutStatus";
 import type { MethodOption } from "@/features/checkout/utils";
-
+import { FormGuardFields } from "@/components/ui/FormGuardFields";
 
 // Guest checkout steps 1 and 2: email and shipping address (also used for billing), then the shipping method,
 // saved together on the guest's cart.
@@ -34,6 +34,7 @@ export function GuestDetailsForm({
   useReportBusy("guest-details", pending || dirty);
   return (
     <form action={action} onSubmit={keepFields(action)} onChange={() => setDirty(true)} className="flex flex-col gap-6">
+      <FormGuardFields />
       <CheckoutStep step={1} title="Shipping address">
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Email address

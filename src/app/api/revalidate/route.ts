@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     : await merchantCenterUser(authorization, `${siteUrl()}/api/revalidate`).then((user) => user && `mc:${user}`);
   if (!caller) {
     // Throttle guessing; authorized callers aren't counted.
-    if (tooManyAttempts(`revalidate:${await clientIp()}`, 20)) return NextResponse.json({ error: "too many attempts" }, { status: 429 });
+    if (await tooManyAttempts(`revalidate:${await clientIp()}`, 20)) return NextResponse.json({ error: "too many attempts" }, { status: 429 });
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -13,7 +13,7 @@ import type { ApprovalActionState } from "@/features/approvals/types";
 
 export async function decideApprovalAction(_prev: ApprovalActionState, formData: FormData): Promise<ApprovalActionState> {
   const { session, context } = await requireBusinessContext();
-  if (tooManyAttempts(`approval:${session.customerId}`, 60)) return { error: "Too many decisions. Please wait a few minutes and try again." };
+  if (await tooManyAttempts(`approval:${session.customerId}`, 60)) return { error: "Too many decisions. Please wait a few minutes and try again." };
   const flowId = String(formData.get("flowId") ?? "");
   const version = Number(formData.get("version"));
   const decision = formData.get("decision");
