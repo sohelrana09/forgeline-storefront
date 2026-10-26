@@ -176,6 +176,8 @@ Store prices: the sample stores have no countries set, so the mapping from store
 | `npm run dev` | Development server on port 3000. |
 | `npm run build` / `npm start` | Production build (also type-checks) and server. |
 | `npm run typecheck` / `npm run lint` | Quality gates. |
+| `npm test` | Unit tests (Vitest). |
+| `npm run test:e2e` | Browser tests (Playwright) as a guest; read-only. Run `npx playwright install chromium` once. |
 | `npm run ct:hello` | Smoke test: credentials, project, first products and business units. |
 | `npm run ct:contexts` | Prints each business unit's store, channel and currency. |
 | `npm run -s ct:query -- <path> [where] [limit]` | Read-only API query, handy with `jq`. |
