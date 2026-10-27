@@ -14,10 +14,12 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Node 24 ships npm 11, the npm that writes package-lock.json locally: npm 10 reads optional peer
+          # dependencies differently and rejects the lock file ("Missing: typescript@7 from lock file").
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run typecheck
