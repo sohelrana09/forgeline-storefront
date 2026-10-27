@@ -13,6 +13,7 @@ import { updateCartLine } from "@/features/cart/actions";
 import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
 import { categoryPath } from "@/lib/urls";
+import { Message } from "@/components/ui/Message";
 
 // After sign-in, the guest cart's lines were added here: ?merged=<count>&skipped=<skus not sold to this unit>.
 type MergeNotice = { merged?: string; skipped?: string };
@@ -22,7 +23,7 @@ function MergeBanner({ merge, context }: { merge: MergeNotice; context: BuyerCon
   const skipped = (merge.skipped ?? "").split(",").filter((s) => /^[A-Za-z0-9._-]+$/.test(s));
   if (!(merged > 0) && skipped.length === 0) return null;
   return (
-    <div role="status" className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-950">
+    <Message type="success">
       {merged > 0 && (
         <p className="m-0">
           {merged === 1 ? "1 line" : `${merged} lines`} from your guest cart {merged === 1 ? "was" : "were"} added to your{" "}
@@ -35,7 +36,7 @@ function MergeBanner({ merge, context }: { merge: MergeNotice; context: BuyerCon
           <span className="font-mono">{skipped.join(", ")}</span>
         </p>
       )}
-    </div>
+    </Message>
   );
 }
 
@@ -188,10 +189,10 @@ export async function CartView({
             </>
           ) : context.consumer && quoteLines.length > 0 ? (
             // Consumers can't request quotes: machines must leave the cart before checkout.
-            <p role="alert" className="m-0 rounded-md border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950">
+            <Message type="warning">
               {quoteLines.length === 1 ? "One item is" : `${quoteLines.length} items are`} sold to business customers on quote. Remove{" "}
               {quoteLines.length === 1 ? "it" : "them"} to check out.
-            </p>
+            </Message>
           ) : !context.canOrder ? (
             <p className="m-0 text-sm text-gray-600">Only associates with the buyer role can check out or request quotes.</p>
           ) : quoteLines.length > 0 ? (

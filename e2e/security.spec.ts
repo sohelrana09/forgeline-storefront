@@ -28,8 +28,8 @@ test("public forms carry the honeypot and refuse it when filled", async ({ page 
       form.querySelectorAll("[required]").forEach((e) => e.removeAttribute("required"));
       form.requestSubmit();
     });
-  // Scoped to the form: Next.js also renders an (empty) role="alert" route announcer.
-  await expect(page.locator("form").getByRole("alert")).toContainText("couldn't verify this request");
+  // Filtered by text: Next.js also renders an empty role="alert" route announcer.
+  await expect(page.getByRole("alert").filter({ hasText: "couldn't verify this request" })).toBeVisible();
 });
 
 test("checkout and account pages send guests to sign in", async ({ page }) => {

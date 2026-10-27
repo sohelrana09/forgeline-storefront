@@ -6,6 +6,7 @@ import { chooseDelivery, placeOrderAction, type DeliveryState, type PlaceOrderSt
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import type { MethodOption } from "@/features/checkout/utils";
 import { useCheckoutBusy, useReportBusy } from "@/features/checkout/components/CheckoutStatus";
+import { FormMessage } from "@/components/ui/PageMessages";
 
 type AddressOption = { key: string; label: string };
 
@@ -62,11 +63,7 @@ export function DeliveryForm({
         <MethodTable methods={methods} methodKey={methodKey} onChange={submitOnChange} />
       </CheckoutStep>
       <SavingNote pending={pending} />
-      {state.error && (
-        <p role="alert" className="m-0 -mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
       <noscript>
         <button className="min-h-11 rounded border border-gray-300 px-4">Save shipping</button>
       </noscript>
@@ -148,11 +145,7 @@ export function PlaceOrderForm({
           className="min-h-11 rounded border border-gray-300 px-3 font-normal"
         />
       </label>
-      {state.error && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
       <PlaceOrderButton pending={pending} ready={ready} />
     </form>
   );

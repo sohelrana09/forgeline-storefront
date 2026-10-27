@@ -8,6 +8,7 @@ import { AddressBlock } from "@/features/account/components/AddressBlock";
 import { Panel, PanelBox } from "@/features/account/components/Panel";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { Message } from "@/components/ui/Message";
 
 // "My Account" dashboard: account information, address book, recent orders, plus quotes waiting for a decision.
 export async function AccountDashboardView({
@@ -36,33 +37,25 @@ export async function AccountDashboardView({
       <h1 className="m-0 text-2xl font-bold">My account</h1>
 
       {joined && (
-        <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+        <Message type="success">
           You joined the company. Choose it in the company switcher at the top of the page to buy at its prices.
-        </p>
+        </Message>
       )}
-      {emailNotice === "verified" && (
-        <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          Thank you. Your email address is confirmed.
-        </p>
-      )}
-      {emailNotice === "invalid" && (
-        <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          That confirmation link has expired or was already used.
-        </p>
-      )}
+      {emailNotice === "verified" && <Message type="success">Thank you. Your email address is confirmed.</Message>}
+      {emailNotice === "invalid" && <Message type="warning">That confirmation link has expired or was already used.</Message>}
       {!emailNotice && !me.isEmailVerified && (
-        <p className="m-0 rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-700">
+        <Message type="warning">
           Please confirm your email address with the link we sent to {me.email}. <ResendVerificationButton />
-        </p>
+        </Message>
       )}
 
       {awaiting > 0 && (
-        <p role="status" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <Message type="warning">
           {awaiting === 1 ? "1 quote is" : `${awaiting} quotes are`} waiting for your decision.{" "}
           <Link href="/account/quotes" className="font-semibold text-amber-950">
             View quotes
           </Link>
-        </p>
+        </Message>
       )}
 
       <Panel title="Account information">

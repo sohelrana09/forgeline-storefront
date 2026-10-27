@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/features/auth/session";
 import { AuthShell } from "@/features/auth/components/AuthShell";
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { Message } from "@/components/ui/Message";
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +30,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     >
       <h2 className="mb-1 mt-0 text-lg font-semibold">Registered customers</h2>
       <p className="mb-4 mt-0 text-sm text-gray-600">If you have an account, sign in with your email address.</p>
-      {reset === "1" && (
-        <p role="status" className="mb-4 mt-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          Your password was changed. Sign in with the new password.
-        </p>
-      )}
+      {reset === "1" && <Message type="success">Your password was changed. Sign in with the new password.</Message>}
       <LoginForm />
       <p className="mb-0 mt-4 text-sm">
         <Link href="/forgot-password" className="text-orange-800">

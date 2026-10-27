@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { getInvitation } from "@/features/company/service";
 import { AcceptInvitationForm } from "@/features/company/components/CompanyForms";
 import type { Session } from "@/features/auth/session";
+import { Message } from "@/components/ui/Message";
 
 // An invitation to join a company (sent from the company's Users page). Only the invited account sees its details.
 export async function InvitationView({ session, code }: { session: Session; code: string }) {
@@ -22,12 +23,12 @@ export async function InvitationView({ session, code }: { session: Session; code
           <AcceptInvitationForm code={code} />
         </section>
       ) : (
-        <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <Message type="warning">
           This invitation has expired, was already used, or is for another account. You are signed in as {session.email}.{" "}
           <Link href="/account" className="font-semibold text-amber-950">
             Go to my account
           </Link>
-        </p>
+        </Message>
       )}
     </div>
   );

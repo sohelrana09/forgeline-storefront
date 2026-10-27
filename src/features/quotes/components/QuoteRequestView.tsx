@@ -10,6 +10,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { CancelRequestForm } from "@/features/quotes/components/QuoteForms";
 import { LineItemsList } from "@/features/quotes/components/LineItemsList";
 import { StateBadge } from "@/components/ui/StateBadge";
+import { Message } from "@/components/ui/Message";
 
 export async function QuoteRequestView({ session, context, id }: { session: Session; context: BuyerContext; id: string }) {
   const request = await getMyQuoteRequest(session, context, id);
@@ -26,11 +27,7 @@ export async function QuoteRequestView({ session, context, id }: { session: Sess
           { label: `Request ${shortRef(request)}` },
         ]}
       />
-      {justSent && (
-        <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-green-900">
-          Your quote request was sent. Our sales team will reply with a quote here.
-        </p>
-      )}
+      {justSent && <Message type="success">Your quote request was sent. Our sales team will reply with a quote here.</Message>}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="m-0 text-2xl font-bold">Quote request {shortRef(request)}</h1>
         <StateBadge state={request.quoteRequestState} map={QUOTE_REQUEST_STATES} />

@@ -6,6 +6,7 @@ import { addQuickOrderToListAction } from "@/features/purchase-lists/actions";
 import { ListResult, ListTargetFields } from "@/features/purchase-lists/components/AddToListForm";
 import type { ListActionState } from "@/features/purchase-lists/types";
 import type { QuickOrderState } from "@/features/quick-order/types";
+import { Message } from "@/components/ui/Message";
 
 const initial: QuickOrderState = { added: [], errors: [] };
 
@@ -66,7 +67,7 @@ export function QuickOrderForm({ lists }: { lists?: { id: string; name: string }
 
       <div id="qo-result" aria-live="polite" className="flex flex-col gap-2 text-sm">
         {lineCount > 0 && (
-          <div className="rounded border border-green-200 bg-green-50 p-3 text-green-900">
+          <Message type="success">
             Added {lineCount} {lineCount === 1 ? "line" : "lines"} to the cart:
             <ul className="m-0 mt-1 list-none p-0">
               {state.added.map((l) => (
@@ -75,10 +76,10 @@ export function QuickOrderForm({ lists }: { lists?: { id: string; name: string }
                 </li>
               ))}
             </ul>
-          </div>
+          </Message>
         )}
         {state.errors.length > 0 && (
-          <div className="rounded border border-red-200 bg-red-50 p-3 text-red-900">
+          <Message type="error">
             <strong>Not added:</strong>
             <ul className="m-0 mt-1 list-none p-0">
               {state.errors.map((e, i) => (
@@ -88,7 +89,7 @@ export function QuickOrderForm({ lists }: { lists?: { id: string; name: string }
                 </li>
               ))}
             </ul>
-          </div>
+          </Message>
         )}
       </div>
     </form>

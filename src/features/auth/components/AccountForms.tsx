@@ -5,19 +5,12 @@ import { useActionState } from "react";
 import { confirmEmail, register, requestPasswordReset, resendVerification, resetPasswordAction } from "@/features/auth/actions";
 import type { ForgotPasswordState, RegisterState, ResetPasswordState } from "@/features/auth/types";
 import { FormGuardFields } from "@/components/ui/FormGuardFields";
+import { FormMessage } from "@/components/ui/PageMessages";
 import { pagePath } from "@/lib/urls";
 
 const input = "min-h-11 rounded border border-gray-300 px-3 text-base font-normal";
 const label = "flex flex-col gap-1 text-sm font-semibold";
 const button = "min-h-11 rounded bg-orange-700 px-4 text-sm font-semibold text-white disabled:opacity-60";
-
-function Alert({ error }: { error?: string }) {
-  return error ? (
-    <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-      {error}
-    </p>
-  ) : null;
-}
 
 const passwordHint = <span className="text-xs font-normal text-gray-600">8 to 128 characters, with a letter and a number.</span>;
 
@@ -88,7 +81,7 @@ export function RegisterForm() {
           </Link>
         </span>
       </label>
-      <Alert error={state.error} />
+      <FormMessage state={state} error={state.error} />
       <button disabled={pending} className={button}>
         {pending ? "Creating account…" : "Create account"}
       </button>
@@ -98,13 +91,6 @@ export function RegisterForm() {
 
 export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState(requestPasswordReset, {} as ForgotPasswordState);
-  if (state.sent) {
-    return (
-      <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-        If an account exists for that email, we sent a link to reset the password. It works for 30 minutes.
-      </p>
-    );
-  }
   return (
     <form action={action} className="flex flex-col gap-4">
       <FormGuardFields />
@@ -112,7 +98,13 @@ export function ForgotPasswordForm() {
         Email
         <input name="email" type="email" required maxLength={254} autoComplete="email" className={input} />
       </label>
-      <Alert error={state.error} />
+      <FormMessage
+        state={state}
+        error={state.error}
+        success={
+          state.sent ? "If an account exists for that email, we sent a link to reset the password. It works for 30 minutes." : undefined
+        }
+      />
       <button disabled={pending} className={button}>
         {pending ? "Sending…" : "Send reset link"}
       </button>
@@ -143,7 +135,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           className={input}
         />
       </label>
-      <Alert error={state.error} />
+      <FormMessage state={state} error={state.error} />
       <button disabled={pending} className={button}>
         {pending ? "Saving…" : "Set new password"}
       </button>
@@ -163,10 +155,9 @@ export function VerifyEmailForm({ token }: { token: string }) {
 
 export function ResendVerificationButton() {
   const [state, action, pending] = useActionState(resendVerification, {} as { sent?: boolean; error?: string });
-  if (state.sent) return <span className="text-sm text-green-900">We sent a new link. Please check your inbox.</span>;
   return (
     <form action={action} className="inline">
-      {state.error && <span className="mr-2 text-sm text-red-900">{state.error}</span>}
+      <FormMessage state={state} error={state.error} success={state.sent ? "We sent a new link. Please check your inbox." : undefined} />
       <button disabled={pending} className="min-h-11 px-1 text-sm text-orange-800 underline underline-offset-2 disabled:opacity-60">
         {pending ? "Sending…" : "Send a new confirmation link"}
       </button>

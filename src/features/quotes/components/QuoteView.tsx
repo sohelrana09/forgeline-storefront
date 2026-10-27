@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { LineItemsList } from "@/features/quotes/components/LineItemsList";
 import { QuoteDecisionForms } from "@/features/quotes/components/QuoteForms";
 import { StateBadge } from "@/components/ui/StateBadge";
+import { Message } from "@/components/ui/Message";
 
 export async function QuoteView({ session, context, id }: { session: Session; context: BuyerContext; id: string }) {
   const quote = await getMyQuote(session, context, id);
@@ -59,9 +60,7 @@ export async function QuoteView({ session, context, id }: { session: Session; co
           {isActionable(quote) && context.canOrder ? (
             <QuoteDecisionForms id={quote.id} version={quote.version} />
           ) : quote.quoteState === "Pending" && expired ? (
-            <p className="m-0 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              This quote has expired. Request a new quote from your cart.
-            </p>
+            <Message type="warning">This quote has expired. Request a new quote from your cart.</Message>
           ) : null}
         </div>
       </div>

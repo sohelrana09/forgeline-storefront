@@ -8,6 +8,7 @@ import { CartSummary } from "@/features/cart/components/CartSummary";
 import { AddressBlock } from "@/features/account/components/AddressBlock";
 import type { GuestSession } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { Message } from "@/components/ui/Message";
 
 // A guest's order confirmation, read with their own anonymous token (only orders from that guest session exist
 // for it). Guests have no order history: this page and the confirmation email are their record.
@@ -44,10 +45,10 @@ export async function GuestOrderConfirmation({
         </p>
       </div>
       {totalChanged && (
-        <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <Message type="warning">
           Your cart changed while you were paying, so this order&apos;s total differs from the one you reviewed. Please check the items, and
           contact us if something isn&apos;t right.
-        </p>
+        </Message>
       )}
       <div className="flex flex-wrap items-start gap-6">
         <section aria-label="Items" className="min-w-0 flex-[999_1_480px] rounded-md border border-gray-200 bg-white">

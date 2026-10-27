@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { FormMessage } from "@/components/ui/PageMessages";
 import { requestQuote } from "@/features/quotes/actions";
 import type { QuoteActionState } from "@/features/quotes/types";
 import { COMMENT_MAX } from "@/features/quotes/utils";
@@ -22,11 +23,7 @@ export function RequestQuoteForm({ cartVersion, primary }: { cartVersion: number
           className="rounded border border-gray-300 p-2.5 font-normal"
         />
       </label>
-      {state.error && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
       <button
         disabled={pending}
         className={`min-h-11 rounded px-5 font-semibold disabled:opacity-60 ${

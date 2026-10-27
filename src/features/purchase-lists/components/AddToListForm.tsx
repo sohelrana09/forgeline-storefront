@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { FormMessage } from "@/components/ui/PageMessages";
 import { useActionState, useState } from "react";
 import { addProductToListAction, saveCartToListAction } from "@/features/purchase-lists/actions";
 import { MAX_QUANTITY } from "@/features/purchase-lists/utils";
@@ -58,21 +58,13 @@ export function ListTargetFields({
 }
 
 export function ListResult({ state }: { state: ListActionState }) {
-  if (state.error) {
-    return (
-      <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-        {state.error}
-      </p>
-    );
-  }
-  if (!state.saved) return null;
   return (
-    <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-      {state.saved}{" "}
-      <Link href="/account/purchase-lists" className="font-semibold text-green-900">
-        View purchase lists
-      </Link>
-    </p>
+    <FormMessage
+      state={state}
+      error={state.error}
+      success={state.saved}
+      link={{ href: "/account/purchase-lists", label: "View purchase lists" }}
+    />
   );
 }
 

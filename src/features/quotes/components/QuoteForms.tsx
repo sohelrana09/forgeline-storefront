@@ -4,23 +4,18 @@ import { useActionState } from "react";
 import { acceptAndOrder, cancelRequest, decline, renegotiate } from "@/features/quotes/actions";
 import type { QuoteActionState } from "@/features/quotes/types";
 import { COMMENT_MAX } from "@/features/quotes/utils";
+import { FormMessage } from "@/components/ui/PageMessages";
 
 const initial: QuoteActionState = {};
 
-function ErrorNote({ error }: { error?: string }) {
-  return error ? (
-    <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-      {error}
-    </p>
-  ) : null;
-}
+const ErrorNote = ({ state }: { state: QuoteActionState }) => <FormMessage state={state} error={state.error} />;
 
 export function CancelRequestForm({ id }: { id: string }) {
   const [state, action, pending] = useActionState(cancelRequest, initial);
   return (
     <form action={action} className="flex flex-col gap-2">
       <input type="hidden" name="id" value={id} />
-      <ErrorNote error={state.error} />
+      <ErrorNote state={state} />
       <button
         disabled={pending}
         className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
@@ -54,7 +49,7 @@ export function QuoteDecisionForms({ id, version }: { id: string; version: numbe
             className="min-h-11 rounded border border-gray-300 bg-white px-3 font-normal"
           />
         </label>
-        <ErrorNote error={orderState.error} />
+        <ErrorNote state={orderState} />
         <button
           disabled={busy}
           className="min-h-12 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
@@ -78,7 +73,7 @@ export function QuoteDecisionForms({ id, version }: { id: string; version: numbe
               className="rounded border border-gray-300 p-2.5 font-normal"
             />
           </label>
-          <ErrorNote error={renegotiateState.error} />
+          <ErrorNote state={renegotiateState} />
           <button
             disabled={busy}
             className="min-h-11 rounded border border-orange-700 bg-white px-5 font-semibold text-orange-800 hover:bg-orange-50 disabled:opacity-60"
@@ -91,7 +86,7 @@ export function QuoteDecisionForms({ id, version }: { id: string; version: numbe
       <form action={declineAction} className="flex flex-col gap-2">
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="version" value={version} />
-        <ErrorNote error={declineState.error} />
+        <ErrorNote state={declineState} />
         <button
           disabled={busy}
           className="min-h-11 rounded px-5 text-sm font-semibold text-red-800 underline underline-offset-2 disabled:opacity-60"

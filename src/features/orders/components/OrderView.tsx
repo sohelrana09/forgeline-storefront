@@ -16,6 +16,7 @@ import { APPROVAL_STATES } from "@/features/approvals/utils";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
+import { Message } from "@/components/ui/Message";
 
 // Order view: status and actions, items ordered, totals, then order information (addresses,
 // shipping method, payment method). Right after checkout it doubles as the confirmation page.
@@ -59,31 +60,31 @@ export async function OrderView({
         items={[{ label: "My account", href: "/account" }, { label: "My orders", href: "/account/orders" }, { label: `Order ${ref}` }]}
       />
       {poFailed && !order.purchaseOrderNumber && (
-        <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-900">
+        <Message type="warning">
           Your order was placed, but the PO number couldn&apos;t be saved. Please send it to our sales team with the order reference.
-        </p>
+        </Message>
       )}
       {totalChanged && (
-        <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <Message type="warning">
           Your cart changed while you were paying, so this order&apos;s total differs from the one you reviewed. Please check the items
           below, and contact us if something isn&apos;t right.
-        </p>
+        </Message>
       )}
       {reorderFailed && (
-        <p role="alert" className="m-0 rounded-md border border-red-200 bg-red-50 p-4 text-red-900">
+        <Message type="error">
           None of this order&apos;s products could be added to your cart. They may no longer be sold to {context.businessUnitName}.
-        </p>
+        </Message>
       )}
       {isNew && mine && approval?.status === "Pending" ? (
-        <p role="status" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <Message type="warning">
           Thank you. Your order {ref} needs approval before it is processed ({approval.rules.join(", ")}). We&apos;ll email you when it has
           been approved or rejected.
-        </p>
+        </Message>
       ) : (
         isNew && (
-          <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-green-900">
+          <Message type="success">
             Thank you. Your order {ref} has been placed{context.consumer ? "" : ` for ${context.businessUnitName}`}.
-          </p>
+          </Message>
         )
       )}
 

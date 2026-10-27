@@ -7,6 +7,7 @@ import { listApprovalRules } from "@/features/company/approval-rules";
 import { can, roleLabel } from "@/features/company/utils";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { Message } from "@/components/ui/Message";
 
 const STATUS = {
   Active: { label: "Active", tone: "success" as const },
@@ -46,11 +47,7 @@ export async function ApprovalRulesView({ session, context, saved }: { session: 
           </Link>
         )}
       </div>
-      {saved && (
-        <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          You saved the approval rule.
-        </p>
-      )}
+      {saved && <Message type="success">You saved the approval rule.</Message>}
       <section aria-label="Approval rules" className="rounded-md border border-gray-200 bg-white">
         {list.length === 0 ? (
           <p className="m-0 p-5 text-sm text-gray-600">No approval rules yet: every order is processed right away.</p>

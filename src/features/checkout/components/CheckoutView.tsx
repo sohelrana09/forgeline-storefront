@@ -14,6 +14,7 @@ import { CheckoutStatusProvider } from "@/features/checkout/components/CheckoutS
 import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { Message } from "@/components/ui/Message";
 
 // One-step checkout for signed-in customers: 1 Shipping address, 2 Shipping methods,
 // 3 Payment method with Place order, and the order summary beside them.
@@ -94,10 +95,10 @@ export async function CheckoutView({
               />
             )}
             {!emailOk && me && (
-              <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <Message type="warning">
                 <p className="m-0">Please confirm your email address ({me.email}) before placing your order.</p>
                 <ResendVerificationButton />
-              </div>
+              </Message>
             )}
             <PaymentStep
               kind={context.consumer ? (cardPaymentsEnabled() ? "card" : "bank-transfer") : "invoice"}

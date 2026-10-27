@@ -8,6 +8,7 @@ import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import { keepFields, MethodTable } from "@/features/checkout/components/CheckoutForm";
 import { useReportBusy } from "@/features/checkout/components/CheckoutStatus";
 import type { MethodOption } from "@/features/checkout/utils";
+import { FormMessage } from "@/components/ui/PageMessages";
 import { FormGuardFields } from "@/components/ui/FormGuardFields";
 
 // Guest checkout steps 1 and 2: email and shipping address (also used for billing), then the shipping method,
@@ -62,17 +63,12 @@ export function GuestDetailsForm({
       <CheckoutStep step={2} title="Shipping methods">
         {/* Rates depend on the country: they are listed for the saved address (or the first country until then). */}
         <MethodTable methods={methods} methodKey={methodKey} required />
-        {state.error && (
-          <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-            {state.error}
-          </p>
-        )}
+        <FormMessage
+          state={state}
+          error={state.error}
+          success={state.saved ? "Saved. Check the order summary, then place your order below." : undefined}
+        />
         {dirty && !pending && <p className="m-0 text-sm text-orange-900">Save your changes before placing the order.</p>}
-        {state.saved && !dirty && (
-          <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-            Saved. Check the order summary, then place your order below.
-          </p>
-        )}
         <button
           disabled={pending}
           className="min-h-11 self-end rounded bg-gray-900 px-6 font-semibold text-white hover:bg-gray-800 disabled:opacity-60"

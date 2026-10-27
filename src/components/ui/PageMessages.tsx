@@ -1,13 +1,21 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { MESSAGES_CHECK, MESSAGES_COOKIE, parseMessages, type PageMessage } from "@/lib/messages";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Message } from "@/components/ui/Message";
+import {
+  MAX_MESSAGES,
+  MESSAGES_CHECK,
+  MESSAGES_COOKIE,
+  MESSAGES_SHOW,
+  parseMessages,
+  type MessageLink,
+  type PageMessage,
+} from "@/lib/messages";
 
-// Page messages at the top of the content: green success, red error, yellow warning, each with its icon and a
-// close button. They stay (and stick to the top while scrolling) until dismissed or the next page.
-// Messages arrive in the ct_messages cookie (src/lib/flash.ts); it's read on every page, when `hint` changes (the
-// server saw a new cookie after a form action) and on MESSAGES_CHECK (after an action called from the browser).
+// Page messages at the top of the content, shown until dismissed or the next page. They arrive in the ct_messages
+// cookie (src/lib/flash.ts), read on every page, when `hint` changes and on MESSAGES_CHECK. A form's result arrives
+// through MESSAGES_SHOW (FormMessage) and replaces what is shown.
 export function PageMessages({ hint }: { hint?: string }) {
   const [messages, setMessages] = useState<(PageMessage & { id: number })[]>([]);
   const pathname = usePathname();
@@ -39,45 +47,43 @@ export function PageMessages({ hint }: { hint?: string }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => take(), [pathname, hint, take]);
   useEffect(() => {
+    const show = (event: Event) => {
+      const incoming = (event as CustomEvent<PageMessage[]>).detail;
+      setMessages(incoming.slice(-MAX_MESSAGES).map((m, i) => ({ ...m, id: Date.now() + i })));
+    };
     window.addEventListener(MESSAGES_CHECK, take);
-    return () => window.removeEventListener(MESSAGES_CHECK, take);
+    window.addEventListener(MESSAGES_SHOW, show);
+    return () => {
+      window.removeEventListener(MESSAGES_CHECK, take);
+      window.removeEventListener(MESSAGES_SHOW, show);
+    };
   }, [take]);
 
   if (messages.length === 0) return null;
   return (
     <div className="sticky top-0 z-30 -mt-2 mb-4 flex flex-col gap-2 pt-2">
       {messages.map((m) => (
-        <div
-          key={m.id}
-          role={m.type === "error" ? "alert" : "status"}
-          className={`flex items-start gap-3 rounded-md border px-4 py-3 text-sm shadow-sm ${STYLE[m.type].box}`}
-        >
-          <span
-            aria-hidden="true"
-            className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold text-white ${STYLE[m.type].icon}`}
-          >
-            {STYLE[m.type].symbol}
-          </span>
-          <p className="m-0 flex-1">{m.text}</p>
-          <button
-            type="button"
-            onClick={() => setMessages((current) => current.filter((x) => x.id !== m.id))}
-            aria-label="Dismiss message"
-            className="-my-1 flex h-7 w-7 flex-none items-center justify-center rounded text-base opacity-70 hover:opacity-100"
-          >
-            ×
-          </button>
-        </div>
+        <Message key={m.id} type={m.type} link={m.link} onDismiss={() => setMessages((current) => current.filter((x) => x.id !== m.id))}>
+          {m.text}
+        </Message>
       ))}
     </div>
   );
 }
 
-const STYLE = {
-  success: { box: "border-green-200 bg-green-50 text-green-900", icon: "bg-green-700", symbol: "✓" },
-  error: { box: "border-red-200 bg-red-50 text-red-900", icon: "bg-red-700", symbol: "✕" },
-  warning: { box: "border-amber-200 bg-amber-50 text-amber-950", icon: "bg-amber-600", symbol: "!" },
-};
-
 // After calling a Server Action from the browser: show what it recorded.
 export const checkMessages = () => window.dispatchEvent(new Event(MESSAGES_CHECK));
+
+// Shows a form's result (useActionState) in the page messages, once per new state.
+export function FormMessage({ state, error, success, link }: { state: unknown; error?: string; success?: string; link?: MessageLink }) {
+  const shown = useRef(state);
+  useEffect(() => {
+    if (shown.current === state) return;
+    shown.current = state;
+    const messages: PageMessage[] = [];
+    if (error) messages.push({ type: "error", text: error });
+    if (success) messages.push({ type: "success", text: success, ...(link && { link }) });
+    if (messages.length > 0) window.dispatchEvent(new CustomEvent(MESSAGES_SHOW, { detail: messages }));
+  });
+  return null;
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { FormMessage } from "@/components/ui/PageMessages";
 import { saveApprovalRuleAction } from "@/features/company/actions";
 import type { ApprovalRuleSummary, CompanyActionState } from "@/features/company/types";
 
@@ -82,11 +83,7 @@ export function ApprovalRuleForm({ rule, roles, currency }: { rule?: ApprovalRul
         <input type="checkbox" name="active" defaultChecked={rule?.active ?? true} />
         Active (switch off to stop requiring approval; rules can&apos;t be deleted)
       </label>
-      {state.error && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
       <div className="flex flex-wrap gap-3">
         <button
           disabled={pending}

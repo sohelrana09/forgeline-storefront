@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { login } from "@/features/auth/actions";
 import type { LoginState } from "@/features/auth/types";
 import { FormGuardFields } from "@/components/ui/FormGuardFields";
+import { FormMessage } from "@/components/ui/PageMessages";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(login, {} as LoginState);
@@ -31,11 +32,7 @@ export function LoginForm() {
           className="min-h-11 rounded border border-gray-300 px-3 font-normal"
         />
       </label>
-      {state.error && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
       <button disabled={pending} className="min-h-11 rounded bg-orange-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
         {pending ? "Signing in…" : "Sign in"}
       </button>

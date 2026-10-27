@@ -13,6 +13,7 @@ import {
 } from "@/features/purchase-lists/components/ListForms";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { Message } from "@/components/ui/Message";
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
@@ -43,11 +44,7 @@ export async function PurchaseListsView({
           {context.consumer ? "." : `, at ${context.businessUnitName}'s prices.`}
         </p>
       </div>
-      {deleted && (
-        <p role="status" className="m-0 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          The list was deleted.
-        </p>
-      )}
+      {deleted && <Message type="success">The list was deleted.</Message>}
       <section aria-label="Create a list" className="rounded-md border border-gray-200 bg-white p-5">
         <CreateListForm />
       </section>

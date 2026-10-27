@@ -3,26 +3,13 @@
 import { useActionState } from "react";
 import { acceptInvitationAction, addUser, changeUserRoles, removeUser, saveCompanyProfile } from "@/features/company/actions";
 import type { CompanyActionState } from "@/features/company/types";
+import { FormMessage } from "@/components/ui/PageMessages";
 
 const initial: CompanyActionState = {};
 const field = "min-h-11 w-full rounded border border-gray-300 px-3 text-base";
 const primary = "min-h-11 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60";
 
-function Notice({ state }: { state: CompanyActionState }) {
-  if (state.error)
-    return (
-      <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-        {state.error}
-      </p>
-    );
-  if (state.saved)
-    return (
-      <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-        {state.saved}
-      </p>
-    );
-  return null;
-}
+const Notice = ({ state }: { state: CompanyActionState }) => <FormMessage state={state} error={state.error} success={state.saved} />;
 
 type Role = { key: string; name: string };
 
@@ -124,7 +111,8 @@ export function UserRolesForm({
           {removing ? "Removing…" : `Remove ${name}`}
         </button>
       </form>
-      <Notice state={state.error || state.saved ? state : removeState} />
+      <Notice state={state} />
+      <Notice state={removeState} />
     </div>
   );
 }

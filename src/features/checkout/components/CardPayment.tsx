@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { finishCardPayment, startCardPayment, type CardPaymentState } from "@/features/checkout/actions";
 import { useCheckoutBusy } from "@/features/checkout/components/CheckoutStatus";
+import { FormMessage } from "@/components/ui/PageMessages";
+import { Message } from "@/components/ui/Message";
 
 // Card payment through commercetools Checkout (Payment Only). The server opens a session for the cart the buyer
 // reviewed; the SDK renders the Application's payment methods inline (the data-ctc element), takes the payment
@@ -68,11 +70,8 @@ export function CardPayment({ cartVersion, ready }: { cartVersion: number; ready
           </button>
         </form>
       )}
-      {(state.error || problem) && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error ?? problem}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
+      <FormMessage state={problem} error={problem} />
       {canRetry && (
         <button
           type="button"
@@ -82,11 +81,7 @@ export function CardPayment({ cartVersion, ready }: { cartVersion: number; ready
           Try again
         </button>
       )}
-      {finishing && (
-        <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          Payment received. Opening your order…
-        </p>
-      )}
+      {finishing && <Message type="success">Payment received. Opening your order…</Message>}
       {/* Checkout renders the payment methods here (inline mode). */}
       <div data-ctc className="min-h-0" />
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { FormMessage } from "@/components/ui/PageMessages";
 import type { BaseAddress } from "@commercetools/platform-sdk";
 import { deleteAddress, saveAddress } from "@/features/account/actions";
 import type { AddressFormState } from "@/features/account/types";
@@ -26,16 +27,7 @@ export function AddressForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       {address?.id && <input type="hidden" name="id" value={address.id} />}
-      {state.error && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
-      {state.saved && (
-        <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          You saved the address.
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} success={state.saved ? "You saved the address." : undefined} />
       <AddressFields address={address} countries={countries} />
       <div className="flex flex-wrap gap-x-6">
         <label htmlFor={`ship-${id}`} className="flex min-h-11 items-center gap-2 text-sm">

@@ -9,6 +9,7 @@ import { requestCustomerToken, revokeToken, signUpCustomer } from "@/lib/commerc
 import { clientIp, reserveAttempt, tooManyAttempts } from "@/lib/rate-limit";
 import { after } from "next/server";
 import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
+import { flash } from "@/lib/flash";
 import {
   BU_COOKIE,
   GUEST_COOKIE,
@@ -112,6 +113,7 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
     };
   }
   await sendEmailVerification(created.customerId, email).catch((err) => console.error("verification email failed", err?.body ?? err));
+  await flash("success", "Thank you for registering with Ironline Supply.");
   const session = await signIn(email, password);
   if ("error" in session) redirect("/login");
   redirect(await mergeGuestCartOnLogin(session));
@@ -186,6 +188,7 @@ async function mergeGuestCartOnLogin(session: Session): Promise<string> {
 
 export async function logout() {
   await signOut();
+  await flash("success", "You are signed out.");
   redirect("/login");
 }
 

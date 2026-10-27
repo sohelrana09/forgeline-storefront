@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { FormMessage } from "@/components/ui/PageMessages";
+import { Message } from "@/components/ui/Message";
 import { useActionState, useState } from "react";
 import { formatMoney } from "@/lib/utils";
 import {
@@ -35,11 +37,7 @@ export function CreateListForm() {
       >
         {pending ? "Creating…" : "Create list"}
       </button>
-      {state.error && (
-        <p role="alert" className="m-0 w-full rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
     </form>
   );
 }
@@ -74,11 +72,7 @@ export function RenameListForm({ listId, name }: { listId: string; name: string 
       <button type="button" onClick={() => setOpen(false)} className="min-h-11 px-2 text-sm">
         Cancel
       </button>
-      {state.error && (
-        <p role="alert" className="m-0 w-full text-sm text-red-900">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
     </form>
   );
 }
@@ -207,26 +201,18 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
           </tbody>
         </table>
       </div>
-      {updateState.error && (
-        <p role="alert" className="m-0 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {updateState.error}
-        </p>
-      )}
-      {updateState.saved && (
-        <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          {updateState.saved}
-        </p>
-      )}
-      {cartState.added.length > 0 && (
-        <p role="status" className="m-0 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          Added {cartState.added.length} {cartState.added.length === 1 ? "product" : "products"} to your cart.{" "}
-          <Link href="/cart" className="font-semibold text-green-900">
-            Go to cart
-          </Link>
-        </p>
-      )}
+      <FormMessage state={updateState} error={updateState.error} success={updateState.saved} />
+      <FormMessage
+        state={cartState}
+        success={
+          cartState.added.length > 0
+            ? `Added ${cartState.added.length} ${cartState.added.length === 1 ? "product" : "products"} to your cart.`
+            : undefined
+        }
+        link={{ href: "/cart", label: "Go to cart" }}
+      />
       {cartState.errors.length > 0 && (
-        <div role="alert" className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+        <Message type="error">
           <strong>Not added:</strong>
           <ul className="m-0 mt-1 list-none p-0">
             {cartState.errors.map((e, i) => (
@@ -235,7 +221,7 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
               </li>
             ))}
           </ul>
-        </div>
+        </Message>
       )}
       {canOrder && (
         <p className="m-0 text-xs text-gray-600">
@@ -304,11 +290,7 @@ export function DeleteListButton({ listId, name }: { listId: string; name: strin
       >
         Cancel
       </button>
-      {state.error && (
-        <p role="alert" className="m-0 w-full">
-          {state.error}
-        </p>
-      )}
+      <FormMessage state={state} error={state.error} />
     </form>
   );
 }

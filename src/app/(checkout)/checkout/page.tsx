@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { CheckoutView } from "@/features/checkout/components/CheckoutView";
 import { GuestCheckoutView } from "@/features/checkout/components/GuestCheckoutView";
+import { Message } from "@/components/ui/Message";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,10 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-4">
       {payment === "unconfirmed" && (
-        <p role="alert" className="m-0 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <Message type="warning">
           We couldn&apos;t confirm your order yet. If your card was charged, your order confirmation email has the details: please contact
           us before paying again.
-        </p>
+        </Message>
       )}
       {session ? (
         <CheckoutView session={session} context={context} cartId={cartId} />
