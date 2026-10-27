@@ -1,5 +1,51 @@
 # Changelog
 
+## v1.1.0 (2026-10-27)
+
+Clean URLs, a blog and editable content pages in Sanity, ajax layered navigation, and an upgrade to Next.js 16.
+
+**Live demo:** https://forgeline-storefront-gamma.vercel.app
+
+### Highlights
+
+- **Clean URLs:** categories by their tree path (`/excavators/wheeled-excavators`), products and content pages at the root (`/jj234-wx`), filters in the query string. Old `/c/`, `/p/` and `/pages/` addresses and other spellings redirect permanently.
+- **Sanity for content:** an embedded Studio at `/studio` for content pages and the blog, with live preview and click-to-edit. CMS blocks (banners, widgets) stay in commercetools.
+- **Blog:** posts, categories, tags, RSS feed and structured data. Editors place commercetools products in a post, and each visitor sees their own price.
+- **Layered navigation:** filter, sort and page a category without a full page reload, with a price slider.
+- **Next.js 16** with React 19.3 and Turbopack builds.
+
+### Shopping
+
+- Header minicart: a dropdown with the cart lines, quantity steppers that save on their own, remove with a confirmation step, subtotal and checkout.
+- Page messages for cart changes ("You added Air Filter to your shopping cart.") at the top of every page.
+- Homepage "Machines" and "Spare parts" carousels.
+- Layered navigation: price slider, child categories, mobility, model, colour, certification and capacity filters; filter groups that can't narrow the list are hidden; works without JavaScript too. Filtered views are kept out of search results.
+
+### Content and URLs
+
+- Content pages (About us, Delivery information, Terms) are edited in Sanity once a project is configured, and fall back to commercetools Custom Objects without one. `npm run ct:sanity-content` imports them, with a demo blog post.
+- Rich text with images, links, tables and product cards.
+- A commercetools product picker in the Studio: search by name or SKU; only the SKU is stored, so prices stay live.
+- URL index with clash detection and merchant-defined redirects: `npm run ct:urls` lists every URL and adds or removes redirects.
+- Blog pages: `/blog`, `/blog/<post>`, `/blog/category/<slug>`, `/blog/tag/<tag>` and `/blog/rss.xml`, in the sitemap and the footer.
+
+### Under the hood
+
+- Next.js 16: `middleware.ts` became `proxy.ts`, ESLint flat config, and fixes for the new React Compiler lint rules.
+- Drafts never reach shared caches; published Sanity reads go through the server memo and refresh on `POST /api/revalidate`.
+- Prettier and `.editorconfig` (2 spaces, width 140).
+- CI runs on Node 24 with npm 11.
+
+### Fixes
+
+- Content pages returned 404 to guests on the cached pages; Sanity reads now work inside them.
+- Links in rich text reject `/\` addresses that browsers read as another site.
+
+### Setup for upgraders
+
+- Optional Sanity variables: `NEXT_SANITY_PROJECT_ID`, `NEXT_SANITY_DATASET`, `SANITY_API_READ_TOKEN` (and `SANITY_API_WRITE_TOKEN` locally for the import). See `.env.example`.
+- In Sanity, add the shop's address as a CORS origin with credentials allowed, so the embedded Studio can sign in.
+
 ## v1.0.0 (2026-10-26)
 
 The first public release of **Forgeline**: an open-source B2B and B2C storefront for commercetools, built with Next.js 15 (App Router) and the official commercetools TypeScript SDK.
