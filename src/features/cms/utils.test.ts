@@ -11,6 +11,7 @@ describe("safeHref", () => {
   it("refuses links that leave the site in disguise or run script", () => {
     expect(safeHref("//evil.example")).toBeUndefined();
     expect(safeHref("/\\evil.example")).toBeUndefined();
+    expect(safeHref("/\t/evil.example")).toBeUndefined();
     expect(safeHref("javascript:alert(1)")).toBeUndefined();
     expect(safeHref("http://example.com")).toBeUndefined();
     expect(safeHref(42)).toBeUndefined();

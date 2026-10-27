@@ -33,9 +33,9 @@ function countInMemory(key: string): number {
   return ++entry.count;
 }
 
-function peekInMemory(key: string): number {
+function uncountInMemory(key: string) {
   const entry = attempts.get(key);
-  return entry && entry.resetAt >= Date.now() ? entry.count : 0;
+  if (entry && entry.resetAt >= Date.now() && --entry.count <= 0) attempts.delete(key);
 }
 
 // ---------- Shared counters ----------
@@ -55,15 +55,18 @@ async function count(key: string): Promise<number> {
   return countInMemory(key);
 }
 
-async function peek(key: string): Promise<number> {
+// Takes back one attempt. A window that expired in the meantime is not brought back.
+async function uncount(key: string): Promise<void> {
   if (redis) {
     try {
-      return Number((await redis.get<number>(redisKey(key))) ?? 0);
+      // DECR on a key that has just expired creates it at -1, without an expiry: remove it again.
+      if ((await redis.decr(redisKey(key))) <= 0) await redis.del(redisKey(key));
+      return;
     } catch (err) {
       console.error("rate limit: Redis failed, counting in memory", err);
     }
   }
-  return peekInMemory(key);
+  uncountInMemory(key);
 }
 
 // Counts this attempt; true once the key has had more than `max` attempts in the current 15-minute window.
@@ -71,13 +74,20 @@ export async function tooManyAttempts(key: string, max = MAX_ATTEMPTS): Promise<
   return (await count(key)) > max;
 }
 
-// For limits that count failures only (sign-in): check before trying, record after a failed attempt.
-export async function isLimited(key: string, max = MAX_ATTEMPTS): Promise<boolean> {
-  return (await peek(key)) >= max;
-}
-
-export async function recordFailure(key: string): Promise<void> {
-  await count(key);
+// For limits that count failures only (sign-in). The attempt is counted on every key before it is tried, so a burst of
+// parallel requests can't all pass a check made before any of them failed. Returns undefined when a key is over its
+// limit (the attempt is taken back, so refused requests don't extend the block), else `release`, which takes the
+// attempt back once it succeeded.
+export async function reserveAttempt(limits: { key: string; max: number }[]): Promise<(() => Promise<void>) | undefined> {
+  const counts = await Promise.all(limits.map((l) => count(l.key)));
+  const release = async () => {
+    await Promise.all(limits.map((l) => uncount(l.key)));
+  };
+  if (counts.some((n, i) => n > limits[i].max)) {
+    await release();
+    return undefined;
+  }
+  return release;
 }
 
 // The client address for throttling. Only headers our own proxy sets can be trusted: x-real-ip (nginx, Vercel),

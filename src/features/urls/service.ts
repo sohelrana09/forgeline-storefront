@@ -6,6 +6,7 @@ import { localize } from "@/features/catalog/utils";
 import { getPages } from "@/features/cms/service";
 import { getGuestContext } from "@/features/business-units/service";
 import { buildUrlIndex, resolvePath, type UrlIndex, type UrlSources } from "@/features/urls/url-index";
+import { isLocalPath } from "@/lib/urls";
 
 // The live URL index: categories (tree paths), products, active content pages and merchants' redirects. Rebuilt in the
 // background every 5 minutes, and at once when /api/revalidate reports a catalog or content change.
@@ -33,7 +34,7 @@ export async function urlSources(): Promise<UrlSources> {
     products: products.map((p) => ({ slug: p.slug })),
     pages: pages.filter((p) => p.active).map((p) => ({ slug: p.slug })),
     rewrites: rewrites
-      .filter((r) => typeof r.from === "string" && typeof r.to === "string" && r.from.startsWith("/") && r.to.startsWith("/"))
+      .filter((r) => typeof r.from === "string" && typeof r.to === "string" && r.from.startsWith("/") && isLocalPath(r.to))
       .map((r) => ({ from: r.from, to: r.to, permanent: r.permanent !== false })),
   };
 }

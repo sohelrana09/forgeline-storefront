@@ -21,6 +21,12 @@ describe("parseQuickOrder", () => {
     expect(parseQuickOrder("air-filter, 2\nair-filter, 3").lines).toEqual([{ sku: "air-filter", quantity: 5 }]);
   });
 
+  it("refuses a SKU whose lines add up to more than the maximum", () => {
+    const { lines, errors } = parseQuickOrder("air-filter, 9999\nair-filter, 1\noil-filter, 2");
+    expect(lines).toEqual([{ sku: "oil-filter", quantity: 2 }]);
+    expect(errors).toEqual([{ line: 0, text: "air-filter, 10000", reason: "Quantity must be a whole number from 1 to 9999" }]);
+  });
+
   it("reports bad lines with their line number and keeps the good ones", () => {
     const { lines, errors } = parseQuickOrder("air-filter, 2\nbad sku here\noil-filter, 0\nfuel$filter, 1");
     expect(lines).toEqual([{ sku: "air-filter", quantity: 2 }]);

@@ -1,10 +1,11 @@
 // Links from content: internal paths ("/…" but not "//host"), https and mailto only.
 export function safeHref(href: unknown): string | undefined {
   if (typeof href !== "string") return undefined;
-  return /^\/(?![/\\])/.test(href) || /^(https:|mailto:)/i.test(href) ? href : undefined;
+  return isLocalPath(href) || /^(https:|mailto:)/i.test(href) ? href : undefined;
 }
 
 import { isMediaUrl } from "@/lib/media";
+import { isLocalPath } from "@/lib/urls";
 import type { CmsBlock } from "@/features/cms/types";
 
 export { isMediaUrl, MEDIA_SOURCES } from "@/lib/media";

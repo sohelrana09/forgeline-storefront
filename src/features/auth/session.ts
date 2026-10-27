@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { customerApiRoot, projectKey } from "@/lib/commercetools/client";
 import { refreshAnonymousToken, revokeToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
 import { GUEST_STORE_KEY, getBuyingContexts } from "@/features/business-units/service";
+import { rememberAccount } from "@/features/auth/utils";
 
 // The browser never sees the customer token: the session cookie is AES-256-GCM encrypted with a key derived
 // from the (server-only) admin client secret. The token itself only carries customerScopes() below.
@@ -67,6 +68,21 @@ export async function getSession(): Promise<Session | undefined> {
   const session = unseal<Session>(SESSION_COOKIE, (await cookies()).get(SESSION_COOKIE)?.value);
   // Tokens last 48h; after that the buyer signs in again (refresh-token flow is a follow-up).
   return session && session.expiresAt > Date.now() + 60_000 ? session : undefined;
+}
+
+// Accounts that signed in on this browser (sealed, so it can't be forged; kept on sign-out). They skip the per-email
+// sign-in limit, which strangers could otherwise use to lock the owner out (loginLimits in ./utils).
+const DEVICE_COOKIE = "ct_device";
+const DEVICE_MAX_AGE = 60 * 60 * 24 * 180;
+
+export async function isKnownDevice(email: string): Promise<boolean> {
+  return (unseal<{ emails?: string[] }>(DEVICE_COOKIE, (await cookies()).get(DEVICE_COOKIE)?.value)?.emails ?? []).includes(email);
+}
+
+export async function rememberDevice(email: string) {
+  const jar = await cookies();
+  const emails = unseal<{ emails?: string[] }>(DEVICE_COOKIE, jar.get(DEVICE_COOKIE)?.value)?.emails ?? [];
+  jar.set(DEVICE_COOKIE, seal(DEVICE_COOKIE, { emails: rememberAccount(emails, email) }), { ...cookieOptions, maxAge: DEVICE_MAX_AGE });
 }
 
 // Guest browsing: an anonymous token (created on the first "Add to cart", not per visit) and the guest cart.

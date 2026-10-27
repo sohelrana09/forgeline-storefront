@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { customerApiRoot } from "@/lib/commercetools/client";
 import { requestCustomerToken, revokeToken, signUpCustomer } from "@/lib/commercetools/customer-token";
-import { clientIp, isLimited, recordFailure, tooManyAttempts } from "@/lib/rate-limit";
+import { clientIp, reserveAttempt, tooManyAttempts } from "@/lib/rate-limit";
 import { after } from "next/server";
 import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
 import {
@@ -17,6 +17,8 @@ import {
   customerScopes,
   getGuest,
   getSession,
+  isKnownDevice,
+  rememberDevice,
   signOut,
   saveSession,
   type Session,
@@ -27,6 +29,7 @@ import { mergeGuestCart } from "@/features/cart/service";
 import type { ForgotPasswordState, LoginState, RegisterState, ResetPasswordState } from "@/features/auth/types";
 import { resetPassword, sendEmailVerification, startPasswordReset, verifyEmail } from "@/features/auth/service";
 import { NAME_PATTERN } from "@/features/account/utils";
+import { loginLimits } from "@/features/auth/utils";
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") ?? "")
@@ -36,20 +39,11 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   if (!email || !password) return { error: "Enter your email and password.", email };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE, email };
 
-  // Only failed attempts count, so colleagues behind one office address can all sign in. The tight limit is per
-  // address AND email: a stranger guessing a buyer's password can't lock the buyer out from elsewhere.
-  // Without a proxy the address is unknown ("no-proxy"): then there is no per-address limit, or one person's typos
-  // would lock out everybody.
-  const ip = await clientIp();
-  const keys = [`login:${ip}:${email}`, `login-email:${email}`, ...(ip === "no-proxy" ? [] : [`login-ip:${ip}`])];
-  if ((await isLimited(keys[0], 10)) || (await isLimited(keys[1], 50)) || (keys[2] !== undefined && (await isLimited(keys[2], 100)))) {
-    return { error: "Too many attempts. Please wait a few minutes and try again.", email };
-  }
+  const release = await reserveAttempt(loginLimits(await clientIp(), email, await isKnownDevice(email)));
+  if (!release) return { error: "Too many attempts. Please wait a few minutes and try again.", email };
   const result = await signIn(email, password);
-  if ("error" in result) {
-    await Promise.all(keys.map(recordFailure));
-    return { ...result, email };
-  }
+  if ("error" in result) return { ...result, email };
+  await release();
   redirect(await mergeGuestCartOnLogin(result));
 }
 
@@ -75,6 +69,7 @@ async function signIn(email: string, password: string): Promise<Session | { erro
       name: me.firstName,
     };
     await saveSession(session);
+    await rememberDevice(me.email.toLowerCase());
     return session;
   } catch (err) {
     console.error("login: /me failed", (err as { body?: unknown })?.body ?? err);

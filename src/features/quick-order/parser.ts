@@ -32,6 +32,13 @@ export function parseQuickOrder(input: string): { lines: QuickOrderLine[]; error
     merged.set(sku, (merged.get(sku) ?? 0) + quantity);
   });
 
+  // Each line was in range, but lines for the same SKU add up.
+  for (const [sku, quantity] of merged) {
+    if (quantity <= MAX_QUANTITY) continue;
+    errors.push({ line: 0, text: `${sku}, ${quantity}`, reason: `Quantity must be a whole number from 1 to ${MAX_QUANTITY}` });
+    merged.delete(sku);
+  }
+
   const lines = [...merged].map(([sku, quantity]) => ({ sku, quantity }));
   if (lines.length > MAX_LINES) {
     errors.push({ line: 0, text: "", reason: `At most ${MAX_LINES} different SKUs per quick order` });

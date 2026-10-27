@@ -6,6 +6,18 @@
 // URL keys are the commercetools slugs in lowercase with hyphens: slugs allow [A-Za-z0-9_-], and the sample data
 // uses underscores. Pure (no imports): the header, footer and proxy use it too.
 
+// A path on this site, read the way a browser reads it: "//host", "/\host" and "/<tab>/host" (browsers drop tabs and
+// newlines) all lead to another site.
+const SAME_SITE = "https://same-site.invalid";
+export function isLocalPath(href: string): boolean {
+  if (!href.startsWith("/")) return false;
+  try {
+    return new URL(href, SAME_SITE).origin === SAME_SITE;
+  } catch {
+    return false;
+  }
+}
+
 export const urlKey = (slug: string) => slug.trim().toLowerCase().replace(/_/g, "-");
 
 export const productPath = (slug: string, sku?: string) => `/${urlKey(slug)}${sku ? `?sku=${encodeURIComponent(sku)}` : ""}`;

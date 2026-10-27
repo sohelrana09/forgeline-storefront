@@ -23,7 +23,8 @@ export async function startPasswordReset(email: string) {
   const { body: token } = await apiRoot
     .customers()
     .passwordToken()
-    .post({ body: { email: customer.email, ttlMinutes: RESET_TTL_MINUTES } })
+    // Only the newest link works: an older one that leaked (forwarded mail, shared inbox) stops working.
+    .post({ body: { email: customer.email, ttlMinutes: RESET_TTL_MINUTES, invalidateOlderTokens: true } })
     .execute();
   await sendMail({
     to: customer.email,
