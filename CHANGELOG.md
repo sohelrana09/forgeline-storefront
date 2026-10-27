@@ -2,13 +2,13 @@
 
 ## v1.2.0 (2026-10-27)
 
-Security hardening for sign-in, password reset and content links, and page messages in Magento's style across the shop.
+Security hardening for sign-in, password reset and content links, and one page message style across the shop.
 
 **Live demo:** https://forgeline-storefront-gamma.vercel.app
 
 ### Highlights
 
-- **Page messages like Magento:** every success, error and warning uses one message style (Luma's colours and icons). Form results show in the message bar at the top of the page instead of next to the form.
+- **Page messages:** every success, error and warning uses one message style (tinted background, coloured text, an icon per type). Form results show in the message bar at the top of the page instead of next to the form.
 - **Sign-in protection:** parallel guessing can no longer get past the sign-in limits, and strangers can't lock a buyer out of their account.
 
 ### Messages

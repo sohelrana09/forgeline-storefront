@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { MessageLink, MessageType } from "@/lib/messages";
 
-// A message box in Magento's Luma style, for page messages and for notices on a page.
+// A message box (tinted background, icon on the left), for page messages and for notices on a page.
 export function Message({
   type,
   link,
