@@ -1,12 +1,12 @@
 # Forgeline
 
-**An open-source B2B and B2C storefront for commercetools, built with Next.js 15.**
+**An open-source B2B and B2C storefront for commercetools, built with Next.js 16.**
 
 Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/). One storefront serves three kinds of customers: business buyers, consumers and guests. It brings the B2B features merchants expect: company accounts, quick order, quotes, approval rules and purchase lists. You can see and adapt everything, without a paid frontend platform.
 
 The demo shop, **Ironline Supply**, sells heavy machines and spare parts using the commercetools B2B sample data: 72 products, 6 business units and 5 stores.
 
-![Next.js 15](https://img.shields.io/badge/Next.js-15-black) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500) ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500) ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8)
 
 ![Ironline Supply homepage](docs/images/home.jpg)
 
@@ -87,7 +87,7 @@ The Content app runs on **commercetools Connect** (see `connect.yaml`), so you d
 ## How it works
 
 ```
-Browser ──> Next.js 15 (App Router, Server Components, Server Actions)
+Browser ──> Next.js 16 (App Router, Server Components, Server Actions)
               │
               ├─ admin API client (server only) ──> catalog, prices, business units, content
               └─ customer token (per sign-in, narrowed scopes) ──> my carts, orders, quotes, lists
