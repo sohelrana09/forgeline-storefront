@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { MiniCartBadge } from "@/components/layouts/MiniCartBadge";
+import { checkMessages } from "@/components/ui/PageMessages";
 import { updateCartLine } from "@/features/cart/actions";
 import { CART_CHANGED, EMPTY_MINICART, type MiniCartLine, type MiniCartSummary } from "@/features/cart/minicart";
 
@@ -204,6 +205,7 @@ function MiniCartRow({ line, editable }: { line: MiniCartLine; editable: boolean
     (quietly ? startSaving : startTransition)(async () => {
       await updateCartLine(formData);
       window.dispatchEvent(new Event(CART_CHANGED));
+      checkMessages(); // "You removed …", or what went wrong
       // If the cart never reaches the quantity asked for (the save failed), show what the cart really has.
       setTimeout(() => {
         if (requested.current === next && !steppingNow.current) {

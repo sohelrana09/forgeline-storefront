@@ -7,6 +7,7 @@ import { approvalsForOrders } from "@/features/approvals/service";
 import { ListToolbar } from "@/components/ui/ListToolbar";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { categoryPath } from "@/lib/urls";
 
 // `page` and `size` come from ListToolbar's listParams (already clamped). `company`: all of the unit's orders,
 // offered to associates with ViewOthersOrders (re-checked live in the service).
@@ -82,7 +83,7 @@ export async function OrdersListView({
             <p className="m-0 text-sm text-gray-600">
               {all ? "No orders" : "You have placed no orders"} for {context.businessUnitName}.
             </p>
-            <Link href="/c/spare_parts" className="text-sm text-orange-800">
+            <Link href={categoryPath(["spare_parts"])} className="text-sm text-orange-800">
               Shop spare parts
             </Link>
           </div>

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { currentBrowseContext } from "@/features/business-units/context";
-import { suggestProducts } from "@/features/catalog/service";
-import { localize } from "@/features/catalog/utils";
+import { getCategoryTree, suggestProducts } from "@/features/catalog/service";
+import { categoryHref, localize } from "@/features/catalog/utils";
+import { productPath } from "@/lib/urls";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { formatMoney } from "@/lib/utils";
 import type { Suggestions } from "@/components/layouts/SearchBox";
@@ -16,16 +17,16 @@ export async function GET(request: NextRequest) {
   if (await tooManyAttempts(`suggest:${await clientIp()}`, 3000)) return json(empty, 429);
   try {
     const { context } = await currentBrowseContext();
-    const r = await suggestProducts(context, q);
+    const [r, tree] = await Promise.all([suggestProducts(context, q), getCategoryTree()]);
     return json({
       products: r.products.map((p) => ({
         label: p.name,
         detail: p.sku,
-        href: `/p/${p.slug}`,
+        href: productPath(p.slug),
         image: p.image,
         price: p.fromPrice ? `From ${formatMoney(p.fromPrice)}` : p.price && formatMoney(p.price),
       })),
-      categories: r.categories.map((c) => ({ label: localize(c.name), href: `/c/${localize(c.slug)}` })),
+      categories: r.categories.map((c) => ({ label: localize(c.name), href: categoryHref([...tree.ancestors(c), c]) })),
       total: r.total,
       corrected: r.corrected,
     });

@@ -11,6 +11,8 @@ import {
   relatedProductIds,
   specRows,
   variantAxis,
+  categoryHref,
+  productHref,
 } from "@/features/catalog/utils";
 import { taxNote } from "@/features/catalog/utils";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -60,9 +62,9 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
       <Breadcrumbs
         items={[
           ...(category
-            ? [...tree.ancestors(category), category].map((c) => ({
+            ? [...tree.ancestors(category), category].map((c, i, all) => ({
                 label: localize(c.name),
-                href: `/c/${localize(c.slug)}`,
+                href: categoryHref(all.slice(0, i + 1)),
               }))
             : []),
           { label: name },
@@ -93,7 +95,7 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
                   return (
                     <Link
                       key={v.sku}
-                      href={`/p/${slug}?sku=${v.sku}`}
+                      href={productHref(slug, v.sku)}
                       aria-current={selected ? "true" : undefined}
                       className={`min-w-16 rounded border px-4 py-2.5 text-center text-sm no-underline ${
                         selected

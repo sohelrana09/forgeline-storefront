@@ -4,6 +4,7 @@ import { addSku } from "@/features/cart/actions";
 import { QuantityInput } from "@/components/ui/QuantityInput";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { CART_CHANGED } from "@/features/cart/minicart";
+import { checkMessages } from "@/components/ui/PageMessages";
 
 // Quantity + Add. Machines above the quote threshold go into the same cart "for quote": the cart then offers a
 // quote request instead of checkout.
@@ -34,6 +35,7 @@ export function AddToCartForm({
       action={async (formData) => {
         await addSku(formData);
         window.dispatchEvent(new Event(CART_CHANGED));
+        checkMessages(); // "You added … to your shopping cart." at the top of the page
       }}
       className={size === "md" ? "flex w-full flex-col gap-2" : "flex items-center gap-3"}
     >

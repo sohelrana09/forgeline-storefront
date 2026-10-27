@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteLogo } from "@/components/layouts/SiteLogo";
+import { PageMessages } from "@/components/ui/PageMessages";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -27,6 +28,7 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
         </div>
       </header>
       <main id="main" className="mx-auto max-w-7xl px-4 py-6 sm:px-8">
+        <PageMessages />
         {children}
       </main>
     </div>

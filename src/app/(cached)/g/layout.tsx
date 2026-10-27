@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/layouts/SiteFooter";
 import { BuyingContextBadge } from "@/features/business-units/components/BuyingContextBadge";
 import { MiniCart } from "@/features/cart/components/MiniCart";
 import { logout } from "@/features/auth/actions";
+import { PageMessages } from "@/components/ui/PageMessages";
 
 // Cached catalog for guests (home, categories, products, content pages without query parameters). src/middleware.ts
 // rewrites guests here; signed-in customers and URLs with parameters use the per-visitor pages in (shop).
@@ -35,6 +36,8 @@ export default async function CachedGuestLayout({ children }: { children: React.
       />
       {/* Grows to fill the window, so the footer stays at the bottom on short pages. */}
       <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8">
+        {/* Read from the cookie in the browser: this HTML is shared and never reads cookies. */}
+        <PageMessages />
         {children}
       </main>
       <SiteFooter pages={pages} />

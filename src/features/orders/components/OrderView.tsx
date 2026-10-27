@@ -15,6 +15,7 @@ import { approvalsForOrders } from "@/features/approvals/service";
 import { APPROVAL_STATES } from "@/features/approvals/utils";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { productHref } from "@/features/catalog/utils";
 
 // Magento-style order view: status and actions, items ordered, totals, then order information (addresses,
 // shipping method, payment method). Right after checkout it doubles as the confirmation page.
@@ -161,7 +162,7 @@ export async function OrderView({
                 {order.lineItems.map((line) => (
                   <tr key={line.id} className="border-t border-gray-100">
                     <td className="px-5 py-3">
-                      <Link href={`/p/${localize(line.productSlug)}?sku=${line.variant.sku}`} className="font-semibold text-gray-900">
+                      <Link href={productHref(line.productSlug, line.variant.sku)} className="font-semibold text-gray-900">
                         {localize(line.name)}
                       </Link>
                       <div className="font-mono text-xs text-gray-600">{line.variant.sku}</div>

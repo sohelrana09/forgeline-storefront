@@ -36,7 +36,7 @@ describe("toMiniCart", () => {
     expect(summary.items).toBe(5);
     expect(summary.lines[0]).toMatchObject({
       name: "Product air-filter",
-      href: "/p/product-air-filter?sku=air-filter",
+      href: "/product-air-filter?sku=air-filter",
       image: "https://img.example/air-filter.jpg",
       price: "€35.00",
       quoteOnly: false,

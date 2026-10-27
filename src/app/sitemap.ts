@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { siteIndexable, siteUrl } from "@/lib/site-url";
 import { allProductSlugs, getCategoryTree } from "@/features/catalog/service";
-import { localize } from "@/features/catalog/utils";
+import { categoryHref } from "@/features/catalog/utils";
+import { pagePath, productPath } from "@/lib/urls";
 import { getPages } from "@/features/cms/service";
 import { getGuestContext } from "@/features/business-units/service";
 
@@ -20,17 +21,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: `${base}/`, changeFrequency: "daily", priority: 1 },
     ...tree.all.map((c) => ({
-      url: `${base}/c/${localize(c.slug)}`,
+      url: `${base}${categoryHref([...tree.ancestors(c), c])}`,
       lastModified: c.lastModifiedAt,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
     ...products.map((p) => ({
-      url: `${base}/p/${p.slug}`,
+      url: `${base}${productPath(p.slug)}`,
       lastModified: p.lastModified,
       changeFrequency: "weekly" as const,
       priority: 0.8,
     })),
-    ...pages.filter((p) => p.active).map((p) => ({ url: `${base}/pages/${p.slug}`, changeFrequency: "monthly" as const, priority: 0.3 })),
+    ...pages
+      .filter((p) => p.active)
+      .map((p) => ({ url: `${base}${pagePath(p.slug)}`, changeFrequency: "monthly" as const, priority: 0.3 })),
   ];
 }

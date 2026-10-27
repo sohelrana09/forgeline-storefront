@@ -13,6 +13,7 @@ import { roleLabel } from "@/features/company/utils";
 import { orderReference } from "@/features/orders/service";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { productHref } from "@/features/catalog/utils";
 
 // One order waiting for (or past) approval: who asked, which rule, the items and totals, the history, and the
 // approver's decision. Only for associates with UpdateApprovalFlows (checked live in the service).
@@ -107,7 +108,7 @@ export async function ApprovalView({ session, context, id }: { session: Session;
                 {order.lineItems.map((line) => (
                   <tr key={line.id} className="border-t border-gray-100">
                     <td className="px-5 py-3">
-                      <Link href={`/p/${localize(line.productSlug)}?sku=${line.variant.sku}`} className="font-semibold text-gray-900">
+                      <Link href={productHref(line.productSlug, line.variant.sku)} className="font-semibold text-gray-900">
                         {localize(line.name)}
                       </Link>
                       <div className="font-mono text-xs text-gray-600">{line.variant.sku}</div>

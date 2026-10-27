@@ -24,7 +24,8 @@
     "ct:catalog-subscription": "tsx --conditions=react-server --env-file=.env scripts/catalog-subscription.ts",
     "ct:media-library": "tsx --conditions=react-server --env-file=.env scripts/media-library.ts",
     "ct:connect-content-app": "tsx --conditions=react-server --env-file=.env scripts/connect-content-app.ts",
-    "ct:seed-approval-rules": "tsx --conditions=react-server --env-file=.env scripts/seed-approval-rules.ts"
+    "ct:seed-approval-rules": "tsx --conditions=react-server --env-file=.env scripts/seed-approval-rules.ts",
+    "ct:urls": "tsx --conditions=react-server --env-file=.env scripts/urls.ts"
   },
   "dependencies": {
     "@commercetools/checkout-browser-sdk": "^1.7.5",

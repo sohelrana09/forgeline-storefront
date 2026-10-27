@@ -103,6 +103,7 @@ Key design choices:
 - **Server-first.** Pages are React Server Components. Every change (add to cart, place order, approve) is a Server Action. No commercetools credentials ever reach the browser.
 - **Least privilege.** Each signed-in customer gets their own commercetools token, limited to "my" resources in the stores they buy from. The admin client is only used after a live permission check.
 - **Standalone prices.** Prices are selected per store, channel, currency and country, so each company sees its own prices.
+- **Clean URLs, Magento style.** Categories by their tree path (`/excavators/wheeled-excavators`), products and content pages at the root (`/jj234-wx`), filters in the query string. Old addresses and other spellings redirect permanently, merchants add their own redirects (`npm run ct:urls`), and clashes are reported instead of silently shadowing a page.
 - **SEO built in.** Metadata and canonical URLs per page, Product and Breadcrumb structured data (JSON-LD), sitemap, robots.txt, and `next/image`. Company prices never appear in markup.
 - **No lock-in.** Plain Next.js, the official commercetools TypeScript SDK and Tailwind CSS. No paid frontend platform.
 
@@ -212,7 +213,7 @@ docs/images/       screenshots
 
 ## Roadmap
 
-Done: company switcher, customer sign-in, quick order, storefront pages, content management, quotes, guest cart, My account, company area, B2C accounts, SEO, cached guest pages, image gallery, one-page checkout, search autocomplete, homepage banners, purchase lists, approval rules.
+Done: company switcher, customer sign-in, quick order, storefront pages, content management, quotes, guest cart, My account, company area, B2C accounts, SEO, cached guest pages, image gallery, one-page checkout, search autocomplete, homepage banners, purchase lists, approval rules, clean URLs.
 
 Next:
 - Company-shared purchase lists.

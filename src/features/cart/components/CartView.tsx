@@ -11,6 +11,8 @@ import { QuantityInput } from "@/components/ui/QuantityInput";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { updateCartLine } from "@/features/cart/actions";
 import type { BuyerContext } from "@/features/business-units/types";
+import { productHref } from "@/features/catalog/utils";
+import { categoryPath } from "@/lib/urls";
 
 // After sign-in, the guest cart's lines were added here: ?merged=<count>&skipped=<skus not sold to this unit>.
 type MergeNotice = { merged?: string; skipped?: string };
@@ -69,7 +71,7 @@ export async function CartView({
               : `Lines you add for ${context.businessUnitName} appear here.`}
         </p>
         <div className="flex gap-3">
-          <Link href="/c/spare_parts" className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline">
+          <Link href={categoryPath(["spare_parts"])} className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline">
             Shop spare parts
           </Link>
           <Link href="/quick-order" className="rounded border border-gray-300 px-5 py-3 font-semibold text-gray-800 no-underline">
@@ -108,7 +110,7 @@ export async function CartView({
                     <div aria-hidden="true" className="h-16 w-16 flex-none rounded bg-gray-100" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <Link href={`/p/${localize(line.productSlug)}?sku=${line.variant.sku}`} className="font-semibold text-gray-900">
+                    <Link href={productHref(line.productSlug, line.variant.sku)} className="font-semibold text-gray-900">
                       {name}
                     </Link>
                     <div className="font-mono text-xs text-gray-600">{line.variant.sku}</div>

@@ -5,6 +5,7 @@ import { hasRevalidateSecret, merchantCenterUser } from "@/lib/revalidate-auth";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { forgetCatalogCache } from "@/features/catalog/service";
 import { forgetContentCache } from "@/features/cms/service";
+import { forgetUrlIndex } from "@/features/urls/service";
 
 // Refreshes the cached guest pages (src/app/(cached)/g) after content or catalog changes made outside the app:
 // `npm run ct:content`, the Merchant Center Content app, and commercetools Subscriptions for prices and products.
@@ -38,6 +39,8 @@ export async function POST(request: NextRequest) {
   lastPurge = Date.now();
   if (scope !== "catalog") forgetContentCache();
   if (scope !== "content") forgetCatalogCache();
+  // Products, categories and content pages are all in the URL index (new, renamed or removed URLs).
+  forgetUrlIndex();
   // Content blocks appear on the home and category pages, and prices on every catalog page: purge all of them.
   revalidatePath("/(cached)/g", "layout");
   console.info("revalidated cached guest pages", { scope, caller });

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { getActiveCart } from "@/features/cart/service";
 import { getPages } from "@/features/cms/service";
@@ -11,6 +12,8 @@ import { toMiniCart } from "@/features/cart/minicart";
 import { BuyingContextBadge } from "@/features/business-units/components/BuyingContextBadge";
 import { logout } from "@/features/auth/actions";
 import { getSession } from "@/features/auth/session";
+import { PageMessages } from "@/components/ui/PageMessages";
+import { MESSAGES_COOKIE } from "@/lib/messages";
 
 // Route-only glue: the header, page column and footer that the (shop) and (auth) layouts share (the cached guest
 // layout builds its own, without cookies). `lenient` (sign-in pages): a visitor whose session can't be read, or
@@ -54,6 +57,8 @@ export async function SiteChrome({ children, lenient = false }: { children: Reac
       />
       {/* Grows to fill the window, so the footer stays at the bottom on short pages. */}
       <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8">
+        {/* Page messages; the cookie value tells the bar when a form action left a new one. */}
+        <PageMessages hint={(await cookies()).get(MESSAGES_COOKIE)?.value} />
         {children}
       </main>
       <SiteFooter pages={pages} />

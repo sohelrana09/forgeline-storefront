@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pagePath } from "@/lib/urls";
 
 // Links to the CMS pages (title + slug only, so this stays independent of the CMS backend).
 export function SiteFooter({ pages }: { pages: { slug: string; title: string }[] }) {
@@ -9,7 +10,7 @@ export function SiteFooter({ pages }: { pages: { slug: string; title: string }[]
         <ul className="m-0 flex list-none flex-wrap gap-x-6 gap-y-2 p-0 text-sm">
           {pages.map((p) => (
             <li key={p.slug}>
-              <Link href={`/pages/${p.slug}`} className="text-gray-700">
+              <Link href={pagePath(p.slug)} className="text-gray-700">
                 {p.title}
               </Link>
             </li>

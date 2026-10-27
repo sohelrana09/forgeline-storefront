@@ -1,5 +1,5 @@
 import type { Cart } from "@commercetools/platform-sdk";
-import { isQuoteOnly, localize } from "@/features/catalog/utils";
+import { isQuoteOnly, localize, productHref } from "@/features/catalog/utils";
 import { formatMoney } from "@/lib/utils";
 
 // What the header's minicart shows (Magento "minicart"): plain, serializable data built from the cart on the server,
@@ -43,7 +43,7 @@ export function toMiniCart(cart: Cart | undefined, canOrder: boolean): MiniCartS
       id: l.id,
       name: localize(l.name),
       sku,
-      href: `/p/${localize(l.productSlug)}?sku=${encodeURIComponent(sku)}`,
+      href: productHref(l.productSlug, sku || undefined),
       image: l.variant.images?.[0]?.url,
       quantity: l.quantity,
       price: formatMoney(l.price.discounted?.value ?? l.price.value),

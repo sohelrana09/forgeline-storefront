@@ -10,11 +10,13 @@ test("home page shows the banner, featured products and the guest welcome", asyn
 });
 
 test("category leads to a product page with a price and stock", async ({ page }) => {
-  await page.goto("/c/excavators");
+  await page.goto("/excavators");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Excavators");
-  const firstProduct = page.locator('main a[href^="/p/"]').first();
+  const firstProduct = page.locator("main article a").first();
+  const href = await firstProduct.getAttribute("href");
+  expect(href).toMatch(/^\/[a-z0-9-]+$/);
   await firstProduct.click();
-  await expect(page).toHaveURL(/\/p\//);
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
   await expect(page.getByText(/SKU /)).toBeVisible();
   await expect(page.getByText(/€|\$|£/).first()).toBeVisible();
 });
@@ -31,6 +33,23 @@ test("search autocomplete suggests while typing", async ({ page }) => {
 });
 
 test("an unknown product is a real 404", async ({ page }) => {
-  const response = await page.goto("/p/no-such-product");
+  const response = await page.goto("/no-such-product");
   expect(response?.status()).toBe(404);
+});
+
+test("old and misspelled URLs redirect permanently to the clean one, keeping the query", async ({ page, request }) => {
+  for (const [from, to] of [
+    ["/c/excavators", "/excavators"],
+    ["/c/wheeled_excavators?mobility=tracked", "/excavators/wheeled-excavators?mobility=tracked"],
+    ["/p/jj234-wx?sku=jj234-wx-2019", "/jj234-wx?sku=jj234-wx-2019"],
+    ["/pages/delivery-information", "/delivery-information"],
+    ["/Excavators/Wheeled-Excavators", "/excavators/wheeled-excavators"],
+  ]) {
+    const response = await request.get(from, { maxRedirects: 0 });
+    expect(response.status(), from).toBe(308);
+    expect(response.headers().location, from).toBe(to);
+  }
+  await page.goto("/c/wheeled_excavators");
+  await expect(page).toHaveURL(/\/excavators\/wheeled-excavators$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Wheeled");
 });

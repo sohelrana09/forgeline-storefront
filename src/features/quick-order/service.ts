@@ -83,7 +83,7 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
 
   revalidatePath("/(shop)", "layout");
   return {
-    added: addable.map((l) => ({ ...l, name: skus.get(l.sku)!.name })),
+    added: addable.map((l) => ({ ...l, name: skus.get(l.sku)!.name, quoteOnly: Boolean(skus.get(l.sku)!.quoteOnly) })),
     errors,
     // Keep only the lines that failed in the box, so the buyer can fix them.
     submitted: errors

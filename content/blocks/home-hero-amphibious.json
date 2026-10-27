@@ -9,6 +9,6 @@
   "image": "https://images.us-east-2.aws.commercetools.com/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/hero-excavator-LR-2jO-l.jpg",
   "imageAlt": "S567 UV amphibious excavator on a pontoon hull",
   "theme": "dark",
-  "cta": { "label": "See amphibious excavators", "href": "/c/amphibious_excavators" },
+  "cta": { "label": "See amphibious excavators", "href": "/excavators/large-scale-mining-excavators/amphibious-excavators" },
   "secondaryCta": { "label": "Order spare parts by SKU", "href": "/quick-order" }
 }

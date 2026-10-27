@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { confirmEmail, register, requestPasswordReset, resendVerification, resetPasswordAction } from "@/features/auth/actions";
 import type { ForgotPasswordState, RegisterState, ResetPasswordState } from "@/features/auth/types";
 import { FormGuardFields } from "@/components/ui/FormGuardFields";
+import { pagePath } from "@/lib/urls";
 
 const input = "min-h-11 rounded border border-gray-300 px-3 text-base font-normal";
 const label = "flex flex-col gap-1 text-sm font-semibold";
@@ -82,7 +83,7 @@ export function RegisterForm() {
         <input id="terms" name="terms" type="checkbox" required className="h-5 w-5" />
         <span>
           I accept the{" "}
-          <Link href="/pages/terms" target="_blank" className="text-orange-800">
+          <Link href={pagePath("terms")} target="_blank" className="text-orange-800">
             terms of sale
           </Link>
         </span>

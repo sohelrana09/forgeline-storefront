@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ProductProjection } from "@commercetools/platform-sdk";
-import { isQuoteOnly, localize } from "@/features/catalog/utils";
+import { isQuoteOnly, localize, productHref } from "@/features/catalog/utils";
 import { PriceTag } from "@/features/catalog/components/PriceTag";
 import { AddToCartForm } from "@/features/cart/components/AddToCartForm";
 
@@ -19,7 +19,7 @@ export function ProductCard({
   const variant = product.masterVariant;
   const name = localize(product.name);
   const image = variant.images?.[0];
-  const href = `/p/${localize(product.slug)}`;
+  const href = productHref(product.slug);
   return (
     <article className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-4">
       <Link href={href} className="block">

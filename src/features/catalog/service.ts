@@ -4,7 +4,7 @@ import type { Category, ProductProjection } from "@commercetools/platform-sdk";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
 import type { PricingContext } from "@/features/business-units/types";
-import { allVariants, localize, LOCALE, specRows } from "@/features/catalog/utils";
+import { allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
 import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
 import { MEDIA_PRODUCT_KEY } from "@/features/cms/types";
 
@@ -55,14 +55,14 @@ export const getCategoryTree = () => treeMemo("tree", loadCategoryTree);
 export type CategoryMenuItem = { id: string; label: string; href: string; children: CategoryMenuItem[] };
 
 export function categoryMenu(tree: CategoryTree, maxDepth = 3): CategoryMenuItem[] {
-  const build = (categories: Category[], depth: number): CategoryMenuItem[] =>
+  const build = (categories: Category[], depth: number, parents: Category[]): CategoryMenuItem[] =>
     categories.map((c) => ({
       id: c.id,
       label: localize(c.name),
-      href: `/c/${localize(c.slug)}`,
-      children: depth < maxDepth ? build(tree.children(c.id), depth + 1) : [],
+      href: categoryHref([...parents, c]),
+      children: depth < maxDepth ? build(tree.children(c.id), depth + 1, [...parents, c]) : [],
     }));
-  return build(tree.roots, 1);
+  return build(tree.roots, 1, []);
 }
 
 // ---------- Products (price-selected for the buyer's store/channel/country) ----------
@@ -96,6 +96,27 @@ export async function getProductsInCategories(
     .execute();
   return body;
 }
+
+// Every product of a category subtree, price-selected for the visitor: the layered navigation (layered.ts) filters,
+// counts, sorts and pages them itself, because Product Projection Search (and its facets) is deactivated here.
+// Fine for catalogs of a few hundred products per category; past CATEGORY_MAX switch to the Product Search API.
+export const CATEGORY_MAX = 500;
+export const getAllProductsInCategories = cache(async (ctx: PricingContext, categoryIds: string[]) => {
+  const { body } = await apiRoot
+    .productProjections()
+    .get({
+      queryArgs: {
+        where: `categories(id in (${idList(categoryIds)}))`,
+        limit: CATEGORY_MAX,
+        sort: [`name.${LOCALE} asc`],
+        ...priceSelection(ctx),
+      },
+    })
+    .execute();
+  if ((body.total ?? 0) > CATEGORY_MAX)
+    console.warn(`category has ${body.total} products; layered navigation sees the first ${CATEGORY_MAX}`);
+  return body.results;
+});
 
 // React cache(): the page's metadata and the page itself share one query per request (same context object).
 export const getProductBySlug = cache(async (ctx: PricingContext, slug: string): Promise<ProductProjection | undefined> => {

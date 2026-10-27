@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { GalleryImage } from "@/features/catalog/utils";
+import { productHref } from "@/features/catalog/utils";
 
 // Magento-style product gallery: main image with previous/next (buttons, arrow keys, swipe), thumbnails below and
 // a full-screen view. Each picture says which variant it shows; one of another variant links to that variant.
@@ -121,7 +122,7 @@ export function ProductGallery({
         <p className="m-0 flex flex-wrap items-center gap-x-3 text-sm text-gray-700">
           {label(current) && <span>{label(current)}</span>}
           {otherVariant && (
-            <Link href={`/p/${slug}?sku=${otherVariant}`} className="font-semibold text-orange-800">
+            <Link href={productHref(slug, otherVariant)} className="font-semibold text-orange-800">
               Choose this {current.kind === "color" ? "color" : "model"}
             </Link>
           )}

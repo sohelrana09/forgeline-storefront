@@ -13,6 +13,7 @@ import {
 import { MAX_QUANTITY } from "@/features/purchase-lists/utils";
 import type { ListActionState } from "@/features/purchase-lists/types";
 import type { QuickOrderState } from "@/features/quick-order/types";
+import { productHref } from "@/features/catalog/utils";
 
 export function CreateListForm() {
   const [state, action, pending] = useActionState(createListAction, {} as ListActionState);
@@ -161,7 +162,7 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
                     )}
                     <div className="flex min-w-0 flex-col">
                       {l.slug && l.available ? (
-                        <Link href={`/p/${l.slug}?sku=${encodeURIComponent(l.sku ?? "")}`} className="font-semibold text-gray-900">
+                        <Link href={productHref(l.slug, l.sku)} className="font-semibold text-gray-900">
                           {l.name}
                         </Link>
                       ) : (

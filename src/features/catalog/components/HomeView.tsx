@@ -5,12 +5,14 @@ import { listMyOrders, orderReference } from "@/features/orders/service";
 import { formatMoney } from "@/lib/utils";
 import { taxNote } from "@/features/catalog/utils";
 import { ProductCard } from "@/features/catalog/components/ProductCard";
+import { Carousel } from "@/components/ui/Carousel";
 import { CmsBlocks } from "@/features/cms/components/CmsBlocks";
 import { HeroBanners } from "@/features/cms/components/HeroBanners";
 import { getBlocks } from "@/features/cms/service";
 import { validBanners } from "@/features/cms/utils";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
+import { categoryPath } from "@/lib/urls";
 
 const SPARE_PARTS_SLUG = "spare_parts";
 
@@ -68,7 +70,7 @@ export async function HomeView({ session, context }: { session?: Session; contex
           <div className="flex flex-wrap gap-3">
             {spareParts && (
               <Link
-                href={`/c/${SPARE_PARTS_SLUG}`}
+                href={categoryPath([SPARE_PARTS_SLUG])}
                 className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline hover:bg-orange-800"
               >
                 Shop spare parts
@@ -92,31 +94,31 @@ export async function HomeView({ session, context }: { session?: Session; contex
         <h2 id="machines" className="mb-4 mt-0 text-xl font-semibold">
           Machines
         </h2>
-        <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0 sm:grid-cols-3 lg:grid-cols-5">
+        {/* Swipeable row: 2 tiles per view on phones, 3 on tablets, 5 on desktop (like the grid it replaced). */}
+        <Carousel label="Machines" itemClassName="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(20%-0.8rem)]">
           {tiles.map(({ id, name, slug, total, image }) => (
-            <li key={id}>
-              <Link
-                href={`/c/${slug}`}
-                className="flex h-full flex-col gap-2 rounded-md border border-gray-200 bg-white p-4 text-gray-900 no-underline hover:border-orange-700"
-              >
-                {image ? (
-                  <Image
-                    src={image}
-                    alt=""
-                    width={400}
-                    height={300}
-                    sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
-                    className="aspect-[4/3] w-full object-contain"
-                  />
-                ) : (
-                  <div aria-hidden="true" className="aspect-[4/3] w-full rounded bg-gray-100" />
-                )}
-                <span className="font-semibold">{name}</span>
-                <span className="text-xs text-gray-600">{total} models · price on quote</span>
-              </Link>
-            </li>
+            <Link
+              key={id}
+              href={categoryPath([slug])}
+              className="flex h-full flex-col gap-2 rounded-md border border-gray-200 bg-white p-4 text-gray-900 no-underline hover:border-orange-700"
+            >
+              {image ? (
+                <Image
+                  src={image}
+                  alt=""
+                  width={400}
+                  height={300}
+                  sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+                  className="aspect-[4/3] w-full object-contain"
+                />
+              ) : (
+                <div aria-hidden="true" className="aspect-[4/3] w-full rounded bg-gray-100" />
+              )}
+              <span className="font-semibold">{name}</span>
+              <span className="text-xs text-gray-600">{total} models · price on quote</span>
+            </Link>
           ))}
-        </ul>
+        </Carousel>
       </section>
 
       {parts && parts.results.length > 0 && (
@@ -125,15 +127,15 @@ export async function HomeView({ session, context }: { session?: Session; contex
             <h2 id="parts" className="m-0 text-xl font-semibold">
               Spare parts: order now
             </h2>
-            <Link href={`/c/${SPARE_PARTS_SLUG}`} className="text-sm text-orange-800">
+            <Link href={categoryPath([SPARE_PARTS_SLUG])} className="text-sm text-orange-800">
               All spare parts
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <Carousel label="Spare parts: order now">
             {parts.results.map((p) => (
               <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={note} />
             ))}
-          </div>
+          </Carousel>
         </section>
       )}
 

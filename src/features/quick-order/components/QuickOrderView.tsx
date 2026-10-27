@@ -10,6 +10,7 @@ import { PriceTag } from "@/features/catalog/components/PriceTag";
 import { AddToCartForm } from "@/features/cart/components/AddToCartForm";
 import type { BuyerContext } from "@/features/business-units/types";
 import { Pagination } from "@/components/ui/Pagination";
+import { productHref } from "@/features/catalog/utils";
 
 const PAGE_SIZE = 20;
 
@@ -117,7 +118,7 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
                           <div aria-hidden="true" className="h-11 w-11 flex-none rounded bg-gray-200" />
                         )}
                         <div className="min-w-0">
-                          <Link href={`/p/${localize(product.slug)}`} className="font-semibold text-gray-900">
+                          <Link href={productHref(product.slug)} className="font-semibold text-gray-900">
                             {name}
                           </Link>
                           <div className="font-mono text-xs text-gray-600">{variant.sku}</div>

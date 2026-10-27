@@ -1,11 +1,11 @@
 import type { Category, ProductProjection, ProductVariant } from "@commercetools/platform-sdk";
 import { siteUrl } from "@/lib/site-url";
-import { availableQuantity, isQuoteOnly, localize, metaDescription } from "@/features/catalog/utils";
+import { availableQuantity, categoryHref, isQuoteOnly, localize, metaDescription, productHref } from "@/features/catalog/utils";
 
 // schema.org data for the product page (guest view, which is what crawlers see).
 export function productJsonLd(product: ProductProjection, variant: ProductVariant, trail: Category[], supplyChannelId?: string) {
   const base = siteUrl();
-  const url = `${base}/p/${localize(product.slug)}`;
+  const url = `${base}${productHref(product.slug)}`;
   const price = variant.price?.discounted?.value ?? variant.price?.value;
   const stock = availableQuantity(variant, supplyChannelId);
   const description = metaDescription(localize(product.description), 5000);
@@ -35,7 +35,7 @@ export function productJsonLd(product: ProductProjection, variant: ProductVarian
         }),
     },
     breadcrumbJsonLd([
-      ...trail.map((c) => ({ name: localize(c.name), url: `${base}/c/${localize(c.slug)}` })),
+      ...trail.map((c, i) => ({ name: localize(c.name), url: `${base}${categoryHref(trail.slice(0, i + 1))}` })),
       { name: localize(product.name), url },
     ]),
   ];
@@ -59,7 +59,7 @@ export function productMetadata(product: ProductProjection) {
   const name = localize(product.name);
   const description = metaDescription(localize(product.description)) || `${name} from Ironline Supply.`;
   const image = product.masterVariant.images?.[0];
-  const path = `/p/${localize(product.slug)}`;
+  const path = productHref(product.slug);
   return {
     title: name,
     description,
@@ -69,12 +69,14 @@ export function productMetadata(product: ProductProjection) {
   };
 }
 
-export function categoryMetadata(category: Category, page = 1) {
+// `trail`: the category's ancestors and itself, for its path.
+export function categoryMetadata(trail: Category[], page = 1) {
+  const category = trail[trail.length - 1];
   const name = localize(category.name);
   const description =
     metaDescription(localize(category.description)) || `${name} from Ironline Supply: prices, stock and specifications for every model.`;
   // Self-referencing canonical per page (sort orders point to the default order).
-  const canonical = `/c/${localize(category.slug)}${page > 1 ? `?page=${page}` : ""}`;
+  const canonical = `${categoryHref(trail)}${page > 1 ? `?page=${page}` : ""}`;
   return {
     title: page > 1 ? `${name} (page ${page})` : name,
     description,
