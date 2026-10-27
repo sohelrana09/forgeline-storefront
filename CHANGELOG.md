@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.2.0 (2026-10-27)
+
+Security hardening for sign-in, password reset and content links, and page messages in Magento's style across the shop.
+
+**Live demo:** https://forgeline-storefront-gamma.vercel.app
+
+### Highlights
+
+- **Page messages like Magento:** every success, error and warning uses one message style (Luma's colours and icons). Form results show in the message bar at the top of the page instead of next to the form.
+- **Sign-in protection:** parallel guessing can no longer get past the sign-in limits, and strangers can't lock a buyer out of their account.
+
+### Messages
+
+- Form results at the top of the page: sign-in, register, password reset, account information, addresses, company profile and users, approval rules, quotes, approvals, checkout and purchase lists.
+- Messages can carry a link to a page of the shop ("You added Air Filter to your shopping cart. View cart").
+- New messages: "Thank you for registering with Ironline Supply." after sign-up and "You are signed out." after sign-out.
+- Notices that belong to a page (order placed, password changed, confirm your email, quick-order results) use the same style.
+
+### Security
+
+- Sign-in attempts are counted before the password is checked, so a burst of parallel requests can't get past the limit. A successful sign-in doesn't count.
+- A browser that signed in to an account before skips the per-email limit (sealed `ct_device` cookie), so failed attempts from elsewhere can't lock the owner out.
+- Only the newest password reset link works: requesting a new one cancels the older ones.
+- Content links and merchants' redirects must stay on the site as a browser reads them, so `//host`, `/\host` and `/<tab>/host` are refused.
+
+### Fixes
+
+- Quick order: a SKU on several lines can no longer add up to more than 9,999.
+
+### Under the hood
+
+- Unit tests for the sign-in limiter, the login limits, same-site paths, page messages and the quick-order quantity check (51 tests).
+
 ## v1.1.0 (2026-10-27)
 
 Clean URLs, a blog and editable content pages in Sanity, ajax layered navigation, and an upgrade to Next.js 16.
