@@ -1,4 +1,4 @@
-// The store logo. A plain link (not next/link) on purpose: like Magento, clicking it always loads the homepage
+// The store logo. A plain link (not next/link) on purpose: clicking it always loads the homepage
 // fresh, also when you are already on it.
 export function SiteLogo({ className = "" }: { className?: string }) {
   return (

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 type Action = { href: string; label: string };
 
-// A titled account section holding side-by-side boxes (Magento's "block-dashboard-info" pattern).
+// A titled account section holding side-by-side boxes.
 export function Panel({ title, action, children }: { title: string; action?: Action; children: React.ReactNode }) {
   return (
     <section className="rounded-md border border-gray-200 bg-white">

@@ -197,7 +197,7 @@ export async function setLineQuantity(session: CartAuth, context: PricingContext
 
 export type MergeResult = { cart?: Cart; merged: number; skipped: string[] };
 
-// Magento-style sign-in merge: the guest cart's lines go into the buyer's cart for the selected unit, re-priced
+// Sign-in merge: the guest cart's lines go into the buyer's cart for the selected unit, re-priced
 // for that unit (its store, channel and currency), and the guest cart is deleted. SKUs the unit's store doesn't
 // sell are reported, not added. Merging is not commercetools' own anonymous-cart merge: that one knows nothing
 // about business units or stores, so the lines are re-added here instead.

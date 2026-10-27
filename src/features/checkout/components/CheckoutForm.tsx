@@ -84,7 +84,7 @@ function SavingNote({ pending }: { pending: boolean }) {
   );
 }
 
-// Magento's shipping methods table: choice · price · method.
+// Shipping methods table: choice · price · method.
 export function MethodTable({
   methods,
   methodKey,

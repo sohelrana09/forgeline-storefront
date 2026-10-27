@@ -97,7 +97,7 @@ export type EditorLine = {
   quoteOnly: boolean;
 };
 
-// The list's lines in one table (Magento requisition list): tick lines and add them (or all) to the cart, or edit
+// The list's lines in one table: tick lines and add them (or all) to the cart, or edit
 // quantities / remove lines and update the list. The two actions use separate forms over the same rows.
 export function ListEditor({ listId, lines, canOrder }: { listId: string; lines: EditorLine[]; canOrder: boolean }) {
   const [updateState, updateAction, updating] = useActionState(updateListAction, {} as ListActionState);

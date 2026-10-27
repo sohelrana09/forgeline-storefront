@@ -10,11 +10,10 @@ import { BLOG_PATH, blogCategoryPath, postPath } from "@/features/blog/utils";
 
 // The public catalog for search engines: home, every category, every product, every active content page, and the
 // blog (list, categories with posts, published posts).
-// Regenerated at most once an hour.
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  if (!siteIndexable()) return []; // not listed while the site stays out of search engines
+  if (!siteIndexable()) return [];
   const base = siteUrl();
   const blog = blogEnabled();
   const [tree, products, pages, posts, blogCategories] = await Promise.all([

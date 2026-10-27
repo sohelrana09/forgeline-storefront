@@ -8,7 +8,7 @@ The first public release of **Forgeline**: an open-source B2B and B2C storefront
 
 ### Highlights
 
-- Magento B2B features on commercetools: company accounts, quick order, quotes, approval rules and purchase lists
+- B2B features on commercetools: company accounts, quick order, quotes, approval rules and purchase lists
 - One storefront for business buyers, consumers and guests
 - Fast on Vercel's free tier: cached catalog pages, server code next to the commercetools region
 - Spam protection without CAPTCHAs, security headers and least-privilege customer tokens
@@ -19,7 +19,7 @@ The first public release of **Forgeline**: an open-source B2B and B2C storefront
 - **Company accounts:** buyers sign in as associates of a business unit and switch between the units they belong to.
 - **Company prices:** each unit buys from its own store and distribution channel, in its own currency.
 - **Quick order:** paste SKUs and quantities, or pick from a catalog table; unknown SKUs are reported.
-- **Purchase lists** (Magento requisition lists): save products you reorder; add one, a selection or a whole list to the cart.
+- **Purchase lists**: save products you reorder; add one, a selection or a whole list to the cart.
 - **Quotes:** machines go into the cart "for quote"; request, negotiate and order from an accepted quote.
 - **Approval rules:** orders above a threshold wait for an approver; approve or reject with a reason; the buyer is notified.
 - **Company area:** profile, users, roles and permissions, structure, approval rules and company orders, shown by role.
@@ -30,13 +30,13 @@ The first public release of **Forgeline**: an open-source B2B and B2C storefront
 
 - Browse, search with autocomplete and typo tolerance, and fill a cart without an account.
 - Sign up, verify email, reset a password and keep an address book.
-- One-page, Magento-style checkout: shipping address, shipping method, payment.
+- One-page checkout: shipping address, shipping method, payment.
 - A guest cart is merged into the account cart on sign-in and re-priced.
 
 ### Storefront
 
 - Product pages with an image gallery, variants, live stock, specifications, compatible spare parts and related products.
-- Category menu that mirrors the Merchant Center tree, with Magento-style dropdowns and flyouts.
+- Category menu that mirrors the Merchant Center tree, with dropdowns and flyouts.
 - My account: dashboard, orders, quotes, purchase lists, addresses and account information.
 - Homepage banners, info blocks, featured products and static pages, edited in the **Content** app inside Merchant Center (runs on commercetools Connect), with image uploads and a Markdown editor.
 

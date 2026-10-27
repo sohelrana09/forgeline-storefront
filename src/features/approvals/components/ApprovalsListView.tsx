@@ -13,7 +13,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
-// Magento B2B "Order approvals": orders of the selected unit that matched an approval rule. Pending first (the
+// Order approvals: orders of the selected unit that matched an approval rule. Pending first (the
 // default tab); "All" includes approved and rejected ones. For associates with UpdateApprovalFlows (checked live).
 export async function ApprovalsListView({
   session,

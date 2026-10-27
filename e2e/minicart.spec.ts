@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// The Magento-style minicart, as a guest with an empty cart (read-only: nothing is added).
+// The minicart, as a guest with an empty cart (read-only: nothing is added).
 
 test("the cart icon opens the minicart and Esc closes it", async ({ page }) => {
   await page.goto("/");
@@ -9,7 +9,7 @@ test("the cart icon opens the minicart and Esc closes it", async ({ page }) => {
   const panel = page.getByRole("dialog", { name: "Shopping cart" });
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("You have no items in your shopping cart.");
-  // Empty: just the message, as in Magento (checkout and "View and Edit Cart" only with products).
+  // Empty: just the message (checkout and "View and Edit Cart" only with products).
   await expect(panel.getByRole("link")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();

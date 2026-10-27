@@ -8,7 +8,7 @@ import { UUID } from "@/features/orders/utils";
 import { MAX_QUANTITY, KEEP_DAYS, MAX_LINES, MAX_LISTS } from "@/features/purchase-lists/utils";
 import type { PurchaseList, PurchaseListSummary } from "@/features/purchase-lists/types";
 
-// Purchase lists (Magento "Requisition lists") are the customer's own commercetools Shopping Lists in the selected
+// Purchase lists are the customer's own commercetools Shopping Lists in the selected
 // unit's store, read and written with their narrowed token (manage_my_shopping_lists:<project>:<store>):
 // commercetools only finds lists of that customer in that store, so a foreign id is simply not found.
 // Stored lines carry no SKU or price: reads expand the variant for its SKU; prices come from the catalog per unit.

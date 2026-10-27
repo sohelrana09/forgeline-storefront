@@ -9,7 +9,7 @@ import { MiniCart } from "@/features/cart/components/MiniCart";
 import { logout } from "@/features/auth/actions";
 import { PageMessages } from "@/components/ui/PageMessages";
 
-// Cached catalog for guests (home, categories, products, content pages without query parameters). src/middleware.ts
+// Cached catalog for guests (home, categories, products, content pages without query parameters). src/proxy.ts
 // rewrites guests here; signed-in customers and URLs with parameters use the per-visitor pages in (shop).
 // Nothing here may read cookies or headers: the HTML is shared by every guest. The visitor's own cart is loaded in
 // the browser (MiniCart live).

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Magento-style layered navigation on a category page, as a guest (read-only).
+// Layered navigation on a category page, as a guest (read-only).
 
 test("filter, sort and remove a filter without a full page load", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

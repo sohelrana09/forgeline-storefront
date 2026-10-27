@@ -3,7 +3,7 @@ import { SearchBox } from "@/components/layouts/SearchBox";
 import { SiteLogo } from "@/components/layouts/SiteLogo";
 import { CategoryMenu, type MenuItem } from "@/components/layouts/CategoryMenu";
 
-// Magento-style header, domain-agnostic: the shop layout fills in the buying-context area and the sign-out action
+// Store header, domain-agnostic: the shop layout fills in the buying-context area and the sign-out action
 // (src/components never imports features).
 //   top bar:  who you're buying for · welcome, Quick order, My account, Sign out (guests: Sign in)
 //   main row: logo · search · mini-cart

@@ -2,7 +2,7 @@ import { getRoles } from "@/features/company/service";
 import { PERMISSION_GROUPS } from "@/features/company/utils";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// Magento's "Roles and Permissions", read-only: commercetools associate roles are shared by every company.
+// Roles and permissions, read-only: commercetools associate roles are shared by every company.
 export async function RolesView({ context }: { context: BuyerContext }) {
   const roles = await getRoles();
   return (

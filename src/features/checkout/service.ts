@@ -9,7 +9,7 @@ import { isQuoteOnly } from "@/features/catalog/utils";
 // Checkout: delivery details, PO number and placing the order (server-only).
 import type { Session } from "@/features/auth/session";
 
-// Lines priced at or above the quote threshold can't be ordered directly (E4 turns them into quotes).
+// Lines priced at or above the quote threshold can't be ordered directly (they go to a quote request).
 export const quoteOnlyLines = (cart: Cart) => cart.lineItems.filter((l) => isQuoteOnly(l.price));
 
 export async function applyCheckoutDetails(
@@ -132,9 +132,6 @@ export async function placeOrder(
 
 // ---------- Card payments (commercetools Checkout, Payment Only) for consumers and guests ----------
 
-// Checks the cart the caller owns (read with their own token) is ready to pay, then opens a Checkout Session for
-// it. Checkout takes the payment and creates the Order; `expectedVersion` makes sure the buyer pays for the cart
-// they reviewed.
 // A B2C cart (consumer or guest) ready to be paid: the caller's own (read with their token), the version they
 // reviewed, delivery address + method set, no quote-only machines, and an email for the confirmation.
 async function readyB2CCart(auth: CartAuth, ctx: PricingContext, cartId: string, expectedVersion: number, email: string | undefined) {
@@ -152,6 +149,7 @@ async function readyB2CCart(auth: CartAuth, ctx: PricingContext, cartId: string,
   return cart;
 }
 
+// Opens a Checkout Session for a ready cart; Checkout takes the payment and creates the Order.
 export async function prepareCardPayment(
   auth: CartAuth,
   ctx: PricingContext,
@@ -164,7 +162,7 @@ export async function prepareCardPayment(
 }
 
 // While card payments are switched off (B2C_CARD_PAYMENTS): the B2C order is placed straight away with the caller's
-// own token and paid by bank transfer afterwards. The version check makes a double submit fail instead of ordering twice.
+// own token and paid by bank transfer afterwards.
 export async function placeBankTransferOrder(
   auth: CartAuth,
   ctx: PricingContext,

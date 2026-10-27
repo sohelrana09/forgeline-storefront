@@ -38,7 +38,6 @@ export function proxy(request: NextRequest) {
   if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
   // Draft mode (the Studio's preview): the per-visitor page reads drafts; the cached copy can't.
   if (request.cookies.has(DRAFT_MODE_COOKIE)) return NextResponse.next();
-  // Any other parameter means a variant page (?sort, ?page, ?sku).
   if ([...searchParams.keys()].some((k) => !IGNORED_PARAM.test(k))) return NextResponse.next();
 
   const url = request.nextUrl.clone();

@@ -19,8 +19,6 @@ const me = (session: Session) => customerApiRoot(session.accessToken).me();
 const belongs = (item: { businessUnit?: { key?: string }; store?: { key?: string } }, ctx: PricingContext) =>
   item.businessUnit?.key === ctx.businessUnitKey && (!item.store || item.store.key === ctx.storeKey);
 
-// ---------- Reads ----------
-
 // Same rule as belongs(), in the query itself, so page totals count only this unit's records in this store.
 const inScope = (ctx: PricingContext) =>
   `businessUnit(key=${str(ctx.businessUnitKey)}) and (store is not defined or store(key=${str(ctx.storeKey)}))`;
@@ -91,8 +89,6 @@ export async function quotesForRequest(session: Session, ctx: PricingContext, re
     .catch(signOutOnAuthError);
   return body.results.filter((q) => belongs(q, ctx));
 }
-
-// ---------- Writes ----------
 
 const cleanComment = (comment: string, required: boolean) => {
   const text = comment.trim();

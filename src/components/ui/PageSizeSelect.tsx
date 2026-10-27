@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-// Magento's "Show [10] per page". Each option carries its own URL (built on the server), so the page size stays
+// "Show [10] per page". Each option carries its own URL (built on the server), so the page size stays
 // in the URL and the list is shareable.
 export function PageSizeSelect({ value, options, label }: { value: number; options: { size: number; href: string }[]; label: string }) {
   const router = useRouter();

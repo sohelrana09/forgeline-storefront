@@ -4,7 +4,7 @@ import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import type { CompanyUnit } from "@/features/company/types";
 
-// Magento's "Company Structure": the company and its divisions. Units the user belongs to can be switched to.
+// Company structure: the company and its divisions. Units the user belongs to can be switched to.
 // Shows the units the user belongs to and their parent units (for context), nothing else of the company.
 export async function CompanyStructureView({ session, context }: { session: Session; context: BuyerContext }) {
   const units = await getCompanyStructure(context, session.customerId);

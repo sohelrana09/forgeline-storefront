@@ -8,7 +8,7 @@ type Suggestion = { label: string; detail?: string; href: string; image?: string
 export type Suggestions = { products: Suggestion[]; categories: Suggestion[]; total: number; corrected?: string };
 type Loaded = Suggestions & { q: string };
 
-// Magento-style search autocomplete (ARIA combobox): suggestions appear from the second letter, arrow keys move
+// Search autocomplete (ARIA combobox): suggestions appear from the second letter, arrow keys move
 // through them, Enter opens the highlighted one or, with none highlighted, the full results page. Without
 // JavaScript it is a plain search form.
 export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?: string }) {

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { MESSAGES_CHECK, MESSAGES_COOKIE, parseMessages, type PageMessage } from "@/lib/messages";
 
-// Magento page messages at the top of the content: green success, red error, yellow warning, each with its icon and a
+// Page messages at the top of the content: green success, red error, yellow warning, each with its icon and a
 // close button. They stay (and stick to the top while scrolling) until dismissed or the next page.
 // Messages arrive in the ct_messages cookie (src/lib/flash.ts); it's read on every page, when `hint` changes (the
 // server saw a new cookie after a form action) and on MESSAGES_CHECK (after an action called from the browser).

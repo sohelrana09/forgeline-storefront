@@ -15,7 +15,7 @@ import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// One-step checkout for signed-in customers, laid out like Magento's: 1 Shipping address, 2 Shipping methods,
+// One-step checkout for signed-in customers: 1 Shipping address, 2 Shipping methods,
 // 3 Payment method with Place order, and the order summary beside them.
 export async function CheckoutView({
   session,

@@ -10,7 +10,7 @@ import type { OrderApproval } from "@/features/approvals/types";
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
-// Magento's order grid: Order #, Date, Ship To, PO, Order Total, Status, then View Order / Reorder.
+// Order grid: Order #, Date, Ship To, PO, Order Total, Status, then View Order / Reorder.
 // `ownerId` set: a company-wide list, so show who placed each order (`names`: customer id → colleague's name;
 // orders placed with a customer token carry no email) and offer Reorder only on the user's own. `approvals`: order id →
 // its approval (orders that matched an approval rule), shown next to the order status.

@@ -37,7 +37,7 @@ const BUSINESS_ONLY = new Set([
   "/account/company/approval-rules",
 ]);
 
-// Magento's account sidebar. The current section stays highlighted on its detail pages too (an order, a quote).
+// Account sidebar. The current section stays highlighted on its detail pages too (an order, a quote).
 // `business`: a company buyer (quotes and the Company group); consumers see their personal sections only.
 // `approver` / `ruleManager`: the approval links, for associates whose roles allow them (pages re-check live).
 export function AccountNav({

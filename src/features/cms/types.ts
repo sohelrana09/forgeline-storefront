@@ -36,7 +36,7 @@ export type CmsBlock = {
   // (60 s content memo + 5 min page cache); signed-in pages within a minute.
   startsAt?: string;
   endsAt?: string;
-  // Markdown content, a list of SKUs (a "products" block, like Magento's Catalog Products List widget), or a banner
+  // Markdown content, a list of SKUs (a "products" block), or a banner
   // (homepage hero: picture, headline, text in `content`, up to two buttons).
   type: "markdown" | "products" | "banner";
   content?: string;
@@ -45,7 +45,7 @@ export type CmsBlock = {
   // Banner only.
   headline?: string;
   image?: string; // desktop picture, 16:9 or wider
-  mobileImage?: string; // optional narrower picture for phones
+  mobileImage?: string;
   imageAlt?: string; // describes the picture; empty when it's decoration
   theme?: "dark" | "light"; // text colour over the picture
   secondaryCta?: { label: string; href: string };

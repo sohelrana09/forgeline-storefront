@@ -15,7 +15,7 @@ export async function addSku(formData: FormData) {
   // Build exactly one line from validated parts so form data can't inject extra lines.
   if (!/^[A-Za-z0-9._-]+$/.test(sku) || !Number.isInteger(quantity)) return;
   const result = await addParsedLines(`${sku}, ${quantity}`);
-  // Magento's page messages: "You added X to your shopping cart." or why it wasn't added.
+  // Page messages: "You added X to your shopping cart." or why it wasn't added.
   for (const line of result.added) {
     await flash(
       "success",
@@ -42,7 +42,7 @@ export async function updateCartLine(formData: FormData) {
 
   try {
     await setLineQuantity(auth, context, cart, lineItemId, quantity);
-    // Like Magento: removing says so; a changed quantity speaks for itself.
+    // Removing says so; a changed quantity speaks for itself.
     if (quantity === 0 && line) await flash("success", `You removed ${localize(line.name)} from your shopping cart.`);
   } catch (err) {
     if (isRedirectError(err)) throw err; // signed out (revoked token)

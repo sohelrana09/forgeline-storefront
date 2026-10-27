@@ -16,7 +16,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
-// Magento B2B "My Requisition Lists": the customer's lists in the selected unit's store, newest change first.
+// The customer's purchase lists in the selected unit's store, newest change first.
 export async function PurchaseListsView({
   session,
   context,

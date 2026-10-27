@@ -14,7 +14,7 @@ export function listParams(page: string | undefined, limit: string | undefined, 
   return { page: Number.isFinite(n) ? Math.min(Math.max(n, 1), Math.floor(MAX_OFFSET / size) + 1) : 1, size };
 }
 
-// Magento's list toolbar: "Items 1 to 10 of 23 total", the pager, and "Show N per page". Always shown when the
+// List toolbar: "Items 1 to 10 of 23 total", the pager, and "Show N per page". Always shown when the
 // list has items, so the count and page size are visible even on a single page.
 export function ListToolbar({
   page,

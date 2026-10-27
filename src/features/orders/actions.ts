@@ -6,7 +6,7 @@ import { getMyOrder } from "@/features/orders/service";
 import { addParsedLines } from "@/features/quick-order/service";
 import { UUID } from "@/features/orders/utils";
 
-// Public endpoint: Magento's "Reorder". Puts the lines of one of the buyer's own orders back into the cart of the
+// Public endpoint: "Reorder". Puts the lines of one of the buyer's own orders back into the cart of the
 // selected unit at today's prices (SKUs the store no longer sells are skipped by the quick-order checks).
 export async function reorder(formData: FormData) {
   const id = String(formData.get("orderId") ?? "");

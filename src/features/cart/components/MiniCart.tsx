@@ -15,7 +15,7 @@ const FAILED_SAVE_MS = 4000;
 const stepButton =
   "flex w-9 shrink-0 items-center justify-center text-base font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-orange-700";
 
-// Magento-style minicart: the header cart opens a dropdown with the lines (quantity update, remove), the subtotal,
+// Minicart: the header cart opens a dropdown with the lines (quantity update, remove), the subtotal,
 // "Proceed to Checkout" and "View and Edit Cart" (only while the cart has products; empty shows just a message).
 // Without JavaScript the cart icon is a plain link to /cart.
 //   - per-visitor pages pass `initial`, built from the cart on the server (SiteChrome);
@@ -175,7 +175,7 @@ export function MiniCart({ initial = EMPTY_MINICART, live = false }: { initial?:
 }
 
 // One line: picture, name, unit price, and (when the visitor may change the cart) the quantity with an Update button
-// that appears once it differs, plus Remove with a confirmation step (Magento asks before removing).
+// that appears once it differs, plus Remove with a confirmation step.
 function MiniCartRow({ line, editable }: { line: MiniCartLine; editable: boolean }) {
   const [quantity, setQuantity] = useState(String(line.quantity));
   const [confirming, setConfirming] = useState(false);

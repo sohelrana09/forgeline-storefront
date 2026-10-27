@@ -9,7 +9,7 @@ import { CompanyError } from "@/features/company/service";
 import { UUID } from "@/features/orders/utils";
 import type { ApprovalRuleInput, ApprovalRuleSummary } from "@/features/company/types";
 
-// Approval rules of the selected unit (Magento B2B "Approval rules"). commercetools only reaches them "as associate",
+// Approval rules of the selected unit. commercetools only reaches them "as associate",
 // so the admin client acts with the signed-in user's id after a live permission check; commercetools then checks
 // CreateApprovalRules / UpdateApprovalRules itself too. The condition is built here from a validated amount in the
 // unit's currency: users never type predicate syntax. Rules can't be deleted, only switched off (Inactive).

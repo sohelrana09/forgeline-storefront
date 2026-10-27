@@ -17,7 +17,7 @@ import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
 
-// Magento-style order view: status and actions, items ordered, totals, then order information (addresses,
+// Order view: status and actions, items ordered, totals, then order information (addresses,
 // shipping method, payment method). Right after checkout it doubles as the confirmation page.
 export async function OrderView({
   session,

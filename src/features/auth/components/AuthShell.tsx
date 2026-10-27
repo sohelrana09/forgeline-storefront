@@ -1,4 +1,4 @@
-// Customer pages inside the shop layout (Magento "Customer Login", "Create New Customer Account"): page title, then
+// Customer pages inside the shop layout (sign in, create an account): page title, then
 // the form in a white panel. `aside` adds a second column (the login page's "New customers" box).
 // A single panel (sign-up, password pages) is centred on the page, title included.
 export function AuthShell({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {

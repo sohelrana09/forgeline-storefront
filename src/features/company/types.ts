@@ -23,7 +23,6 @@ export type CompanyUnit = {
 
 export type CompanyActionState = { error?: string; saved?: string };
 
-// An approval rule as the company area shows and edits it.
 export type ApprovalRuleSummary = {
   id: string;
   version: number;

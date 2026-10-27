@@ -14,7 +14,7 @@ import { stegaClean } from "next-sanity";
 import { firstParam } from "@/lib/utils";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// The catch-all catalog route (Magento's URL rewrite dispatch): a path is a category, a product or a content page,
+// The catch-all catalog route: a path is a category, a product or a content page,
 // a redirect (old URLs, other spellings, merchants' redirects) or a real 404. Shared by the per-visitor route in
 // (shop) and the cached guest copies in (cached)/g.
 

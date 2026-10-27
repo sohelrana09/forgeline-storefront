@@ -5,7 +5,7 @@ const NAV_ID = "category-menu";
 
 export type MenuItem = { id: string; label: string; href: string; children: MenuItem[] };
 
-// Three-level category menu, no client JavaScript (Magento Luma style):
+// Three-level category menu, no client JavaScript:
 // - desktop (md+): horizontal bar of top-level categories; hover or keyboard focus drops down a vertical list,
 //   and items with children open a flyout to the side. MenuBehavior flips menus near the right edge leftwards
 //   and closes a menu once one of its links is clicked.

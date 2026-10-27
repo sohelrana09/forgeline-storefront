@@ -27,12 +27,11 @@ export function contextsFor(all: BuyingContext[], customerId: string): BuyerCont
   });
 }
 
-// The ct_bu cookie only picks among the customer's own units.
 export const pickContext = (contexts: BuyerContext[], selectedKey: string | undefined) =>
   contexts.find((c) => c.businessUnitKey === selectedKey) ?? contexts[0];
 
-// Business units = those where the signed-in customer is an associate (explicit or inherited). The customer id
-// comes from /me at login and lives in the encrypted session, so the ct_bu cookie only picks among them.
+// The customer id comes from /me at login and lives in the encrypted session, so the ct_bu cookie only picks among
+// the customer's own units.
 // Wrapped in React cache(): the layout, the page and its actions share one lookup per request.
 export const currentBuyingContext = cache(async () => {
   const session = await getSession();

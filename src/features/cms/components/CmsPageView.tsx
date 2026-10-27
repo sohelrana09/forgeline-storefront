@@ -5,7 +5,7 @@ import { Markdown } from "@/components/ui/Markdown";
 import { RichText } from "@/features/cms/components/RichText";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// Magento-style CMS page: Sanity rich text, or Markdown from the "cms-page" Custom Objects (features/cms/service.ts).
+// CMS page: Sanity rich text, or Markdown from the "cms-page" Custom Objects (features/cms/service.ts).
 export async function CmsPageView({ slug, context }: { slug: string; context: BuyerContext }) {
   const page = await getPage(slug).catch((err) => {
     console.error("CMS page failed", err?.body ?? err);

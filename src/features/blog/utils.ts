@@ -1,6 +1,6 @@
 import type { PostFilter } from "@/features/blog/types";
 
-// Blog URLs (Magefan style): /blog, /blog/<post>, /blog/category/<slug>, /blog/tag/<tag>, ?page=N for later pages.
+// Blog URLs: /blog, /blog/<post>, /blog/category/<slug>, /blog/tag/<tag>, ?page=N for later pages.
 export const BLOG_PATH = "/blog";
 export const postPath = (slug: string) => `${BLOG_PATH}/${slug}`;
 export const blogCategoryPath = (slug: string) => `${BLOG_PATH}/category/${slug}`;

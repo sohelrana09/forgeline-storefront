@@ -3,7 +3,7 @@ import type { Cart } from "@commercetools/platform-sdk";
 import { formatMoney } from "@/lib/utils";
 import { localize } from "@/features/catalog/utils";
 
-// Magento's "N Items in Cart" list in the order summary: picture, name, quantity and line total.
+// The "N Items in Cart" list in the order summary: picture, name, quantity and line total.
 export function CheckoutItems({ cart }: { cart: Cart }) {
   const count = cart.lineItems.reduce((n, l) => n + l.quantity, 0);
   return (

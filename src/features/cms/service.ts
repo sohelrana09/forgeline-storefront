@@ -1,4 +1,4 @@
-// Content (Magento-style CMS pages and static blocks). Blocks are commercetools Custom Objects; pages are Sanity
+// Content (CMS pages and static blocks). Blocks are commercetools Custom Objects; pages are Sanity
 // documents (type "page") when Sanity is configured, else Custom Objects too:
 //   container "cms-block", key = identifier  → CmsBlock
 //   container "cms-page",  key = url slug    → CmsPage (until Sanity is configured)
@@ -39,7 +39,6 @@ export async function getBlocks({ placement, storeKey, categorySlugs = [] }: Blo
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
-// Pages come from Sanity once it is configured (src/lib/sanity), else from the "cms-page" Custom Objects.
 const PAGE_FIELDS = `"slug": slug.current, title, "metaTitle": seo.title, "metaDescription": seo.description, "active": true`;
 
 // One page, drafts included in the Studio's preview.

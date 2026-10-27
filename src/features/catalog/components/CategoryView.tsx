@@ -26,7 +26,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 
 export type CategoryQuery = Record<string, string | string[] | undefined>;
 
-// Category page (Magento "product list"): layered navigation on the left ("Shop By", "Now Shopping by"), the
+// Category page (product list): layered navigation on the left ("Shop By", "Now Shopping by"), the
 // toolbar (sort, direction, page size) and the products on the right. All state is in the URL (layered.ts).
 export async function CategoryView({ context, slug, query }: { context: BuyerContext; slug: string; query: CategoryQuery }) {
   const tree = await getCategoryTree();
@@ -66,7 +66,6 @@ export async function CategoryView({ context, slug, query }: { context: BuyerCon
   });
   const flipped = current.field === "newest" ? undefined : (`${current.field}-${current.dir === "asc" ? "desc" : "asc"}` as SortKey);
 
-  // One collapsible filter group (Magento "filter options" block) with its title.
   const group = (key: string, title: string, body: React.ReactNode) => (
     <details key={key} open className="group py-3">
       <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between font-semibold [&::-webkit-details-marker]:hidden">

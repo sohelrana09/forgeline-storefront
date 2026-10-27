@@ -2,7 +2,7 @@ import type { Cart } from "@commercetools/platform-sdk";
 import { isQuoteOnly, localize, productHref } from "@/features/catalog/utils";
 import { formatMoney } from "@/lib/utils";
 
-// What the header's minicart shows (Magento "minicart"): plain, serializable data built from the cart on the server,
+// What the header's minicart shows: plain, serializable data built from the cart on the server,
 // either in SiteChrome (per-visitor pages) or in /api/cart-summary (cached guest pages).
 export type MiniCartLine = {
   id: string;
@@ -20,7 +20,7 @@ export type MiniCartSummary = {
   items: number;
   // Header total: what the cart page shows as the total (gross where tax is known).
   total?: string;
-  // Panel subtotal: the lines only, before shipping (Magento "Cart Subtotal").
+  // Panel subtotal: the lines only, before shipping ("Cart Subtotal").
   subtotal?: string;
   lines: MiniCartLine[];
   // Machines priced on quote are in the cart: it goes to "Request a quote", not checkout.

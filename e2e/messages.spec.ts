@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Magento-style page messages, without touching the shared project: a message recorded in the ct_messages cookie
+// Page messages, without touching the shared project: a message recorded in the ct_messages cookie
 // (as a Server Action would) shows at the top of the page, can be dismissed, and is shown only once.
 test("a recorded message shows once at the top of the page and can be dismissed", async ({ page, context, baseURL }) => {
   const message = JSON.stringify([{ type: "success", text: "You added Air Filter to your shopping cart." }]);

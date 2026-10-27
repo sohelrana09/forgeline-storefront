@@ -54,5 +54,7 @@ export async function sanityFetch<T>(query: string, params: Params = {}, { draft
       cache: "no-store",
     });
   }
-  return memo(`${query}\n${JSON.stringify(params)}`, () => client.fetch<T>(query, params, { cache: "no-store" })) as Promise<T>;
+  // No `cache: "no-store"` here: it would mark the cached guest pages ((cached)/g, dynamic = "error") as dynamic and
+  // fail their render. A plain fetch is allowed there (like the commercetools SDK's); the memo does the caching.
+  return memo(`${query}\n${JSON.stringify(params)}`, () => client.fetch<T>(query, params)) as Promise<T>;
 }

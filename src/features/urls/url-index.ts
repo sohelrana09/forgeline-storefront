@@ -1,6 +1,6 @@
 import { categoryPath, normalizePath, pagePath, productPath, RESERVED_SEGMENTS, urlKey } from "@/lib/urls";
 
-// The URL index (Magento's url_rewrite table): every storefront path and what it shows, plus the paths that redirect.
+// The URL index: every storefront path and what it shows, plus the paths that redirect.
 // Built from commercetools data by service.ts; pure, so it is unit-tested (url-index.test.ts).
 
 export type UrlTarget =
@@ -14,7 +14,7 @@ export type UrlSources = {
   categories: { id: string; trail: string[] }[];
   products: { slug: string }[];
   pages: { slug: string }[];
-  // Merchant-defined redirects (Magento "custom URL rewrites"), e.g. a retired product to its successor.
+  // Merchant-defined redirects, e.g. a retired product to its successor.
   rewrites: { from: string; to: string; permanent: boolean }[];
 };
 

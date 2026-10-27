@@ -65,7 +65,7 @@ export function categoryMenu(tree: CategoryTree, maxDepth = 3): CategoryMenuItem
   return build(tree.roots, 1, []);
 }
 
-// ---------- Products (price-selected for the buyer's store/channel/country) ----------
+// ---------- Products ----------
 
 const priceSelection = (ctx: PricingContext) => ({
   storeProjection: ctx.storeKey,

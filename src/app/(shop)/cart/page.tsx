@@ -5,7 +5,6 @@ import { CartView } from "@/features/cart/components/CartView";
 
 export const dynamic = "force-dynamic";
 
-// Personal or transactional: never in search results.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function CartPage({

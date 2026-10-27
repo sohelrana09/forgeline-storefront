@@ -4,7 +4,6 @@ import { QuickOrderView } from "@/features/quick-order/components/QuickOrderView
 
 export const dynamic = "force-dynamic";
 
-// Personal or transactional: never in search results.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 // Power-buyer page: paste SKUs, or scan the whole catalog as a table.

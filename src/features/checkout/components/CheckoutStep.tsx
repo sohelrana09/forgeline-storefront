@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// One section of the one-step checkout (Magento: 1 Shipping Address, 2 Shipping Methods, 3 Payment Method).
+// One section of the one-step checkout (1 Shipping Address, 2 Shipping Methods, 3 Payment Method).
 // The numbers are the order the buyer fills them in; a later step says what it is waiting for until then.
 export function CheckoutStep({
   step,

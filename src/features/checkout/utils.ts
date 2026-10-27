@@ -16,7 +16,7 @@ export const addressLabel = (a: BaseAddress) =>
     .filter(Boolean)
     .join("\n");
 
-// Shipping methods as Magento shows them: the price this cart would pay ("Free" above the threshold) and the method.
+// Shipping methods as the checkout shows them: the price this cart would pay ("Free" above the threshold) and the method.
 export function methodOptions(options: ShippingOption[], cart: Cart): MethodOption[] {
   const subtotal = cart.lineItems.reduce((sum, l) => sum + l.totalPrice.centAmount, 0);
   return options.map((o) => {

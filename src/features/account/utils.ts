@@ -1,6 +1,6 @@
 import type { BaseAddress } from "@commercetools/platform-sdk";
 
-// Address as display lines, Magento style: name/company, street, postcode + city, region, country, phone.
+// Address as display lines: name/company, street, postcode + city, region, country, phone.
 export function addressLines(a: BaseAddress): string[] {
   const name = [a.firstName, a.lastName].filter(Boolean).join(" ");
   const street = [a.streetName, a.streetNumber].filter(Boolean).join(" ");

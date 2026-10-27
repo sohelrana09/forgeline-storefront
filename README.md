@@ -2,7 +2,7 @@
 
 **An open-source B2B and B2C storefront for commercetools, built with Next.js 15.**
 
-Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/). One storefront serves three kinds of customers: business buyers, consumers and guests. It brings the B2B features merchants know from Magento (Adobe Commerce) B2B: company accounts, quick order, quotes, approval rules and requisition lists. You can see and adapt everything, without a paid frontend platform.
+Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/). One storefront serves three kinds of customers: business buyers, consumers and guests. It brings the B2B features merchants expect: company accounts, quick order, quotes, approval rules and purchase lists. You can see and adapt everything, without a paid frontend platform.
 
 The demo shop, **Ironline Supply**, sells heavy machines and spare parts using the commercetools B2B sample data: 72 products, 6 business units and 5 stores.
 
@@ -28,7 +28,7 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 
 ## Who it is for
 
-- **Merchants** who are moving from Magento or another all-in-one platform to commercetools, and want to see what a B2B shop on commercetools looks like before they build one.
+- **Merchants** who are moving from an all-in-one platform to commercetools, and want to see what a B2B shop on commercetools looks like before they build one.
 - **Agencies and developers** who need a reference build: real code for business units, associate roles, standalone prices, quotes and approval flows, not just API examples.
 - **Teams learning commercetools**: every feature is mapped to the commercetools API it uses, and the gotchas we hit are written down.
 
@@ -41,7 +41,7 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 | **Company accounts** | Buyers sign in as associates of a business unit (company or division) and switch between the units they belong to. |
 | **Company-specific prices** | Each unit buys from its own store and channel, so it sees its own price list and currency (for example EUR for Spain, USD for the US). |
 | **Quick order** | Paste a list of SKUs and quantities, or pick from a searchable catalog table. Unknown SKUs are reported, not silently dropped. |
-| **Purchase lists** | Like Magento requisition lists: save products you reorder, then add one line, a selection or the whole list to the cart in one click. |
+| **Purchase lists** | Save products you reorder, then add one line, a selection or the whole list to the cart in one click. |
 | **Request a quote** | Machines above a set value go into the cart "for quote". Buyers request a quote, negotiate, and order from the accepted quote. |
 | **Approval rules** | Orders above a threshold wait for an approver in the company. Approvers approve or reject with a reason, and the buyer is notified. |
 | **Order on invoice** | Business checkout with a purchase order (PO) number. |
@@ -51,7 +51,7 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 
 - Browse the catalog, search with autocomplete and typo tolerance, and fill a cart without an account.
 - Sign up, verify email, reset a forgotten password, and keep an address book.
-- Check out as a guest or a consumer on a one-page, Magento-style checkout: shipping address, shipping method, payment.
+- Check out as a guest or a consumer on a one-page checkout: shipping address, shipping method, payment.
 - When a guest signs in, their cart is merged into their account cart and re-priced.
 
 ### Everyone
@@ -103,7 +103,7 @@ Key design choices:
 - **Server-first.** Pages are React Server Components. Every change (add to cart, place order, approve) is a Server Action. No commercetools credentials ever reach the browser.
 - **Least privilege.** Each signed-in customer gets their own commercetools token, limited to "my" resources in the stores they buy from. The admin client is only used after a live permission check.
 - **Standalone prices.** Prices are selected per store, channel, currency and country, so each company sees its own prices.
-- **Clean URLs, Magento style.** Categories by their tree path (`/excavators/wheeled-excavators`), products and content pages at the root (`/jj234-wx`), filters in the query string. Old addresses and other spellings redirect permanently, merchants add their own redirects (`npm run ct:urls`), and clashes are reported instead of silently shadowing a page.
+- **Clean URLs.** Categories by their tree path (`/excavators/wheeled-excavators`), products and content pages at the root (`/jj234-wx`), filters in the query string. Old addresses and other spellings redirect permanently, merchants add their own redirects (`npm run ct:urls`), and clashes are reported instead of silently shadowing a page.
 - **SEO built in.** Metadata and canonical URLs per page, Product and Breadcrumb structured data (JSON-LD), sitemap, robots.txt, and `next/image`. Company prices never appear in markup.
 - **No lock-in.** Plain Next.js, the official commercetools TypeScript SDK and Tailwind CSS. No paid frontend platform.
 

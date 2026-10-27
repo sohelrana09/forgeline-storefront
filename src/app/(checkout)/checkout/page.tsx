@@ -5,7 +5,6 @@ import { GuestCheckoutView } from "@/features/checkout/components/GuestCheckoutV
 
 export const dynamic = "force-dynamic";
 
-// Personal or transactional: never in search results.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 // Signed-in customers (business buyers and consumers) use their saved addresses; guests enter theirs.

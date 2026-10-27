@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
       })),
     ];
   },
-  // Orders and quotes moved into the customer account (Magento style); old links keep working.
+  // Orders and quotes live in the customer account; old links keep working.
   async redirects() {
     return [
       { source: "/orders/:id", destination: "/account/orders/:id", permanent: true },

@@ -9,7 +9,7 @@ import { Panel, PanelBox } from "@/features/account/components/Panel";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// Magento's "My Account" dashboard: account information, address book, recent orders, plus quotes waiting for a decision.
+// "My Account" dashboard: account information, address book, recent orders, plus quotes waiting for a decision.
 export async function AccountDashboardView({
   session,
   context,

@@ -3,7 +3,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 
 export const can = (context: Pick<BuyerContext, "permissions">, permission: Permission) => context.permissions.includes(permission);
 
-// Plain-language labels for associate-role permissions, grouped like Magento's role editor.
+// Plain-language labels for associate-role permissions, grouped by area.
 export const PERMISSION_GROUPS: { title: string; permissions: [Permission, string][] }[] = [
   {
     title: "Own purchasing",

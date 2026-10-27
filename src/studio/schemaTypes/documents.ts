@@ -26,7 +26,7 @@ const slugField = (source: string) =>
         .custom((v) => (v?.current && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(v.current) ? true : "Lowercase letters, digits and hyphens")),
   });
 
-// A content page at /<url key> (Magento CMS page). The URL must not clash with a category or product: the
+// A content page at /<url key> The URL must not clash with a category or product: the
 // storefront reports clashes in `npm run ct:urls` and the category or product keeps the address.
 export const page = defineType({
   name: "page",

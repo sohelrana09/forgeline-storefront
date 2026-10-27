@@ -1,4 +1,4 @@
-// Storefront URLs (Magento "Marketing > URL Rewrites"): list every URL, the redirects and any clashes, or manage
+// Storefront URLs: list every URL, the redirects and any clashes, or manage
 // merchants' own redirects (a retired product to its successor, a campaign URL, an old site's URL).
 //   npm run ct:urls                                  table of all URLs, redirects and clashes
 //   npm run ct:urls -- --add /old-path /new-path [--temporary] [--yes]   add or change a redirect (301; 302 with --temporary)

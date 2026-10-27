@@ -15,7 +15,7 @@ export function localize(value: LocalizedString | undefined): string {
   return value[LOCALE] ?? Object.values(value)[0] ?? "";
 }
 
-// Above this a product is quote-only (machines); quotes are epic E4.
+// Above this a product is quote-only (machines).
 export const QUOTE_THRESHOLD_CENTS = 500000;
 export const isQuoteOnly = (price?: Price) => (price?.value.centAmount ?? 0) >= QUOTE_THRESHOLD_CENTS;
 

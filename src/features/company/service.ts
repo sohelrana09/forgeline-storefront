@@ -18,7 +18,7 @@ import { associateRolesNow, businessUnitNow, forgetBuyingContexts, hasPermission
 import type { PricingContext } from "@/features/business-units/types";
 import type { CompanyMember, CompanyRole, CompanyUnit } from "@/features/company/types";
 
-// Company administration (Magento B2B "Company"). The customer token carries no business-unit scope: the only
+// Company administration. The customer token carries no business-unit scope: the only
 // ones the storefront client could grant (view/manage_business_units) are project-wide, i.e. every company.
 // So reads and writes use the admin client, always for the SELECTED unit only, and every write first checks the
 // acting associate's permission live (hasPermissionNow), like quote renegotiation.
@@ -83,7 +83,7 @@ export async function getCompanyUnit(ctx: PricingContext): Promise<CompanyUnit> 
 
 // Members of the selected unit: explicit associates (editable) and inherited ones (read-only). The viewer must
 // still be a member (checked on the unit just read, not the 5-minute memo); colleagues' emails are only shown to
-// those who manage users (Magento shows the users grid to everyone, contact details to admins).
+// those who manage users (everyone sees the users grid, only admins see contact details).
 export async function getCompanyMembers(ctx: PricingContext, viewerId: string): Promise<CompanyMember[]> {
   const [bu, roles] = await Promise.all([businessUnitNow(ctx.businessUnitKey), pageRoles()]);
   const viewer = permissionsIn(bu, viewerId, roles);
@@ -250,7 +250,7 @@ const assignments = (keys: string[], keep: AssociateRoleAssignment[] = []): Asso
     inheritance: keep.find((a) => a.associateRole.key === key)?.inheritance ?? "Disabled",
   }));
 
-// Adding a user is an invitation the account holder accepts (Magento B2B "invite"): an admin can't attach someone
+// Adding a user is an invitation the account holder accepts: an admin can't attach someone
 // else's account to their company. The invitation is a one-time Custom Object (container "company-invite", key = a
 // random code) that holds who invited whom, with which roles, until when. The admin always gets the same answer,
 // so the form doesn't reveal which emails have an account.

@@ -2,14 +2,14 @@ import type { ProductProjection, ProductVariant } from "@commercetools/platform-
 import { allVariants, localize } from "@/features/catalog/utils";
 import { formatMoney } from "@/lib/utils";
 
-// Magento-style layered navigation for category pages, computed from the category's products (price-selected for the
+// Layered navigation for category pages, computed from the category's products (price-selected for the
 // visitor): Product Projection Search and its facets are deactivated in this project, and a category holds at most a
 // few hundred products. Pure: no API calls, so it is unit-tested (layered.test.ts).
 //
 // URL state (shareable, works without JavaScript): ?price=100-200 (whole currency units, both ends included; "300-"
 // = and above; the slider's plain form sends ?price_from&price_to instead),
 // ?cat=<child slug>, ?mobility=tracked, ?model=2019, ?color=red, ?iso45001=yes, ?capacity=1000-9999, plus
-// ?sort=<field>-<dir>, ?limit and ?page. One value per filter, as in Magento: an applied filter leaves the sidebar
+// ?sort=<field>-<dir>, ?limit and ?page. One value per filter: an applied filter leaves the sidebar
 // and shows under "Now Shopping by".
 
 export const SORTS = {

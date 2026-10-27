@@ -109,9 +109,6 @@ export async function customerScopes(): Promise<string[]> {
   ];
 }
 
-// A revoked/expired customer token: clear the session in the /logout Route Handler (Server Components can't
-// delete cookies, and redirecting to /login directly would loop back to / while the cookie still decrypts).
-// A 403 "insufficient_scope" means the session predates a scope the storefront now needs: sign in again.
 // Whether there is a signed-in session whose token commercetools still accepts (a cookie that no longer decrypts, or
 // a revoked token, is not one). Unknown answers count as working, the safe side for the logout confirmation.
 export async function sessionWorks(): Promise<boolean> {
@@ -135,6 +132,9 @@ export async function signOut() {
   }
 }
 
+// A revoked/expired customer token: clear the session in the /logout Route Handler (Server Components can't
+// delete cookies, and redirecting to /login directly would loop back to / while the cookie still decrypts).
+// A 403 "insufficient_scope" means the session predates a scope the storefront now needs: sign in again.
 export function signOutOnAuthError(err: unknown): never {
   const body = (err as { body?: { statusCode?: number; errors?: { code?: string }[] } })?.body;
   if (body?.statusCode === 401) redirect("/logout");

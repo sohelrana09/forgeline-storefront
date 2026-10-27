@@ -20,7 +20,7 @@ const METHODS: Record<PaymentKind, { title: string; description: string }> = {
   },
 };
 
-// Step 3 of the one-step checkout (Magento "Payment Method"): the payment method for this kind of customer, the
+// Step 3 of the one-step checkout (Payment Method): the payment method for this kind of customer, the
 // billing address, then Place order. Each customer kind has one method, shown selected.
 export function PaymentStep({
   kind,

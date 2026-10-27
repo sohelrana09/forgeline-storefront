@@ -8,7 +8,7 @@ import type { ListActionState } from "@/features/purchase-lists/types";
 
 type ListOption = { id: string; name: string };
 
-// Which list: one of the customer's lists, or a new one named here (Magento "Add to Requisition List").
+// Which list: one of the customer's lists, or a new one named here.
 // `nameRequired` false when the fields sit inside another form (quick order), whose own submit must not be blocked;
 // the server action checks the name either way.
 export function ListTargetFields({

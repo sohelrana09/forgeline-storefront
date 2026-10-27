@@ -6,7 +6,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { GalleryImage } from "@/features/catalog/utils";
 import { productHref } from "@/features/catalog/utils";
 
-// Magento-style product gallery: main image with previous/next (buttons, arrow keys, swipe), thumbnails below and
+// Product gallery: main image with previous/next (buttons, arrow keys, swipe), thumbnails below and
 // a full-screen view. Each picture says which variant it shows; one of another variant links to that variant.
 // The parent keys it by the selected SKU, so choosing a variant starts on that variant's picture.
 export function ProductGallery({

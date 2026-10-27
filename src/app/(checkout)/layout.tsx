@@ -6,7 +6,7 @@ import { PageMessages } from "@/components/ui/PageMessages";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
-// Magento-style checkout: only the logo and a way back to the cart; no search, category menu, mini-cart or footer,
+// Checkout: only the logo and a way back to the cart; no search, category menu, mini-cart or footer,
 // so nothing pulls the buyer away while they order.
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
   return (

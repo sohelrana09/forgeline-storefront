@@ -1,7 +1,6 @@
-// Magento-style page messages ("You added Air Filter to your shopping cart."), passed like Magento's mage-messages
-// cookie: a Server Action records them in a short-lived cookie (src/lib/flash.ts), and PageMessages
-// (src/components/ui) shows them at the top of the page and clears the cookie. That also works on the cached guest
-// pages, whose HTML never reads cookies: the browser does.
+// Page messages ("You added Air Filter to your shopping cart."), passed in a cookie: a Server Action records them in
+// a short-lived cookie (src/lib/flash.ts), and PageMessages (src/components/ui) shows them at the top of the page and
+// clears the cookie. That also works on the cached guest pages, whose HTML never reads cookies: the browser does.
 export type MessageType = "success" | "error" | "warning";
 export type PageMessage = { type: MessageType; text: string };
 

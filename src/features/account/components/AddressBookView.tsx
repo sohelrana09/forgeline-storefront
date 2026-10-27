@@ -11,7 +11,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 const countries = CONSUMER_COUNTRIES.map((code) => ({ code, name: countryName(code) })).sort((a, b) => a.name.localeCompare(b.name));
 const oneLine = (a: Address) => [a.streetName, a.streetNumber, a.postalCode, a.city].filter(Boolean).join(" ");
 
-// Magento's address book. Consumers ship to and are billed at their own addresses, so they manage them here.
+// Address book. Consumers ship to and are billed at their own addresses, so they manage them here.
 // Business buyers ship to the company's addresses (read-only, managed by the company); their own addresses follow.
 export async function AddressBookView({ session, context }: { session: Session; context: BuyerContext }) {
   const me = await getMe(session);

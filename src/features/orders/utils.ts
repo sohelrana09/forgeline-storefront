@@ -1,6 +1,6 @@
 import type { Tone } from "@/components/ui/StateBadge";
 
-// commercetools order states with Magento-style labels.
+// commercetools order states with customer-facing labels.
 export const ORDER_STATES: Record<string, { label: string; tone: Tone }> = {
   Open: { label: "Pending", tone: "info" },
   Confirmed: { label: "Processing", tone: "info" },

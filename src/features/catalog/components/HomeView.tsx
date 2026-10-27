@@ -94,7 +94,7 @@ export async function HomeView({ session, context }: { session?: Session; contex
         <h2 id="machines" className="mb-4 mt-0 text-xl font-semibold">
           Machines
         </h2>
-        {/* Swipeable row: 2 tiles per view on phones, 3 on tablets, 5 on desktop (like the grid it replaced). */}
+        {/* Swipeable row: 2 tiles per view on phones, 3 on tablets, 5 on desktop. */}
         <Carousel label="Machines" itemClassName="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(20%-0.8rem)]">
           {tiles.map(({ id, name, slug, total, image }) => (
             <Link

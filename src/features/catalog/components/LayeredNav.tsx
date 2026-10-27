@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
-// Magento-style "ajax" layered navigation: filter, sort and page-size changes fetch the new list in place (an RSC
+// "Ajax" layered navigation: filter, sort and page-size changes fetch the new list in place (an RSC
 // navigation without a full page load, the scroll position kept) while the current results dim. Every control is a
 // real link or form, so it all still works without JavaScript, and every state is a shareable URL.
 
@@ -41,7 +41,7 @@ export function NavLink({ href, className, children, label }: { href: string; cl
   );
 }
 
-// "Shop By": a sidebar on large screens, a toggle that opens the filters on phones (Magento mobile).
+// "Shop By": a sidebar on large screens, a toggle that opens the filters on phones.
 export function ShopByPanel({ applied, children }: { applied: number; children: ReactNode }) {
   const nav = useNav();
   const open = nav?.filtersOpen ?? false;
@@ -91,7 +91,7 @@ export function CatalogResults({ children }: { children: ReactNode }) {
 
 type Option = { value: string; label: string; href: string };
 
-// Magento toolbar: "Sort By [field] ↑↓" and "Show [n] per page". Without JavaScript it's a GET form with Apply.
+// List toolbar: "Sort By [field] ↑↓" and "Show [n] per page". Without JavaScript it's a GET form with Apply.
 export function SortToolbar({
   fields,
   field,
@@ -169,7 +169,7 @@ export function SortToolbar({
   );
 }
 
-// Price slider (Magento "price slider"): two handles on one track. It applies when you let go (or stop pressing
+// Price slider: two handles on one track. It applies when you let go (or stop pressing
 // arrow keys), and the whole range again means "no price filter". Without JavaScript: From / To fields and Apply.
 export function PriceSlider({
   min,

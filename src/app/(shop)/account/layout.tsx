@@ -5,7 +5,6 @@ import { can } from "@/features/company/utils";
 
 export const dynamic = "force-dynamic";
 
-// Personal pages: never in search results.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 // Signed-in only (every page below also calls requireShopContext: a layout is not a security boundary).

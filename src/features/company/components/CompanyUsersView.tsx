@@ -4,7 +4,7 @@ import { AddUserForm, UserRolesForm } from "@/features/company/components/Compan
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// Magento's "Company Users". Everyone in the unit sees who their colleagues are and what they can do; users with
+// Company users. Everyone in the unit sees who their colleagues are and what they can do; users with
 // UpdateAssociates can add, change and remove them (direct members only, never themselves).
 export async function CompanyUsersView({ session, context }: { session: Session; context: BuyerContext }) {
   const [members, roles] = await Promise.all([getCompanyMembers(context, session.customerId), getRoles()]);

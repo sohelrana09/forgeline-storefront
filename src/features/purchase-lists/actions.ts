@@ -85,7 +85,6 @@ export async function createListAction(_prev: ListActionState, formData: FormDat
   redirect(`/account/purchase-lists/${id}`);
 }
 
-// Product page: one SKU and quantity.
 export async function addProductToListAction(_prev: ListActionState, formData: FormData): Promise<ListActionState> {
   const sku = str(formData, "sku");
   const quantity = Number(formData.get("quantity"));
@@ -95,7 +94,6 @@ export async function addProductToListAction(_prev: ListActionState, formData: F
   return run((shop) => addTo(shop, formData, [{ sku, quantity }]));
 }
 
-// Cart page: every line of the current cart.
 export async function saveCartToListAction(_prev: ListActionState, formData: FormData): Promise<ListActionState> {
   return run(async (shop) => {
     const cart = await getActiveCart(shop.session, shop.cartId, shop.context);

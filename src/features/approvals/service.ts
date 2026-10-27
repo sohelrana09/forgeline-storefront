@@ -9,7 +9,7 @@ import { orderReference } from "@/features/orders/service";
 import { UUID } from "@/features/orders/utils";
 import type { ApprovalItem, OrderApproval } from "@/features/approvals/types";
 
-// Order approvals (Magento B2B "Order approvals"), on commercetools Approval Flows. A flow is created by
+// Order approvals, on commercetools Approval Flows. A flow is created by
 // commercetools when an order matches an Active approval rule of the unit; the order itself exists (Open) from the
 // start, so "pending" lives only on the flow. Flows are reachable only "as associate": the admin client calls
 // as-associate/{id}/in-business-unit/key={unit}/approval-flows with the signed-in customer's id, after a live
@@ -76,7 +76,7 @@ async function requireApprover(ctx: PricingContext, approverId: string) {
   }
 }
 
-// The approver's list (Magento "Order approvals"): pending first by default, newest first, with the orders.
+// The approver's list: pending first by default, newest first, with the orders.
 export async function pageApprovals(ctx: PricingContext, approverId: string, view: "pending" | "all", page: number, size: number) {
   // The flows are read alongside the live permission check, whose refusal comes first; nothing is returned unless
   // it passes.

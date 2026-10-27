@@ -13,7 +13,7 @@ const STATUS = {
   Inactive: { label: "Inactive", tone: "neutral" as const },
 };
 
-// Magento B2B "Approval rules": what needs approval in the selected unit, whose orders, and who approves.
+// Approval rules: what needs approval in the selected unit, whose orders, and who approves.
 export async function ApprovalRulesView({ session, context, saved }: { session: Session; context: BuyerContext; saved: boolean }) {
   const [list, roles] = await Promise.all([
     listApprovalRules(context, session.customerId).catch((err) => {

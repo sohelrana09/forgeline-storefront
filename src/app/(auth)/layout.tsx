@@ -6,7 +6,7 @@ import { SiteChrome } from "@/app/_components/SiteChrome";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-// Same header and footer as the shop (Magento's customer pages keep the store chrome).
+// Same header and footer as the shop: customer pages keep the store chrome.
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return <SiteChrome lenient>{children}</SiteChrome>;
 }

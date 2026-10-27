@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getBlogCategories, getRecentPosts, getTags } from "@/features/blog/service";
 import { blogCategoryPath, blogTagPath, formatPostDate, postPath } from "@/features/blog/utils";
 
-// Magefan-style blog sidebar: categories with counts, recent posts, tag cloud, RSS.
+// Blog sidebar: categories with counts, recent posts, tag cloud, RSS.
 export async function BlogSidebar({ current }: { current?: { category?: string; tag?: string } }) {
   const [categories, recent, tags] = await Promise.all([
     getBlogCategories().catch(() => []),

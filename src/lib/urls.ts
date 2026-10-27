@@ -1,10 +1,10 @@
-// Storefront URLs (Magento-style URL keys, clean paths): every link to a category, product or content page is built
+// Storefront URLs (URL keys, clean paths): every link to a category, product or content page is built
 // here, and features/urls resolves incoming paths back to them.
 //   category  /excavators/wheeled-excavators   (the category's path in the tree)
-//   product   /jj234-wx  (?sku= for a variant)  (root level, one URL whatever the category, like Magento's canonical)
+//   product   /jj234-wx  (?sku= for a variant)  (root level, one URL whatever the category)
 //   page      /delivery-information
 // URL keys are the commercetools slugs in lowercase with hyphens: slugs allow [A-Za-z0-9_-], and the sample data
-// uses underscores. Pure (no imports): the header, footer and middleware use it too.
+// uses underscores. Pure (no imports): the header, footer and proxy use it too.
 
 export const urlKey = (slug: string) => slug.trim().toLowerCase().replace(/_/g, "-");
 
@@ -16,7 +16,7 @@ export const categoryPath = (slugs: string[]) => `/${slugs.map(urlKey).join("/")
 export const pagePath = (slug: string) => `/${urlKey(slug)}`;
 
 // First path segments that belong to the app's own routes. Catalog URLs never use them (a category, product or page
-// with such a key is reported by `npm run ct:urls` and left out), and the middleware never treats them as catalog URLs.
+// with such a key is reported by `npm run ct:urls` and left out), and the proxy never treats them as catalog URLs.
 export const RESERVED_SEGMENTS = new Set([
   "account",
   "api",

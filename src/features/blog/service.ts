@@ -65,7 +65,6 @@ export async function getTags() {
 export const getRecentPosts = (limit = 5) =>
   sanityFetch<PostSummary[]>(`*[${LIVE}] | order(publishedAt desc) [0...$limit]{${SUMMARY}}`, { limit }, { drafts: false });
 
-// Sitemap and feed: every published post.
 export const getAllPosts = () =>
   sanityFetch<(PostSummary & { updatedAt: string })[]>(
     `*[${LIVE}] | order(publishedAt desc){${SUMMARY}, "updatedAt": _updatedAt}`,

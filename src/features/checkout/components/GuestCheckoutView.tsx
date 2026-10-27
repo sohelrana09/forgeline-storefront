@@ -16,7 +16,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 
 const countries = CONSUMER_COUNTRIES.map((code) => ({ code, name: countryName(code) })).sort((a, b) => a.name.localeCompare(b.name));
 
-// One-step checkout without an account (B2C), laid out like Magento's: 1 Shipping address with email, 2 Shipping
+// One-step checkout without an account (B2C): 1 Shipping address with email, 2 Shipping
 // methods, 3 Payment method with Place order.
 export async function GuestCheckoutView({ guest, context, cartId }: { guest?: GuestSession; context: BuyerContext; cartId?: string }) {
   const cart = guest && (await getActiveCart(guest, cartId, context));
