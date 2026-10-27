@@ -1,14 +1,17 @@
 import type { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 
+const sanityProjectId = process.env.NEXT_SANITY_PROJECT_ID;
+
 // Sent with every response. The CSP only covers what can't break the pages (framing, plugins, <base>, form
 // targets); a script-src policy needs nonces for Next's inline scripts and the Checkout SDK hosts first.
+// Framing: this site only (the embedded Sanity Studio's Presentation tool previews the storefront in an iframe).
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
-    value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+    value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
   },
-  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
@@ -33,6 +36,8 @@ const nextConfig: NextConfig = {
         hostname: "images.us-east-2.aws.commercetools.com",
         pathname: "/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/**",
       },
+      // Sanity's image CDN, this project's folder only (pages and blog pictures).
+      ...(sanityProjectId ? [{ protocol: "https" as const, hostname: "cdn.sanity.io", pathname: `/images/${sanityProjectId}/**` }] : []),
     ],
   },
   async headers() {

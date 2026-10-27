@@ -1,7 +1,7 @@
 // Links from content: internal paths ("/…" but not "//host"), https and mailto only.
 export function safeHref(href: unknown): string | undefined {
   if (typeof href !== "string") return undefined;
-  return /^\/(?!\/)/.test(href) || /^(https:|mailto:)/i.test(href) ? href : undefined;
+  return /^\/(?![/\\])/.test(href) || /^(https:|mailto:)/i.test(href) ? href : undefined;
 }
 
 import { isMediaUrl } from "@/lib/media";

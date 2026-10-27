@@ -32,7 +32,11 @@ export function MiniCart({ initial = EMPTY_MINICART, live = false }: { initial?:
   const pathname = usePathname();
 
   // A server re-render (after an action revalidates the page) brings a newer cart.
-  useEffect(() => setSummary(initial), [initial]);
+  const [lastInitial, setLastInitial] = useState(initial);
+  if (initial !== lastInitial) {
+    setLastInitial(initial);
+    setSummary(initial);
+  }
 
   const load = useCallback(() => {
     fetch("/api/cart-summary", { cache: "no-store" })
@@ -66,7 +70,11 @@ export function MiniCart({ initial = EMPTY_MINICART, live = false }: { initial?:
   }, []);
 
   // Closes on navigation, Esc and a click outside.
-  useEffect(() => setOpen(false), [pathname]);
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setOpen(false);
+  }
   useEffect(() => {
     if (!open) return;
     heading.current?.focus();
@@ -181,7 +189,9 @@ function MiniCartRow({ line, editable }: { line: MiniCartLine; editable: boolean
   // The quantity last sent: an older save landing in between must not flash its number.
   const requested = useRef<number | undefined>(undefined);
   const latest = useRef(line.quantity);
-  latest.current = line.quantity;
+  useEffect(() => {
+    latest.current = line.quantity;
+  }, [line.quantity]);
   useEffect(() => () => clearTimeout(autoSave.current), []);
   // Shows the cart's quantity only when the cart's value changes (a save landing, another tab, the cart page), never
   // while clicks are still coming, and not an older save's result while a newer one is on its way.

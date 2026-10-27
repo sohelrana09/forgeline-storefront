@@ -5,7 +5,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { getMyQuoteRequest, quotesForRequest } from "@/features/quotes/service";
 import { QUOTE_REQUEST_STATES, QUOTE_STATES, canCancelRequest, shortRef } from "@/features/quotes/utils";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, isRecent } from "@/lib/utils";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { CancelRequestForm } from "@/features/quotes/components/QuoteForms";
 import { LineItemsList } from "@/features/quotes/components/LineItemsList";
@@ -15,7 +15,7 @@ export async function QuoteRequestView({ session, context, id }: { session: Sess
   const request = await getMyQuoteRequest(session, context, id);
   if (!request) notFound();
   const quotes = await quotesForRequest(session, context, request.id);
-  const justSent = request.quoteRequestState === "Submitted" && Date.now() - new Date(request.createdAt).getTime() < 10 * 60 * 1000;
+  const justSent = request.quoteRequestState === "Submitted" && isRecent(request.createdAt, 10 * 60 * 1000);
 
   return (
     <div className="flex flex-col gap-6">

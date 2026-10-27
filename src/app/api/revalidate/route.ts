@@ -6,9 +6,11 @@ import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { forgetCatalogCache } from "@/features/catalog/service";
 import { forgetContentCache } from "@/features/cms/service";
 import { forgetUrlIndex } from "@/features/urls/service";
+import { forgetSanityCache } from "@/lib/sanity/client";
 
 // Refreshes the cached guest pages (src/app/(cached)/g) after content or catalog changes made outside the app:
-// `npm run ct:content`, the Merchant Center Content app, and commercetools Subscriptions for prices and products.
+// `npm run ct:content`, the Merchant Center Content app, Sanity's publish webhook (pages and blog; send
+// { "scope": "content" }) and commercetools Subscriptions for prices and products.
 //
 // Body (all optional): { "scope": "content" | "catalog" | "all" }, or a commercetools message as delivered by a
 // Subscription (directly, wrapped in EventBridge's { detail }, or in a Pub/Sub push { message: { data } }).
@@ -37,7 +39,10 @@ export async function POST(request: NextRequest) {
   const scope = scopeOf(await request.json().catch(() => undefined));
   if (Date.now() - lastPurge < COALESCE_MS) return NextResponse.json({ revalidated: false, scope, reason: "coalesced" });
   lastPurge = Date.now();
-  if (scope !== "catalog") forgetContentCache();
+  if (scope !== "catalog") {
+    forgetContentCache();
+    forgetSanityCache();
+  }
   if (scope !== "content") forgetCatalogCache();
   // Products, categories and content pages are all in the URL index (new, renamed or removed URLs).
   forgetUrlIndex();

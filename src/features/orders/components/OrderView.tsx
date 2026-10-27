@@ -6,7 +6,7 @@ import { getCompanyMembers, getCompanyOrder } from "@/features/company/service";
 import { can } from "@/features/company/utils";
 import { ORDER_STATES } from "@/features/orders/utils";
 import { AddressBlock } from "@/features/account/components/AddressBlock";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, isRecent } from "@/lib/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { ReorderButton } from "@/features/orders/components/ReorderButton";
 import { StateBadge } from "@/components/ui/StateBadge";
@@ -51,7 +51,7 @@ export async function OrderView({
     ? undefined
     : (members.find((m) => m.customerId === order.customerId)?.name ?? order.customerEmail ?? "a former user");
   const ref = orderReference(order);
-  const isNew = Date.now() - new Date(order.createdAt).getTime() < 10 * 60 * 1000;
+  const isNew = isRecent(order.createdAt, 10 * 60 * 1000);
 
   return (
     <div className="flex flex-col gap-6">

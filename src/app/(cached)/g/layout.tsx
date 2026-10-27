@@ -3,6 +3,7 @@ import { categoryMenu, getCategoryTree } from "@/features/catalog/service";
 import { getGuestContext } from "@/features/business-units/service";
 import { SiteHeader } from "@/components/layouts/SiteHeader";
 import { SiteFooter } from "@/components/layouts/SiteFooter";
+import { footerLinks } from "@/app/_components/footer-links";
 import { BuyingContextBadge } from "@/features/business-units/components/BuyingContextBadge";
 import { MiniCart } from "@/features/cart/components/MiniCart";
 import { logout } from "@/features/auth/actions";
@@ -40,7 +41,7 @@ export default async function CachedGuestLayout({ children }: { children: React.
         <PageMessages />
         {children}
       </main>
-      <SiteFooter pages={pages} />
+      <SiteFooter links={footerLinks(pages)} />
     </div>
   );
 }

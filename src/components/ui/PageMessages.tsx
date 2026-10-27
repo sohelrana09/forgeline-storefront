@@ -30,11 +30,14 @@ export function PageMessages({ hint }: { hint?: string }) {
   }, []);
 
   // A new page starts with only its own messages.
-  useEffect(() => {
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
     setMessages([]);
-    take();
-  }, [pathname, take]);
-  useEffect(() => take(), [hint, take]);
+  }
+  // The cookie is outside React, so reading it is an effect's job.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => take(), [pathname, hint, take]);
   useEffect(() => {
     window.addEventListener(MESSAGES_CHECK, take);
     return () => window.removeEventListener(MESSAGES_CHECK, take);

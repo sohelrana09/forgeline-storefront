@@ -20,14 +20,16 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const box = useRef<HTMLFormElement>(null);
+  // Too short to search: drop what an earlier query loaded, so typing on doesn't flash its rows.
+  if (query.trim().length < 2 && data !== undefined) {
+    setData(undefined);
+    setActive(-1);
+  }
 
   // Fetch after a short pause in typing; a newer query cancels the older request.
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) {
-      setData(undefined);
-      return;
-    }
+    if (q.length < 2) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       fetch(`${suggestUrl}?${new URLSearchParams({ q })}`, { signal: ctrl.signal, cache: "no-store" })

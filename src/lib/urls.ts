@@ -20,6 +20,7 @@ export const pagePath = (slug: string) => `/${urlKey(slug)}`;
 export const RESERVED_SEGMENTS = new Set([
   "account",
   "api",
+  "blog",
   "cart",
   "checkout",
   "forgot-password",
@@ -32,6 +33,7 @@ export const RESERVED_SEGMENTS = new Set([
   "register",
   "reset-password",
   "search",
+  "studio",
   "verify-email",
   "_next",
 ]);

@@ -5,18 +5,24 @@ import { categoryHref } from "@/features/catalog/utils";
 import { pagePath, productPath } from "@/lib/urls";
 import { getPages } from "@/features/cms/service";
 import { getGuestContext } from "@/features/business-units/service";
+import { blogEnabled, getAllPosts, getBlogCategories } from "@/features/blog/service";
+import { BLOG_PATH, blogCategoryPath, postPath } from "@/features/blog/utils";
 
-// The public catalog for search engines: home, every category, every product, every active content page.
+// The public catalog for search engines: home, every category, every product, every active content page, and the
+// blog (list, categories with posts, published posts).
 // Regenerated at most once an hour.
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!siteIndexable()) return []; // not listed while the site stays out of search engines
   const base = siteUrl();
-  const [tree, products, pages] = await Promise.all([
+  const blog = blogEnabled();
+  const [tree, products, pages, posts, blogCategories] = await Promise.all([
     getCategoryTree(),
     getGuestContext().then(allProductSlugs),
     getPages().catch(() => []),
+    blog ? getAllPosts().catch(() => []) : [],
+    blog ? getBlogCategories().catch(() => []) : [],
   ]);
   return [
     { url: `${base}/`, changeFrequency: "daily", priority: 1 },
@@ -35,5 +41,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...pages
       .filter((p) => p.active)
       .map((p) => ({ url: `${base}${pagePath(p.slug)}`, changeFrequency: "monthly" as const, priority: 0.3 })),
+    ...(blog ? [{ url: `${base}${BLOG_PATH}`, changeFrequency: "daily" as const, priority: 0.5 }] : []),
+    ...blogCategories
+      .filter((c) => c.count)
+      .map((c) => ({ url: `${base}${blogCategoryPath(c.slug)}`, changeFrequency: "weekly" as const, priority: 0.4 })),
+    ...posts.map((p) => ({
+      url: `${base}${postPath(p.slug)}`,
+      lastModified: p.updatedAt,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    })),
   ];
 }

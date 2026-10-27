@@ -8,3 +8,6 @@ export function formatMoney(money: Pick<TypedMoney, "centAmount" | "currencyCode
     money.centAmount / 10 ** money.fractionDigits,
   );
 }
+
+// Whether a timestamp is less than `ms` old (for "just placed" notes; Server Components render once per request).
+export const isRecent = (iso: string, ms: number) => Date.now() - new Date(iso).getTime() < ms;

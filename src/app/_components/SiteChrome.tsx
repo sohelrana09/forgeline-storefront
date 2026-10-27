@@ -7,6 +7,7 @@ import { currentBrowseContext, type BrowseContext } from "@/features/business-un
 import { getGuestContext } from "@/features/business-units/service";
 import { SiteHeader } from "@/components/layouts/SiteHeader";
 import { SiteFooter } from "@/components/layouts/SiteFooter";
+import { footerLinks } from "@/app/_components/footer-links";
 import { MiniCart } from "@/features/cart/components/MiniCart";
 import { toMiniCart } from "@/features/cart/minicart";
 import { BuyingContextBadge } from "@/features/business-units/components/BuyingContextBadge";
@@ -61,7 +62,7 @@ export async function SiteChrome({ children, lenient = false }: { children: Reac
         <PageMessages hint={(await cookies()).get(MESSAGES_COOKIE)?.value} />
         {children}
       </main>
-      <SiteFooter pages={pages} />
+      <SiteFooter links={footerLinks(pages)} />
     </div>
   );
 }

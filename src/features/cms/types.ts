@@ -1,3 +1,5 @@
+import type { PortableTextBlock } from "next-sanity";
+
 // Content model for CMS blocks and pages (no API calls: also used by the sync script).
 
 export const BLOCK_CONTAINER = "cms-block";
@@ -49,6 +51,16 @@ export type CmsBlock = {
   secondaryCta?: { label: string; href: string };
 };
 
-export type CmsPage = { slug: string; title: string; metaDescription?: string; active: boolean; content: string };
+// A content page: Markdown `content` from the commercetools Custom Objects (legacy), or a Portable Text `body`
+// from Sanity once it is configured.
+export type CmsPage = {
+  slug: string;
+  title: string;
+  metaDescription?: string;
+  metaTitle?: string;
+  active: boolean;
+  content?: string;
+  body?: PortableTextBlock[];
+};
 
 export type BlockQuery = { placement: Placement; storeKey: string; categorySlugs?: string[] };

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { draftMode } from "next/headers";
+import { PreviewEditing } from "@/lib/sanity/PreviewEditing";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { siteUrl } from "@/lib/site-url";
@@ -21,14 +23,19 @@ export const metadata: Metadata = {
   openGraph: { siteName: "Ironline Supply", type: "website" },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Draft mode is on only inside the Studio's Presentation preview: click-to-edit overlays and live refresh.
+  const preview = (await draftMode()).isEnabled;
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
+        {preview && <PreviewEditing />}
+      </body>
     </html>
   );
 }

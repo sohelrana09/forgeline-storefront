@@ -9,6 +9,8 @@ import { getPage } from "@/features/cms/service";
 import { CmsPageView } from "@/features/cms/components/CmsPageView";
 import { resolveUrl } from "@/features/urls/service";
 import { pagePath } from "@/lib/urls";
+import { isDraftMode } from "@/lib/sanity/client";
+import { stegaClean } from "next-sanity";
 import { firstParam } from "@/lib/utils";
 import type { BuyerContext } from "@/features/business-units/types";
 
@@ -24,6 +26,10 @@ const toQuery = (query: CategoryQuery) => {
 
 async function resolve(path: string[], query: CategoryQuery) {
   const target = await resolveUrl(path, toQuery(query));
+  // In the Studio's preview, a page that isn't published yet has no URL in the index: show its draft.
+  if (target.kind === "missing" && path.length === 1 && (await isDraftMode()) && (await getPage(path[0]))) {
+    return { kind: "page" as const, slug: path[0] };
+  }
   if (target.kind === "redirect") (target.permanent ? permanentRedirect : redirect)(target.to);
   if (target.kind === "missing" || target.kind === "redirect") notFound();
   return target;
@@ -49,12 +55,16 @@ export async function catalogMetadata(path: string[], query: CategoryQuery, cont
   }
   const page = await getPage(target.slug).catch(() => undefined);
   if (!page) notFound();
-  return { title: page.title, description: page.metaDescription, alternates: { canonical: pagePath(page.slug) } };
+  return {
+    title: stegaClean(page.metaTitle || page.title),
+    description: stegaClean(page.metaDescription),
+    alternates: { canonical: pagePath(stegaClean(page.slug)) },
+  };
 }
 
 export async function CatalogRoute({ path, query, context }: { path: string[]; query: CategoryQuery; context: BuyerContext }) {
   const target = await resolve(path, query);
   if (target.kind === "category") return <CategoryView context={context} slug={target.slug} query={query} />;
   if (target.kind === "product") return <ProductView context={context} slug={target.slug} sku={firstParam(query.sku)} />;
-  return <CmsPageView slug={target.slug} />;
+  return <CmsPageView slug={target.slug} context={context} />;
 }

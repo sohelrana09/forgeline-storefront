@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import type { BaseAddress } from "@commercetools/platform-sdk";
 import { saveGuestDetails, type GuestDetailsState } from "@/features/checkout/actions";
 import { AddressFields } from "@/features/account/components/AddressForm";
@@ -28,9 +28,11 @@ export function GuestDetailsForm({
   const [state, action, pending] = useActionState(saveGuestDetails, {} as GuestDetailsState);
   // Edits after the last save must be saved before ordering: the order uses what's on the cart.
   const [dirty, setDirty] = useState(false);
-  useEffect(() => {
+  const [lastState, setLastState] = useState(state);
+  if (state !== lastState) {
+    setLastState(state);
     if (state.saved) setDirty(false);
-  }, [state]);
+  }
   useReportBusy("guest-details", pending || dirty);
   return (
     <form action={action} onSubmit={keepFields(action)} onChange={() => setDirty(true)} className="flex flex-col gap-6">
