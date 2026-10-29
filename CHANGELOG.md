@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.3.0 (2026-10-29)
+
+Company tier prices and B2C customer-group prices, the pricing model of an ERP-driven B2B shop on commercetools Standalone Prices.
+
+**Live demo:** https://forgeline-storefront-gamma.vercel.app
+
+### Highlights
+
+- **Tier prices:** a company's own price list can have quantity breaks. Buyers see them on the product page, on product cards and in the cart, and the cart prices each line at the tier its quantity reaches.
+- **Customer-group prices:** consumers in a customer group (for example trade members) get their own B2C prices. Everyone else, guests included, keeps the public price.
+
+### Pricing
+
+- Product page: each quantity break under the price ("Buy 10 for $36.00 each and save 10%").
+- Category, search and homepage cards: "As low as" with the lowest tier price.
+- Cart and minicart: the unit price for the line's quantity; the cart also shows the next break ("Buy 50 for $32.00 each").
+- Signed-in consumers are priced with their customer group. A group change made in Merchant Center or by a sync shows within a minute.
+- SKUs without a group price fall back to the public price; product discounts apply on top of group prices.
+- The search index is kept per customer group, so search results show the visitor's own prices.
+- Guests and the cached guest pages are unchanged.
+
+### Under the hood
+
+- Pure tier helpers in `features/catalog/tiers.ts` (price ladder, unit price at a quantity, next break, lowest price, saving), with unit tests (59 tests in total).
+- `priceCustomerGroup` in the shared price selection; `customerGroupId` on the consumer's buying context.
+- Proof-of-concept scripts, dry run by default, idempotent, with `--remove` to undo:
+  - `npm run ct:tier-prices`: quantity breaks on one company's channel.
+  - `npm run ct:customer-group-prices`: a `trade-members` group with its own prices; `--assign <email>` adds a consumer.
+- Both scripts have a `--check` mode that asks commercetools how it picks prices (channel fallback, tiers in a cart, tiers with a product discount, a group member's cart) and deletes every temporary row and cart it creates.
+
+### Known limitations
+
+- A cart created before a customer joins a group keeps no group: commercetools sets it when the cart is created, and the `/me` cart API can't change it.
+- With an active product discount, the discounted price applies at every quantity and tier prices are ignored.
+- Prices are loaded by scripts in this release; a nightly import from an ERP through the Import API is planned.
+
 ## v1.2.0 (2026-10-27)
 
 Security hardening for sign-in, password reset and content links, and one page message style across the shop.

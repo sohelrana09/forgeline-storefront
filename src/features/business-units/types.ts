@@ -12,6 +12,8 @@ export type BuyingContext = {
   supplyChannelId?: string;
   currency: string;
   country?: string;
+  // A consumer's customer group (B2C group prices); business units price by their store's channel instead.
+  customerGroupId?: string;
   // The unit's addresses; carts start with the defaults so tax and shipping show from the first line.
   addresses: Address[];
   defaultShippingAddress?: Address;

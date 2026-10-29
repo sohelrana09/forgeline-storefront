@@ -72,6 +72,8 @@ const priceSelection = (ctx: PricingContext) => ({
   priceCurrency: ctx.currency,
   priceChannel: ctx.channelId,
   ...(ctx.country && { priceCountry: ctx.country }),
+  // B2C customer groups (e.g. trade members): their own rows win, other SKUs fall back to the public price.
+  ...(ctx.customerGroupId && { priceCustomerGroup: ctx.customerGroupId }),
 });
 
 // Ids come from commercetools (category tree, product references), never from user input.
@@ -207,10 +209,10 @@ export function forgetCatalogCache() {
 // (POST /products/search) once it is activated in Merchant Center.
 const searchMemo = staleWhileRevalidate<SearchEntry[]>(TTL_MS);
 
-// One index per store, built with the same price selection as the result cards: a product without a price in the
+// One index per store (and customer group), built with the same price selection as the result cards: a product without a price in the
 // store is left out, so the total always matches the cards shown.
 const searchIndex = (ctx: PricingContext) =>
-  searchMemo(`${ctx.storeKey}:${ctx.channelId}:${ctx.currency}:${ctx.country ?? ""}`, async () => {
+  searchMemo(`${ctx.storeKey}:${ctx.channelId}:${ctx.currency}:${ctx.country ?? ""}:${ctx.customerGroupId ?? ""}`, async () => {
     const tree = await getCategoryTree();
     const entries: SearchEntry[] = [];
     for (let offset = 0; ; offset += 500) {

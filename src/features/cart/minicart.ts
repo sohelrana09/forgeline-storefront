@@ -1,5 +1,6 @@
 import type { Cart } from "@commercetools/platform-sdk";
 import { isQuoteOnly, localize, productHref } from "@/features/catalog/utils";
+import { unitPriceAt } from "@/features/catalog/tiers";
 import { formatMoney } from "@/lib/utils";
 
 // What the header's minicart shows: plain, serializable data built from the cart on the server,
@@ -11,7 +12,7 @@ export type MiniCartLine = {
   href: string;
   image?: string;
   quantity: number;
-  // Unit price after product discounts, formatted.
+  // Unit price at the line's quantity (tier prices, product discounts), formatted.
   price: string;
   quoteOnly: boolean;
 };
@@ -46,7 +47,7 @@ export function toMiniCart(cart: Cart | undefined, canOrder: boolean): MiniCartS
       href: productHref(l.productSlug, sku || undefined),
       image: l.variant.images?.[0]?.url,
       quantity: l.quantity,
-      price: formatMoney(l.price.discounted?.value ?? l.price.value),
+      price: formatMoney(unitPriceAt(l.price, l.quantity)),
       quoteOnly: isQuoteOnly(l.price),
     };
   });

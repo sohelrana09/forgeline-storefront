@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ProductProjection } from "@commercetools/platform-sdk";
 import { isQuoteOnly, localize, productHref } from "@/features/catalog/utils";
+import { lowestUnitPrice, priceSteps } from "@/features/catalog/tiers";
+import { formatMoney } from "@/lib/utils";
 import { PriceTag } from "@/features/catalog/components/PriceTag";
 import { AddToCartForm } from "@/features/cart/components/AddToCartForm";
 
@@ -46,6 +48,9 @@ export function ProductCard({
       </div>
       <div className="mt-auto flex flex-col gap-3">
         <PriceTag price={variant.price} note={note} />
+        {variant.price && priceSteps(variant.price).length > 1 && !variant.price.discounted && (
+          <span className="-mt-2 text-xs text-green-800">As low as {formatMoney(lowestUnitPrice(variant.price))}</span>
+        )}
         {variant.sku && (
           <AddToCartForm sku={variant.sku} name={name} canOrder={canOrder} canQuote={canQuote} quoteOnly={isQuoteOnly(variant.price)} />
         )}

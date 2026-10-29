@@ -19,6 +19,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { productJsonLd } from "@/features/catalog/seo";
 import { PriceTag } from "@/features/catalog/components/PriceTag";
+import { TierPrices } from "@/features/catalog/components/TierPrices";
 import { ProductGallery } from "@/features/catalog/components/ProductGallery";
 import { AddToCartForm } from "@/features/cart/components/AddToCartForm";
 import { AddToListPanel } from "@/features/purchase-lists/components/AddToListPanel";
@@ -84,6 +85,7 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
           </div>
 
           <PriceTag price={variant.price} note={note} size="lg" />
+          <TierPrices price={variant.price} />
 
           {axis && (
             <fieldset className="m-0 border-0 p-0">

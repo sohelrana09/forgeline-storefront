@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getActiveCart, type CartAuth } from "@/features/cart/service";
 import { isQuoteOnly, localize } from "@/features/catalog/utils";
+import { nextStep, unitPriceAt } from "@/features/catalog/tiers";
 import { formatMoney } from "@/lib/utils";
 import { AddToListPanel } from "@/features/purchase-lists/components/AddToListPanel";
 import { CartSummary } from "@/features/cart/components/CartSummary";
@@ -96,7 +97,8 @@ export async function CartView({
             {cart.lineItems.map((line) => {
               const name = localize(line.name);
               const image = line.variant.images?.[0];
-              const unit = line.price.discounted?.value ?? line.price.value;
+              const unit = unitPriceAt(line.price, line.quantity);
+              const next = context.canOrder ? nextStep(line.price, line.quantity) : undefined;
               return (
                 <li key={line.id} className="flex flex-wrap items-center gap-4 border-b border-gray-100 p-4 last:border-b-0">
                   {image ? (
@@ -116,6 +118,11 @@ export async function CartView({
                     </Link>
                     <div className="font-mono text-xs text-gray-600">{line.variant.sku}</div>
                     <div className="text-sm text-gray-600">{formatMoney(unit)} each</div>
+                    {next && (
+                      <div className="text-sm text-green-800">
+                        Buy {next.minimumQuantity} for {formatMoney(next.value)} each
+                      </div>
+                    )}
                     {isQuoteOnly(line.price) && <div className="text-sm font-semibold text-orange-800">Priced on quote</div>}
                   </div>
                   {context.canOrder && (

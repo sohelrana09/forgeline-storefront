@@ -161,7 +161,7 @@ async function mergeGuestCartOnLogin(session: Session): Promise<string> {
   const jar = await cookies();
   const contexts = contextsFor(await getBuyingContexts(), session.customerId);
   // Business buyers merge into their selected unit's cart; consumers into their personal cart (same B2C store).
-  const context = contexts.length > 0 ? pickContext(contexts, jar.get(BU_COOKIE)?.value) : await getConsumerContext();
+  const context = contexts.length > 0 ? pickContext(contexts, jar.get(BU_COOKIE)?.value) : await getConsumerContext(session.customerId);
   if (!context.canOrder) return "/"; // nowhere to put the lines: keep the guest cart for a later guest visit
 
   try {

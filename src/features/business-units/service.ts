@@ -193,10 +193,18 @@ export const getBuyingContexts = () => memo("contexts", loadBuyingContexts);
 // Call after changing associates or unit details, so the change shows on the next request (not in 5 minutes).
 export const forgetBuyingContexts = () => memo.forget("contexts");
 export const getGuestContext = () => guestMemo("guest", loadGuestContext);
-// A signed-in consumer: the B2C store's prices, a cart and orders of their own, no business unit.
-export const getConsumerContext = async (): Promise<BuyerContext> => ({
-  ...(await getGuestContext()),
-  guest: false,
-  consumer: true,
-  businessUnitName: "Personal account",
-});
+// A signed-in consumer: the B2C store's prices (their customer group's where it has its own), a cart and orders of
+// their own, no business unit.
+export const getConsumerContext = async (customerId: string): Promise<BuyerContext> => {
+  const [guest, customerGroupId] = await Promise.all([getGuestContext(), customerGroupNow(customerId)]);
+  return { ...guest, guest: false, consumer: true, businessUnitName: "Personal account", customerGroupId };
+};
+
+// The customer's group, set by the seller (Merchant Center or an ERP sync). Cached for 60 seconds per customer, like
+// isAssociateNow, so a change shows within a minute without a /me call on every page.
+const groupMemo = staleWhileRevalidate<string | undefined>(60 * 1000);
+const customerGroupNow = (customerId: string) =>
+  groupMemo(customerId, async () => {
+    const { body } = await apiRoot.customers().withId({ ID: customerId }).get().execute();
+    return body.customerGroup?.id;
+  });

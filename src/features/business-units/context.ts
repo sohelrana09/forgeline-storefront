@@ -49,7 +49,7 @@ export const currentBuyingContext = cache(async () => {
   }
   const jar = await cookies();
   // Not an associate of any unit: a consumer (B2C) customer, with a personal cart in the B2C store.
-  const context = contexts.length > 0 ? pickContext(contexts, jar.get(BU_COOKIE)?.value) : await getConsumerContext();
+  const context = contexts.length > 0 ? pickContext(contexts, jar.get(BU_COOKIE)?.value) : await getConsumerContext(session.customerId);
   return { session, contexts, context, cartId: jar.get(cartCookie(context.businessUnitKey))?.value };
 });
 

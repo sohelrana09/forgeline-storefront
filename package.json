@@ -25,6 +25,8 @@
     "ct:media-library": "tsx --conditions=react-server --env-file=.env scripts/media-library.ts",
     "ct:connect-content-app": "tsx --conditions=react-server --env-file=.env scripts/connect-content-app.ts",
     "ct:seed-approval-rules": "tsx --conditions=react-server --env-file=.env scripts/seed-approval-rules.ts",
+    "ct:tier-prices": "tsx --conditions=react-server --env-file=.env scripts/tier-prices.ts",
+    "ct:customer-group-prices": "tsx --conditions=react-server --env-file=.env scripts/customer-group-prices.ts",
     "ct:urls": "tsx --conditions=react-server --env-file=.env scripts/urls.ts",
     "ct:sanity-content": "tsx --conditions=react-server --env-file=.env scripts/sanity-content.ts"
   },
