@@ -1,7 +1,10 @@
-// Pricing POC: one company's own price list with quantity breaks, the way an ERP price feed would load it
-// (Magento with an ERP pricing API: one ladder per business partner and SKU; here a distribution channel per company).
-// Eagle Heavy Lift (eagle-heavy-lift-technologies-inc-us) buys from store us-large-customers, whose channel
-// us-large-customers no other unit uses: it is that company's price list.
+// Pricing POC: quantity breaks on two price lists, the way an ERP price feed would load them (Magento with an ERP
+// pricing API: one ladder per business partner and SKU; here a distribution channel per company).
+//   company   Eagle Heavy Lift (eagle-heavy-lift-technologies-inc-us) buys from store us-large-customers, whose channel
+//             no other unit uses: it is that company's price list (USD, 10% and 20% off).
+//   public    guests and consumers without a customer group: the B2C rows on default-channel (EUR, 5% and 10% off).
+// A product discount wins over tiers in commercetools, so the tiered SKUs are taken out of the "5 EUR off on all
+// spare parts" discount (the other spare parts keep it); --remove restores its predicate.
 //   npm run ct:tier-prices                      show the planned tiers next to the current ones (dry run)
 //   npm run ct:tier-prices -- --yes             set the tiers (idempotent)
 //   npm run ct:tier-prices -- --remove --yes    remove them again
@@ -9,6 +12,7 @@
 //                                               with a product discount; every row and cart it creates is removed
 import type { Money, PriceTierDraft, StandalonePrice } from "@commercetools/platform-sdk";
 import { apiRoot } from "../src/lib/commercetools/client";
+import { SPARE_PARTS, breaksAt } from "./poc-prices";
 
 const args = process.argv.slice(2);
 const write = args.includes("--yes");
@@ -16,20 +20,17 @@ const CHANNEL = "us-large-customers";
 const usd = (cents: number): Money => ({ currencyCode: "USD", centAmount: cents });
 
 // Standalone price key → quantity breaks (minimum quantity, unit price in cents). Base prices stay as they are.
-const TIERS: Record<string, [number, number][]> = {
-  "air-filter-8": [
-    [10, 3600],
-    [50, 3200],
-  ],
-  "oil-filter-8": [
-    [12, 2475],
-    [48, 2200],
-  ],
-  "hydraulic-hose-8": [
-    [5, 6900],
-    [20, 6250],
-  ],
-};
+// The sample data keys a SKU's Eagle row `<sku>-8` and its plain EUR row on default-channel `<sku>-2`.
+const TIERS: Record<string, [number, number][]> = Object.fromEntries(
+  SPARE_PARTS.flatMap((part) => [
+    [`${part.sku}-8`, breaksAt(part, [10, 20])],
+    [`${part.sku}-2`, breaksAt(part, [5, 10])],
+  ]),
+);
+
+const DISCOUNT = "spare-parts-5-eur-off";
+const DISCOUNT_PREDICATE = 'categories.key contains "spare-parts"';
+const withoutTiered = `${DISCOUNT_PREDICATE} and not(sku in (${SPARE_PARTS.map((p) => `"${p.sku}"`).join(", ")}))`;
 
 const ladder = (p: Pick<StandalonePrice, "value" | "tiers">) =>
   [`1+ ${p.value.centAmount}`, ...(p.tiers ?? []).map((t) => `${t.minimumQuantity}+ ${t.value.centAmount}`)].join(", ");
@@ -40,7 +41,8 @@ const sameTiers = (p: StandalonePrice, want: PriceTierDraft[]) =>
 async function setTiers(remove: boolean) {
   for (const [key, steps] of Object.entries(TIERS)) {
     const { body: price } = await apiRoot.standalonePrices().withKey({ key }).get().execute();
-    const want: PriceTierDraft[] = remove ? [] : steps.map(([minimumQuantity, cents]) => ({ minimumQuantity, value: usd(cents) }));
+    const money = (cents: number): Money => ({ currencyCode: price.value.currencyCode, centAmount: cents });
+    const want: PriceTierDraft[] = remove ? [] : steps.map(([minimumQuantity, cents]) => ({ minimumQuantity, value: money(cents) }));
     if (sameTiers(price, want)) {
       console.log(`= ${key} (${price.sku}): ${ladder(price)}`);
       continue;
@@ -57,6 +59,19 @@ async function setTiers(remove: boolean) {
       .execute();
     console.log(`~ ${key} (${price.sku}): ${planned}`);
   }
+  await setDiscountPredicate(remove ? DISCOUNT_PREDICATE : withoutTiered);
+}
+
+async function setDiscountPredicate(predicate: string) {
+  const { body: discount } = await apiRoot.productDiscounts().withKey({ key: DISCOUNT }).get().execute();
+  if (discount.predicate === predicate) return console.log(`= ${DISCOUNT}: ${predicate}`);
+  if (!write) return console.log(`~ ${DISCOUNT}: ${discount.predicate}  →  ${predicate}  (dry run, add --yes)`);
+  await apiRoot
+    .productDiscounts()
+    .withKey({ key: DISCOUNT })
+    .post({ body: { version: discount.version, actions: [{ action: "changePredicate", predicate }] } })
+    .execute();
+  console.log(`~ ${DISCOUNT}: ${predicate}`);
 }
 
 // Which price a product query and a cart pick. Prints facts; cleans up in `finally` even when a step fails.

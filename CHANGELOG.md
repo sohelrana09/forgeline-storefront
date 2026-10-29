@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Pricing
+
+- Tier prices on all 11 spare parts (every one except the pneumatic tire) for three price lists: Eagle Heavy Lift's company list (10% and 20% off), the public B2C list for guests and consumers (5% and 10% off), and the `trade-members` customer group (10% off, then 15% and 20%).
+- The tiered spare parts are out of the "5 EUR off on all spare parts" discount, because a product discount replaces tier prices in commercetools; the pneumatic tire keeps it.
+- `npm run ct:tier-prices` sets the public B2C tiers too and adjusts the discount (`--remove` restores it); `npm run ct:customer-group-prices` gives the group's rows their own tiers. The SKUs and break quantities are listed once in `scripts/poc-prices.ts`.
+
 ## v1.3.0 (2026-10-29)
 
 Company tier prices and B2C customer-group prices, the pricing model of an ERP-driven B2B shop on commercetools Standalone Prices.
