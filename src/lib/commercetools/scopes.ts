@@ -28,3 +28,17 @@ export const RUNTIME_SCOPES = [
 ] as const;
 
 export const runtimeScopes = (projectKey: string) => RUNTIME_SCOPES.map((s) => `${s}:${projectKey}`).join(" ");
+
+// A client's scopes (as a token lists them, without ":<project>") against RUNTIME_SCOPES. A Manage scope covers its
+// View scope, and view_products (published and staged) covers view_published_products. `missing`: what the shop
+// would be refused; `extra`: rights it doesn't need (each one widens what a leak can do).
+export function compareScopes(granted: string[]): { missing: string[]; extra: string[] } {
+  const has = new Set(granted);
+  const covers = (s: string) =>
+    has.has(s) ||
+    (s.startsWith("view_") && has.has(s.replace("view_", "manage_"))) ||
+    (s === "view_published_products" && has.has("view_products"));
+  const allowed = new Set<string>([...RUNTIME_SCOPES, "view_products"]);
+  for (const s of RUNTIME_SCOPES) if (s.startsWith("manage_")) allowed.add(s.replace("manage_", "view_"));
+  return { missing: RUNTIME_SCOPES.filter((s) => !covers(s)), extra: granted.filter((s) => !allowed.has(s)).sort() };
+}

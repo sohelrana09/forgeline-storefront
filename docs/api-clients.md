@@ -33,6 +33,8 @@ The list is in [`src/lib/commercetools/scopes.ts`](../src/lib/commercetools/scop
 
 Every write with these scopes happens only after the signed-in associate's permission is checked live in the selected business unit.
 
+**Easy to get wrong in the form:** for products, standalone prices, categories, stores, shipping methods and associate roles tick **View**, not Manage (Manage lets a leak change your catalog and prices). For business units tick **Manage**, project-wide: without it, signed-in buyers can't load their company and every account page fails. `npm run setup -- --check` lists both what's missing and what's more than needed.
+
 ## Switching over
 
 1. **Merchant Center** → Settings → Developer settings → **Create new API client**, no template. Name it, for example, "Forgeline runtime", tick exactly the scopes above (project-wide), and create it. Copy the ID and secret (the secret is shown once).

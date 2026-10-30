@@ -15,7 +15,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { demoPassword, parseEnv, REGIONS, regionOf, regionUrls, setEnvValue, storefrontScopes } from "./setup/lib";
-import { RUNTIME_SCOPES, runtimeScopes } from "../src/lib/commercetools/scopes";
+import { RUNTIME_SCOPES, compareScopes } from "../src/lib/commercetools/scopes";
 
 const args = process.argv.slice(2);
 const check = args.includes("--check");
@@ -90,7 +90,7 @@ async function token(clientId: string, clientSecret: string, scope: string): Pro
       authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       "content-type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ grant_type: "client_credentials", scope }),
+    body: new URLSearchParams({ grant_type: "client_credentials", ...(scope && { scope }) }),
   }).catch((err: Error) => ({ ok: false, status: 0, json: async () => ({ error: err.message }) }) as const);
   const body = (await response.json().catch(() => ({}))) as { access_token?: string; scope?: string; error?: string; message?: string };
   if (!response.ok || !body.access_token) return { ok: false, error: body.error ?? body.message ?? `status ${response.status}` };
@@ -277,11 +277,14 @@ async function runtimeClient() {
       "info",
       "the shop uses an admin client (manage_project): fine locally; for production give it its own client, see docs/api-clients.md",
     );
-  if ((await token(id, secret, runtimeScopes(projectKey))).ok)
-    return say("ok", `narrowed client: exactly the ${RUNTIME_SCOPES.length} scopes the shop needs, no manage_project`);
-  const missing: string[] = [];
-  for (const scope of RUNTIME_SCOPES) if (!(await token(id, secret, `${scope}:${projectKey}`)).ok) missing.push(scope);
-  say("todo", `the runtime client (CTP_CLIENT_*) lacks: ${missing.join(" ")} (edit it in Merchant Center)`);
+  // All of the client's scopes (a token requested without a scope list gets every one), compared with what the shop
+  // needs: a Manage scope covers its View scope, and anything beyond the list is reported too.
+  const all = await token(id, secret, "");
+  if (!all.ok) throw new SetupError(`the runtime client was refused (${all.error}): check CTP_CLIENT_ID and CTP_CLIENT_SECRET`);
+  const { missing, extra } = compareScopes(all.scope.split(" ").map((s) => s.split(":")[0]));
+  if (missing.length) say("todo", `the runtime client (CTP_CLIENT_*) lacks: ${missing.join(" ")} (edit it in Merchant Center)`);
+  if (extra.length) say("todo", `the runtime client has rights the shop doesn't need: ${extra.join(" ")} (untick them in Merchant Center)`);
+  if (!missing.length && !extra.length) say("ok", `narrowed client: the ${RUNTIME_SCOPES.length} scopes the shop needs, nothing more`);
 }
 
 async function demoUsers() {
