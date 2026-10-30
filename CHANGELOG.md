@@ -1,12 +1,69 @@
 # Changelog
 
-## Unreleased
+## v2.0.0 (2026-10-30)
+
+Fast pages for every visitor, content in Sanity, CSV ordering and a one-command setup. The storefront now serves cached pages to signed-in buyers too, with their own prices streamed in.
+
+**Live demo:** https://forgeline-storefront-gamma.vercel.app
+
+### Highlights
+
+- **Fast for everyone:** every catalog, content and blog page is a prerendered shell served from the CDN (Next.js 16 Cache Components), for guests and signed-in buyers alike. Product names, pictures and category headings arrive with the first byte (about 0.1 s from Asia); each visitor's prices, cart and account stream in right after. Before, only guests on plain URLs got a cached page; filtered URLs, variants and every signed-in page rendered per request (0.4 to 1 s to the first byte).
+- **One-command setup:** `npm run setup` takes a commercetools project with the B2B sample data to a running demo shop: `.env`, both API clients (the storefront client with exactly the 14 scopes it needs), demo sign-ins and demo data. `--check` reports without changing anything.
+- **CSV order upload:** buyers upload a spreadsheet on Quick order (any column layout, Excel's semicolons included); the lines go to the cart or a purchase list after the usual checks. A template is included.
+- **Content in Sanity:** pages, banners, blocks and a blog, edited in a Studio built into the storefront at `/studio`, with live product cards and preview.
+- **Company-shared purchase lists:** lists the whole company sees, with view and edit rights per role.
+- **Order documents:** order confirmation and invoice PDFs, and order history as CSV (own or company-wide).
+
+### Speed
+
+- Shared data is cached with tags and refreshed on change: `POST /api/revalidate` (the Sanity webhook, `npm run ct:revalidate`, an optional catalog Subscription) expires exactly what changed; otherwise content refreshes within a minute and prices within 15 minutes.
+- Catalog reads take only a pricing key (store, channel, currency, country, customer group), so cached data is shared per price list and never holds anything about the person.
+- Links prefetch each page's own shell: a click shows the product's name and pictures at once.
+- Signed-in pages: connections to commercetools kept open, secondary parts streamed, the purchase-list picker in one round of calls, a new device's cart remembered instead of searched on every page.
+- Images cached for 30 days, generated only at the widths the pages use.
+
+### Security
+
+- Account, cart, checkout and sign-in pages render per request with a fresh Content-Security-Policy nonce; cached pages get a fixed policy.
+- A password reset ends every existing session; sign-up no longer reveals whether an account exists.
+- Sessions last 30 days from the last visit (refresh tokens), and sign-out revokes them.
+
+### B2B and B2C
+
+- Quick order: CSV upload; the catalog table now shows trade members their own prices.
+- Category filter by child category works again (it was ignored since layered navigation was added).
+- Every private page has its own title (Sign in, Shopping cart, Checkout, My orders, ...).
 
 ### Pricing
 
 - Tier prices on all 11 spare parts (every one except the pneumatic tire) for three price lists: Eagle Heavy Lift's company list (10% and 20% off), the public B2C list for guests and consumers (5% and 10% off), and the `trade-members` customer group (10% off, then 15% and 20%).
 - The tiered spare parts are out of the "5 EUR off on all spare parts" discount, because a product discount replaces tier prices in commercetools; the pneumatic tire keeps it.
 - `npm run ct:tier-prices` sets the public B2C tiers too and adjusts the discount (`--remove` restores it); `npm run ct:customer-group-prices` gives the group's rows their own tiers. The SKUs and break quantities are listed once in `scripts/poc-prices.ts`.
+
+### Fixes
+
+- A link to an old URL in CMS content made the browser re-request it endlessly after a client-side navigation; CMS links no longer prefetch, and redirects keep real 307/308 status codes.
+- A second cache refresh within 10 seconds was ignored, so a change in a price import could stay stale for 15 minutes.
+
+### Under the hood
+
+- Two root layouts: `(shop)` (prerendered) and `(private)` (per request); the separate guest copies are gone.
+- New scripts: `npm run setup`, `ct:price` (show or set one standalone price), `ct:revalidate`.
+- Browser tests for signed-in buyers, approvers and admins, the category filter and the prefetch regression (they put back what they create); 177 unit tests.
+- MIT license.
+
+### Upgrading from 1.x
+
+- Content moved from commercetools Custom Objects and the Merchant Center Content app to Sanity. Set `NEXT_SANITY_*` (see `.env.example`); without it there are no content pages, blocks or blog.
+- Route groups changed: private pages live in `src/app/(private)`, cached pages in `src/app/(shop)`. New private routes must be added to `PRIVATE_SEGMENTS` in `src/proxy.ts`.
+- Set `REVALIDATE_SECRET` in your hosting to refresh caches on demand.
+
+### Known limitations
+
+- Card payments through commercetools Checkout stay off by default; consumers and guests pay by bank transfer.
+- Category grids and prices stream after the page shell (they depend on the visitor), about 0.5 to 1 s from far away.
+- Without the Sanity webhook or a catalog Subscription, changes show within a minute (content) or 15 minutes (prices).
 
 ## v1.3.0 (2026-10-29)
 
