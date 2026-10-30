@@ -44,7 +44,8 @@
     "react-dom": "^19.3.1",
     "sanity": "^6.20.0",
     "server-only": "^0.0.1",
-    "styled-components": "^6.6.0"
+    "styled-components": "^6.6.0",
+    "undici": "^7.29.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

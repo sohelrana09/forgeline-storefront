@@ -213,9 +213,13 @@ export async function pageLists(session: Session, ctx: PricingContext, page: num
 // associate may change (their value carries the scope, see listRef).
 export async function listNames(session: Session, ctx: PricingContext): Promise<{ id: string; name: string }[]> {
   const mine = myLists(session, ctx);
-  const own = await mine.query({ sort: ["lastModifiedAt desc"], limit: MAX_LISTS }).catch(mine.fail);
+  // The personal lists don't depend on company permissions: read both at once.
+  const [own, allowed] = await Promise.all([
+    mine.query({ sort: ["lastModifiedAt desc"], limit: MAX_LISTS }).catch(mine.fail),
+    companyListsAllowed(session, ctx),
+  ]);
   const options = own.results.map((l) => ({ id: listRef("mine", l.id), name: localize(l.name) }));
-  if (!(await companyListsAllowed(session, ctx)).view) return options;
+  if (!allowed.view) return options;
   // Best effort: the picker still offers the personal lists if the company ones can't be read.
   const a = await access(session, ctx, "company");
   const shared = await a.api.query({ sort: ["lastModifiedAt desc"], limit: MAX_LISTS }).catch((err) => {

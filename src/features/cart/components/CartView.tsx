@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getActiveCart, type CartAuth } from "@/features/cart/service";
@@ -158,7 +159,9 @@ export async function CartView({
 
         <div className="flex w-full flex-col gap-4 md:max-w-sm md:flex-[1_1_300px]">
           <CartSummary cart={cart} />
-          <AddToListPanel context={context} kind="cart" />
+          <Suspense fallback={null}>
+            <AddToListPanel context={context} kind="cart" />
+          </Suspense>
           {ship && (
             <p className="m-0 text-sm text-gray-600">
               Ships to{" "}

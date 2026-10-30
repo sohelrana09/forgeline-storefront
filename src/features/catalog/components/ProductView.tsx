@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import type { ProductProjection } from "@commercetools/platform-sdk";
 import { notFound } from "next/navigation";
 import { getCategoryTree, getProductBySlug, getProductsByIds, getProductsInCategories } from "@/features/catalog/service";
 import {
@@ -37,18 +39,12 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
   const axis = variantAxis(product);
   const name = localize(product.name);
   const categoryIds = product.categories.map((c) => c.id);
-  const [tree, compatible, sameCategory] = await Promise.all([
-    getCategoryTree(),
-    // "Compatible spare parts": the product's relatedProducts attribute (curated in Merchant Center).
-    getProductsByIds(context, relatedProductIds(product)),
-    // "More in this category": automatic related products from the same leaf category.
-    categoryIds.length ? getProductsInCategories(context, categoryIds, { limit: 13 }) : undefined,
-  ]);
+  // The carousels and the purchase-list panel stream in after the product (Suspense), so they never hold up the page.
+  const tree = await getCategoryTree();
   const category = product.categories[0] && tree.all.find((c) => c.id === product.categories[0].id);
   const categorySlugs = product.categories
     .map((ref) => tree.all.find((c) => c.id === ref.id))
     .flatMap((c) => (c ? [...tree.ancestors(c), c].map((x) => localize(x.slug)) : []));
-  const moreInCategory = (sameCategory?.results ?? []).filter((p) => p.id !== product.id).slice(0, 12);
   const stock = availableQuantity(variant, context.supplyChannelId);
   const description = localize(product.description);
   const specs = specRows(variant);
@@ -133,7 +129,11 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
               size="lg"
             />
           )}
-          {variant.sku && <AddToListPanel context={context} kind="product" sku={variant.sku} />}
+          {variant.sku && (
+            <Suspense fallback={null}>
+              <AddToListPanel context={context} kind="product" sku={variant.sku} />
+            </Suspense>
+          )}
           {isQuoteOnly(variant.price) && (
             <p className="m-0 text-sm text-gray-600">Machines are sold on quote, including delivery and commissioning.</p>
           )}
@@ -164,6 +164,36 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
         </div>
       </div>
 
+      <Suspense fallback={null}>
+        <RelatedProducts context={context} product={product} categoryIds={categoryIds} categoryName={category && localize(category.name)} />
+      </Suspense>
+
+      <CmsBlocks placement="pdp.bottom" context={context} categorySlugs={categorySlugs} />
+    </div>
+  );
+}
+
+// "Compatible spare parts" (the relatedProducts attribute, curated in Merchant Center) and "More in <category>" (the
+// same leaf category).
+async function RelatedProducts({
+  context,
+  product,
+  categoryIds,
+  categoryName,
+}: {
+  context: BuyerContext;
+  product: ProductProjection;
+  categoryIds: string[];
+  categoryName?: string;
+}) {
+  const [compatible, sameCategory] = await Promise.all([
+    getProductsByIds(context, relatedProductIds(product)),
+    categoryIds.length ? getProductsInCategories(context, categoryIds, { limit: 13 }) : undefined,
+  ]);
+  const moreInCategory = (sameCategory?.results ?? []).filter((p) => p.id !== product.id).slice(0, 12);
+  const note = taxNote(context.country);
+  return (
+    <>
       {compatible.length > 0 && (
         <section aria-labelledby="compatible">
           <h2 id="compatible" className="mb-4 mt-0 text-xl font-semibold">
@@ -177,20 +207,18 @@ export async function ProductView({ context, slug, sku }: { context: BuyerContex
         </section>
       )}
 
-      {moreInCategory.length > 0 && category && (
+      {moreInCategory.length > 0 && categoryName && (
         <section aria-labelledby="related">
           <h2 id="related" className="mb-4 mt-0 text-xl font-semibold">
-            More in {localize(category.name)}
+            More in {categoryName}
           </h2>
-          <Carousel label={`More in ${localize(category.name)}`}>
+          <Carousel label={`More in ${categoryName}`}>
             {moreInCategory.map((p) => (
               <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={note} />
             ))}
           </Carousel>
         </section>
       )}
-
-      <CmsBlocks placement="pdp.bottom" context={context} categorySlugs={categorySlugs} />
-    </div>
+    </>
   );
 }

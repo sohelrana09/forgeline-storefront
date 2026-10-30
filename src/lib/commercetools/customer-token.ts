@@ -1,5 +1,6 @@
 import "server-only";
 import { projectKey, requireEnv } from "@/lib/commercetools/client";
+import { traceFetch } from "@/lib/commercetools/trace";
 
 // Customer logins use the storefront API client (only manage_my_* style scopes), never the admin client:
 // a password-flow token inherits every scope of the client that requested it.
@@ -18,7 +19,7 @@ export async function requestCustomerToken(email: string, password: string, scop
     console.error("customer login is not configured:", (err as Error).message);
     return { ok: false, reason: "unavailable" };
   }
-  const res = await fetch(`${requireEnv("CTP_AUTH_URL")}/oauth/${projectKey}/customers/token`, {
+  const res = await traceFetch(`${requireEnv("CTP_AUTH_URL")}/oauth/${projectKey}/customers/token`, {
     method: "POST",
     headers: { Authorization: authorization, "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "password", username: email, password, scope: scopes.join(" ") }),
@@ -40,7 +41,7 @@ export async function requestCustomerToken(email: string, password: string, scop
 // Best effort: a logged-out token should stop working immediately, not after 48h.
 export async function revokeToken(token: string, hint: "access_token" | "refresh_token" = "access_token") {
   try {
-    await fetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token/revoke`, {
+    await traceFetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token/revoke`, {
       method: "POST",
       headers: { Authorization: storefrontAuth(), "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ token, token_type_hint: hint }),
@@ -56,7 +57,7 @@ type TokenBody = { access_token?: string; refresh_token?: string; expires_in?: n
 
 async function tokenRequest(path: string, params: Record<string, string>): Promise<TokenBody | undefined> {
   // Guest pages call this while rendering: an auth outage means "no guest token", never a crashed page.
-  const res = await fetch(`${requireEnv("CTP_AUTH_URL")}${path}`, {
+  const res = await traceFetch(`${requireEnv("CTP_AUTH_URL")}${path}`, {
     method: "POST",
     headers: { Authorization: storefrontAuth(), "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params),
@@ -105,7 +106,7 @@ export async function signUpCustomer(draft: SignUpDraft): Promise<SignUpResult> 
     scope: `manage_my_profile:${projectKey}`,
   });
   if (!token?.access_token) return { ok: false, reason: "unavailable" };
-  const res = await fetch(`${requireEnv("CTP_API_URL")}/${projectKey}/me/signup`, {
+  const res = await traceFetch(`${requireEnv("CTP_API_URL")}/${projectKey}/me/signup`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" },
     body: JSON.stringify(draft),
