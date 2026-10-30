@@ -1,5 +1,5 @@
 import type { Category, ProductProjection, ProductVariant } from "@commercetools/platform-sdk";
-import { siteUrl } from "@/lib/site-url";
+import { SHARE_IMAGE, siteUrl } from "@/lib/site-url";
 import { availableQuantity, categoryHref, isQuoteOnly, localize, metaDescription, productHref } from "@/features/catalog/utils";
 
 // schema.org data for the product page (guest view, which is what crawlers see).
@@ -65,7 +65,7 @@ export function productMetadata(product: ProductProjection) {
     description,
     // One URL per product: ?sku= variants point to the product page.
     alternates: { canonical: path },
-    openGraph: { title: name, description, url: path, ...(image && { images: [{ url: image.url, alt: name }] }) },
+    openGraph: { title: name, description, url: path, images: [image ? { url: image.url, alt: name } : SHARE_IMAGE] },
   };
 }
 
@@ -81,6 +81,6 @@ export function categoryMetadata(trail: Category[], page = 1) {
     title: page > 1 ? `${name} (page ${page})` : name,
     description,
     alternates: { canonical },
-    openGraph: { title: name, description, url: canonical },
+    openGraph: { title: name, description, url: canonical, images: [SHARE_IMAGE] },
   };
 }

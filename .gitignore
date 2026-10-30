@@ -45,6 +45,9 @@ next-env.d.ts
 CLAUDE.md
 .claude/
 docs/*.md
+# ...except the setup guides the code and scripts point to
+!docs/cache-refresh.md
+!docs/checkout-setup.md
 
 # Playwright output
 /test-results/

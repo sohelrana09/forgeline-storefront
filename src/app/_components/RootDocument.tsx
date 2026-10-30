@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
-import { siteUrl } from "@/lib/site-url";
+import { SHARE_IMAGE, siteUrl } from "@/lib/site-url";
 
 // The <html> document every root layout shares. There are several root layouts on purpose: (shop) pages are
 // prerendered shells served from the CDN, (private) pages render per request so they can carry a CSP nonce, and the
@@ -22,7 +22,8 @@ export const rootMetadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: { default: "Ironline Supply: heavy machines and spare parts", template: "%s | Ironline Supply" },
   description: "Heavy equipment and the spare parts that keep it running: loaders, excavators, cranes, filters, hoses and more.",
-  openGraph: { siteName: "Ironline Supply", type: "website" },
+  openGraph: { siteName: "Ironline Supply", type: "website", images: [SHARE_IMAGE] },
+  twitter: { card: "summary_large_image" },
 };
 
 export function RootDocument({ children }: { children: React.ReactNode }) {

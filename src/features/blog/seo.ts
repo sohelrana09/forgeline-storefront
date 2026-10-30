@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { stegaClean } from "next-sanity";
-import { siteUrl } from "@/lib/site-url";
+import { SHARE_IMAGE, siteUrl } from "@/lib/site-url";
 import { imageUrl } from "@/lib/sanity/image";
 import type { Post } from "@/features/blog/types";
 import { BLOG_PATH, postPath } from "@/features/blog/utils";
@@ -21,7 +21,7 @@ export function postMetadata(post: Post): Metadata {
       description,
       publishedTime: post.publishedAt,
       modifiedTime: post.updatedAt,
-      ...(image && { images: [{ url: image, width: 1200, height: 630 }] }),
+      images: [image ? { url: image, width: 1200, height: 630 } : SHARE_IMAGE],
     },
   };
 }

@@ -136,7 +136,7 @@ Key design choices:
 
 ## Quick start
 
-**You need:** Node.js 22 and a commercetools project (a free trial works). Load the **B2B sample data** for the demo.
+**You need:** Node.js 24 (with npm 11; `.nvmrc` pins it for nvm and fnm) and a commercetools project (a free trial works). Load the **B2B sample data** for the demo.
 
 1. **Clone and install**
 
@@ -199,8 +199,8 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 | `SITE_URL` | Public address of the shop. Needed for production builds, email links, canonicals and the sitemap. |
 | `SITE_INDEXABLE` | `true` lets search engines index the catalog. Anything else (the default) keeps the whole site out of Google and Bing: `noindex` on every response and an empty sitemap. |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional. Shares the rate limits (sign-in, sign-up, checkout) across all server instances. On Vercel, connect Upstash under Storage and they are set for you. |
-| `REVALIDATE_SECRET` | Password for `POST /api/revalidate`, which refreshes the cached data behind every page after a change (Sanity webhook, `npm run ct:revalidate`, an optional catalog Subscription). Use the same value in `.env` and your hosting. |
-| `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. |
+| `REVALIDATE_SECRET` | Password for `POST /api/revalidate`, which refreshes the cached data behind every page after a change (Sanity webhook, `npm run ct:revalidate`, an optional catalog Subscription). Use the same value in `.env` and your hosting. Setup: [docs/cache-refresh.md](docs/cache-refresh.md). |
+| `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. Setup: [docs/checkout-setup.md](docs/checkout-setup.md). |
 | `NEXT_SANITY_PROJECT_ID`, `NEXT_SANITY_DATASET`, `SANITY_API_READ_TOKEN`, `SANITY_API_WRITE_TOKEN` | Optional. Sanity for content pages, blocks and the blog (Studio at `/studio`); the read token powers draft preview, the write token only the demo blog script. Without a project id there are no content pages and the blog is off. |
 | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Sends emails (sign-up, password reset, approvals) through Resend; without them, development prints emails to the server log. |
 | `CATALOG_SEARCH` | Optional. `product-search` uses the commercetools Product Search API once it is activated; otherwise search uses a built-in index. |
