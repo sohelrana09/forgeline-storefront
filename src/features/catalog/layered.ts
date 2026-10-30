@@ -100,7 +100,9 @@ export function parseFilters(query: Record<string, string | string[] | undefined
   const filters: Filters = {};
   for (const key of FILTER_KEYS) {
     const raw = query[key];
-    const value = (Array.isArray(raw) ? raw[0] : raw)?.toLowerCase();
+    const lower = (Array.isArray(raw) ? raw[0] : raw)?.toLowerCase();
+    // Category options are URL keys (hyphens); links from before that used raw slugs with underscores.
+    const value = key === "cat" ? lower?.replace(/_/g, "-") : lower;
     if (value && VALUE.test(value)) filters[key] = value;
   }
   // The price slider's plain form (no JavaScript) sends From and To.

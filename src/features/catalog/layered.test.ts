@@ -69,6 +69,10 @@ describe("parse", () => {
       model: "2019",
     });
   });
+  it("reads a category as its URL key, also from old links with the raw slug's underscores", () => {
+    expect(parseFilters({ cat: "wheeled-excavators" })).toEqual({ cat: "wheeled-excavators" });
+    expect(parseFilters({ cat: "Wheeled_Excavators" })).toEqual({ cat: "wheeled-excavators" });
+  });
   it("falls back to the default sort and page size", () => {
     expect(parseSort("price-desc")).toBe("price-desc");
     expect(parseSort("hacked")).toBe("name-asc");

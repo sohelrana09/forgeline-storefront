@@ -23,6 +23,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { breadcrumbJsonLd } from "@/features/catalog/seo";
 import { siteUrl } from "@/lib/site-url";
+import { urlKey } from "@/lib/urls";
 import { ProductCard } from "@/features/catalog/components/ProductCard";
 import { CatalogNav, CatalogResults, NavLink, PriceSlider, ShopByPanel, SortToolbar } from "@/features/catalog/components/LayeredNav";
 import { CmsBlocks } from "@/features/cms/components/CmsBlocks";
@@ -77,7 +78,8 @@ async function CategoryListing({
   const page = Math.max(1, Number.parseInt(String(query.page ?? "1"), 10) || 1);
 
   const categories: CategoryOption[] = tree.children(category.id).map((c) => ({
-    slug: localize(c.slug),
+    // The URL key (hyphens), like every other catalog URL: raw slugs have underscores, which ?cat= doesn't accept.
+    slug: urlKey(localize(c.slug)),
     name: localize(c.name),
     ids: new Set(tree.subtreeIds(c.id)),
   }));

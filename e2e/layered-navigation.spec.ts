@@ -24,6 +24,24 @@ test("filter, sort and remove a filter without a full page load", async ({ page 
   expect(await page.evaluate(() => (window as unknown as { marker?: string }).marker)).toBe("same page");
 });
 
+// Category options once carried the raw slug (wheeled_excavators), which ?cat= rejected, so the filter did nothing.
+test("the category filter narrows the list to that child category", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/excavators");
+  const shopBy = page.getByRole("complementary", { name: "Shop by" });
+  const option = shopBy.locator('a[href*="cat="]').first();
+  const href = (await option.getAttribute("href")) ?? "";
+  expect(href).toMatch(/[?&]cat=[a-z0-9-]+$/);
+  const all = Number((await page.getByText(/^\d+ items?$/).textContent())?.split(" ")[0]);
+  const expected = Number((await option.locator("span").last().textContent())?.replace(/\D/g, ""));
+
+  await option.click();
+  await expect(page).toHaveURL(new RegExp(href.replace("?", "\\?") + "$"));
+  await expect(shopBy.getByText("Now Shopping by")).toBeVisible();
+  await expect(page.getByText(`${expected} ${expected === 1 ? "item" : "items"}`, { exact: true })).toBeVisible();
+  expect(expected).toBeLessThan(all);
+});
+
 test("on phones the filters open from a Shop By button", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/spare-parts");
