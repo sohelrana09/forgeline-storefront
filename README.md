@@ -119,33 +119,40 @@ Key design choices:
    npm install
    ```
 
-2. **Create two API clients** in Merchant Center → Settings → Developer settings:
-   - an **admin** client (template "Admin client"), used on the server only;
-   - a **storefront** client for customer sign-in, with these scopes *for every store you sell from*: `manage_my_profile`, `manage_my_orders`, `manage_my_quote_requests`, `manage_my_quotes`, `manage_my_shopping_lists`, `create_anonymous_token`.
+2. **Set it up**
 
-3. **Configure**
+   In Merchant Center → Settings → Developer settings, create an API client from the template **"Admin client"** and keep its page open (the secret is shown once). Then:
 
    ```bash
-   cp .env.example .env
+   npm run setup
    ```
 
-   Fill in both clients, your project key and your region URLs. See [Configuration](#configuration).
+   It asks for the project key, the client's ID and secret and your region, and does the rest:
 
-4. **Check the connection and seed demo data**
+   - writes `.env` (and generates `REVALIDATE_SECRET`);
+   - checks the admin client and that the B2B sample data is loaded;
+   - creates the **storefront** API client for customer sign-in with exactly the scopes the shop needs (if your admin client may create API clients; otherwise it lists the scopes and asks for that client's ID and secret), and checks it;
+   - generates a demo password in `.env.demo` and, once you confirm, sets it on the sample users (only on a demo project: it replaces their passwords);
+   - seeds what the B2B features need (purchase-list permissions, a demo approval rule) and, with Sanity configured, a demo blog.
 
-   ```bash
-   npm run ct:hello
-   ```
+   It's safe to run again: it never replaces a value you set and skips what's already done. `npm run setup -- --check` only reports what's ready and what's missing. Add `--with-pricing-demo` for the quantity-break and customer-group price demos.
 
-   To sign in as the sample buyers, create a git-ignored `.env.demo` file with `DEMO_BUYER_PASSWORD=<a password of your choice>`, then run `npm run ct:seed-buyers`. Optionally run `npm run ct:seed-associates` and `npm run ct:seed-approval-rules` too.
+   <details>
+   <summary>Doing it by hand instead</summary>
 
-5. **Run**
+   - Create two API clients: an **admin** client (template "Admin client", server only) and a **storefront** client with these scopes *for every store you sell from*: `manage_my_profile`, `manage_my_orders`, `manage_my_quote_requests`, `manage_my_quotes`, `manage_my_shopping_lists`, `create_anonymous_token`.
+   - `cp .env.example .env` and fill in both clients, your project key and your region URLs (see [Configuration](#configuration)); check with `npm run ct:hello`.
+   - For the sample buyers, put `DEMO_BUYER_PASSWORD=<a password of your choice>` in a git-ignored `.env.demo`, then run `npm run ct:seed-associates -- --force`, `npm run ct:seed-list-permissions -- --yes` and `npm run ct:seed-approval-rules`.
+
+   </details>
+
+3. **Run**
 
    ```bash
    npm run dev
    ```
 
-   Open http://localhost:3000. Browse as a guest, or sign in as a sample buyer such as `sofia-lopez@ltsl.com`.
+   Open http://localhost:3000. Browse as a guest, or sign in with the password in `.env.demo` as `sofia-lopez@ltsl.com` (buyer), `carlos-garcia@ltsl.com` (approver) or `oliver-smith@ltsl.com` (company admin).
 
 ## Configuration
 
@@ -175,6 +182,7 @@ Store prices: the sample stores have no countries set, so the mapping from store
 | `npm run typecheck` / `npm run lint` | Quality gates. |
 | `npm run format` / `npm run format:check` | Prettier (2 spaces, width 140; `.editorconfig` for editors). |
 | `npm test` | Unit tests (Vitest). |
+| `npm run setup` | One-command setup: `.env`, both API clients, demo sign-ins and demo data (`-- --check` reports only). |
 | `npm run test:e2e` | Browser tests (Playwright): guest flows (read-only), plus signed-in buyer, approver and admin flows when `.env.demo` has the demo password. Run `npx playwright install chromium` once. |
 | `npm run ct:hello` | Smoke test: credentials, project, first products and business units. |
 | `npm run ct:contexts` | Prints each business unit's store, channel and currency. |

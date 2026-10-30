@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "setup": "tsx --conditions=react-server scripts/setup.ts",
     "ct:hello": "tsx --conditions=react-server --env-file=.env scripts/hello.ts",
     "ct:create-bu": "tsx --conditions=react-server --env-file=.env scripts/create-business-unit.ts",
     "typecheck": "tsc --noEmit",
