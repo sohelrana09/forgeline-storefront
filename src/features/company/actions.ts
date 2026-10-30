@@ -3,7 +3,7 @@
 // Public endpoints for company administration. Each one: signed-in context, rate limit, input validation, then the
 // service, which re-checks the associate's permission live in the selected unit.
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { tooManyAttempts } from "@/lib/rate-limit";
@@ -40,7 +40,7 @@ async function run(
     console.error("company update failed", (err as { body?: unknown })?.body ?? err);
     return { error: "The change could not be saved. Please try again." };
   }
-  revalidatePath("/(shop)", "layout");
+  refresh();
   return { saved };
 }
 
@@ -85,7 +85,7 @@ export async function acceptInvitationAction(_prev: CompanyActionState, formData
     console.error("invitation accept failed", (err as { body?: unknown })?.body ?? err);
     return { error: "The invitation could not be accepted. Please try again." };
   }
-  revalidatePath("/(shop)", "layout");
+  refresh();
   redirect(`/account?joined=1`);
 }
 

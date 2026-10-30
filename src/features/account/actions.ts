@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireShopContext } from "@/features/business-units/context";
@@ -34,7 +34,7 @@ export async function updateAccountInformation(_prev: AccountInfoState, formData
   }
   // The header greeting uses the name in the session; the profile is saved either way.
   await saveSession({ ...session, name: firstName }).catch((err) => console.error("session name update failed", err));
-  revalidatePath("/(shop)", "layout");
+  refresh();
   return { saved: true };
 }
 
@@ -61,7 +61,7 @@ export async function saveAddress(_prev: AddressFormState, formData: FormData): 
     console.error("address save failed", (err as { body?: unknown })?.body ?? err);
     return { error: "The address could not be saved. Please try again." };
   }
-  revalidatePath("/(shop)", "layout");
+  refresh();
   return { saved: true };
 }
 
@@ -76,5 +76,5 @@ export async function deleteAddress(formData: FormData) {
     if (isRedirectError(err)) throw err;
     console.error("address remove failed", (err as { body?: unknown })?.body ?? err);
   }
-  revalidatePath("/(shop)", "layout");
+  refresh();
 }

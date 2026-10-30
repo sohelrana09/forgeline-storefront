@@ -4,8 +4,8 @@ import { listNames } from "@/features/purchase-lists/service";
 import { AddToListForm } from "@/features/purchase-lists/components/AddToListForm";
 import type { BuyerContext } from "@/features/business-units/types";
 
-// "Add to purchase list" under Add to cart (product page) or the cart summary. Signed-in customers only: guests,
-// including every cached guest page, return before any cookie is read.
+// "Add to purchase list" under Add to cart (product page) or the cart summary. Signed-in customers only: guests
+// return before any cookie is read.
 export async function AddToListPanel({ context, kind, sku }: { context: BuyerContext; kind: "product" | "cart"; sku?: string }) {
   if (context.guest) return null;
   const session = await getSession();

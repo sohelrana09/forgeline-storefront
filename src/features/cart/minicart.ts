@@ -4,7 +4,7 @@ import { unitPriceAt } from "@/features/catalog/tiers";
 import { formatMoney } from "@/lib/utils";
 
 // What the header's minicart shows: plain, serializable data built from the cart on the server,
-// either in SiteChrome (per-visitor pages) or in /api/cart-summary (cached guest pages).
+// either in SiteChrome (streamed into every page) or in /api/cart-summary (reloads after a change).
 export type MiniCartLine = {
   id: string;
   name: string;

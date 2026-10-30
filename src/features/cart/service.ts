@@ -6,6 +6,7 @@ import type { PricingContext } from "@/features/business-units/types";
 import type { QuickOrderLine } from "@/features/quick-order/types";
 import { signOutOnAuthError } from "@/features/auth/session";
 import { isQuoteOnly } from "@/features/catalog/utils";
+import { priceSelection, pricingKey } from "@/features/catalog/pricing";
 import { str } from "@/lib/predicate";
 
 // The token for "my carts": a signed-in buyer's session or a guest's anonymous token.
@@ -22,7 +23,7 @@ export type SkuInfo = {
   image?: string;
 };
 
-// One query for all SKUs, with the business unit's store and price selection applied.
+// One query for all SKUs, with the store and price selection of the context (customer group included, like the cart).
 // SKUs are validated by parseQuickOrder to [A-Za-z0-9._-], so quoting them into the predicate is safe.
 export async function lookupSkus(context: PricingContext, skus: string[]): Promise<Map<string, SkuInfo>> {
   const found = new Map<string, SkuInfo>();
@@ -35,10 +36,7 @@ export async function lookupSkus(context: PricingContext, skus: string[]): Promi
       queryArgs: {
         where: `masterVariant(sku in (${list})) or variants(sku in (${list}))`,
         limit: 500,
-        storeProjection: context.storeKey,
-        priceCurrency: context.currency,
-        priceChannel: context.channelId,
-        ...(context.country && { priceCountry: context.country }),
+        ...priceSelection(pricingKey(context)),
       },
     })
     .execute();

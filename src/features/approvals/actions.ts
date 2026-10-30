@@ -3,7 +3,7 @@
 // Public endpoints for order approvals. Signed-in business context, rate limit, input checks; the service re-checks
 // the approver's permission, the flow's state and version, and refuses their own orders.
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireBusinessContext } from "@/features/business-units/context";
@@ -25,7 +25,7 @@ export async function decideApprovalAction(_prev: ApprovalActionState, formData:
   if (reason.length > REASON_MAX) return { error: `Keep the reason under ${REASON_MAX} characters.` };
   try {
     const result = await decideApproval(context, session.customerId, flowId, version, decision, reason);
-    revalidatePath("/(shop)", "layout");
+    refresh();
     if (result.cancelFailed) {
       return {
         error: "You rejected the order, but it couldn't be cancelled yet. Use Retry cancellation, or tell our sales team.",

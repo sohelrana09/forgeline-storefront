@@ -1,85 +1,116 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { RESERVED_SEGMENTS } from "@/lib/urls";
-import { cachedPagePolicy, newNonce, noncePolicy, studioPolicy } from "@/lib/csp";
+import { newNonce, noncePolicy, shellPolicy, studioPolicy } from "@/lib/csp";
+import { resolvePath, type UrlIndex, type UrlTarget } from "@/features/urls/url-index";
 
-// Guests get the cached catalog: home and every catalog URL (category paths, products, content pages; see
-// src/lib/urls.ts) without query parameters are rewritten to the cached copies in src/app/(cached)/g. Signed-in customers (company or personal prices), URLs with
-// parameters (?sort, ?page, ?sku, ?q) and form posts (Server Actions) use the per-visitor pages in (shop).
-// The ct_session cookie name matches SESSION_COOKIE in src/features/auth/session.ts (the proxy can't import it:
-// that module reads server-only secrets).
-const SESSION_COOKIE = "ct_session";
-// Set by draftMode().enable() (src/app/api/draft-mode/enable).
-const DRAFT_MODE_COOKIE = "__prerender_bypass";
-// Not catalog pages: the app's own routes, the old /c/, /p/ and /pages/ URLs (they redirect from the per-visitor
-// route), files (catalog URL keys never contain a dot) and BotID's challenge path.
-const OLD_PREFIXES = new Set(["c", "p", "pages"]);
-const BOTID_PREFIX = "149e9513-01fa-4fb0-aad4-566afd725d1b";
-const isCatalogPath = (pathname: string) => {
-  if (pathname === "/") return true;
-  const first = pathname.split("/")[1] ?? "";
-  return !pathname.includes(".") && !RESERVED_SEGMENTS.has(first) && !OLD_PREFIXES.has(first) && first !== BOTID_PREFIX;
-};
-// Client-side navigation adds _rsc; campaign tracking parameters don't change the page either.
-const IGNORED_PARAM = /^(?:_rsc|utm_\w+|gclid|fbclid|msclkid)$/;
-// The same URL answers guests (cached) and signed-in customers (personal prices). A CDN in front of the app must
-// bypass its cache when ct_session is present: Next replaces any Vary header set here with its own.
+// Every page gets its Content-Security-Policy here (src/lib/csp.ts), chosen by route group:
+// - the private pages (src/app/(private): account, cart, checkout, order confirmation, sign-in) render fully per
+//   request, so they get a fresh nonce with 'strict-dynamic' (Next reads it from the request's CSP header and puts it
+//   on its scripts);
+// - every other page ((shop): catalog, content, blog, search, quick order) is a prerendered shell shared by all
+//   visitors, which can't carry a nonce: scripts from this site only, inline allowed for Next's bootstrap;
+// - the Studio also needs 'unsafe-eval' and Sanity's script host.
+// Form posts (Server Actions) render per request too, so they get a nonce wherever they go.
+//
+// Redirects are decided here too, before any page renders: pages stream, and a redirect() after the first byte becomes
+// a client-side redirect with status 200. Catalog redirects (old URLs, other spellings, merchants' redirects) come from
+// the URL index; the account pages send visitors without a session to /login. The pages keep their own checks.
+const PRIVATE_SEGMENTS = new Set([
+  "account",
+  "cart",
+  "checkout",
+  "order-confirmation",
+  "login",
+  "logout",
+  "register",
+  "forgot-password",
+  "reset-password",
+  "verify-email",
+  "no-access",
+]);
 const DEV = process.env.NODE_ENV !== "production";
 
-// Every page also gets its Content-Security-Policy here (src/lib/csp.ts): cached guest copies a fixed one, everything
-// else a per-response nonce.
-export function proxy(request: NextRequest) {
-  const response = route(request);
-  if (!response.headers.has("Content-Security-Policy")) {
-    response.headers.set(
-      "Content-Security-Policy",
-      request.nextUrl.pathname.startsWith("/studio") ? studioPolicy() : cachedPagePolicy(DEV),
-    );
-  }
-  return response;
-}
+// Catalog URLs: not the app's own routes, not files (catalog URL keys never contain a dot). Old /c/, /p/ and /pages/
+// URLs count: they redirect from the catalog route.
+const isCatalogPath = (pathname: string) => {
+  const first = pathname.split("/")[1] ?? "";
+  return pathname === "/" || (!pathname.includes(".") && !RESERVED_SEGMENTS.has(first));
+};
 
-// A per-visitor page: Next puts the nonce from the request's CSP header on its scripts.
-function withNonce(request: NextRequest) {
-  const policy = noncePolicy(newNonce(), DEV);
-  const headers = new Headers(request.headers);
-  headers.set("Content-Security-Policy", policy);
-  const response = NextResponse.next({ request: { headers } });
-  response.headers.set("Content-Security-Policy", policy);
-  return response;
-}
+// Matches SESSION_COOKIE in src/features/auth/session.ts (the proxy can't import it: that module reads server-only
+// secrets).
+const SESSION_COOKIE = "ct_session";
 
-function route(request: NextRequest): NextResponse {
-  const { pathname, searchParams } = request.nextUrl;
-
-  // The cached copies are only reachable through the rewrite: send direct visits to the public URL.
-  if (pathname === "/g" || pathname.startsWith("/g/")) {
-    const url = request.nextUrl.clone();
-    url.pathname = pathname.slice(2) || "/";
-    return NextResponse.redirect(url, 308);
-  }
-
-  // The Studio is built statically, so it can't carry a nonce: it gets the fixed policy in proxy().
-  if (pathname.startsWith("/studio")) return NextResponse.next();
-  if (request.method !== "GET" && request.method !== "HEAD") return withNonce(request);
-  if (!isCatalogPath(pathname)) return withNonce(request);
-  // Catalog URLs are lowercase (urlKey). Redirecting other casings before the cache matters: a cached redirect for
-  // "/Excavators" would overwrite the "/excavators" page on a case-insensitive disk (macOS) and loop.
-  if (pathname !== pathname.toLowerCase()) {
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  // Catalog URLs are lowercase (urlKey). Redirecting other casings before the page cache matters: a cached redirect
+  // for "/Excavators" would overwrite the "/excavators" shell on a case-insensitive disk (macOS) and loop.
+  if (request.method === "GET" && isCatalogPath(pathname) && pathname !== pathname.toLowerCase()) {
     const url = request.nextUrl.clone();
     url.pathname = pathname.toLowerCase();
     return NextResponse.redirect(url, 308);
   }
-  if (request.cookies.has(SESSION_COOKIE)) return withNonce(request);
-  // Draft mode (the Studio's preview): the per-visitor page reads drafts; the cached copy can't.
-  if (request.cookies.has(DRAFT_MODE_COOKIE)) return withNonce(request);
-  if ([...searchParams.keys()].some((k) => !IGNORED_PARAM.test(k))) return withNonce(request);
-
-  const url = request.nextUrl.clone();
-  url.pathname = pathname === "/" ? "/g" : `/g${pathname}`;
-  return NextResponse.rewrite(url);
+  if (pathname.startsWith("/studio")) return withPolicy(NextResponse.next(), studioPolicy());
+  const first = pathname.split("/")[1] ?? "";
+  const read = request.method === "GET" || request.method === "HEAD";
+  if (read && first === "account" && !request.cookies.has(SESSION_COOKIE))
+    return NextResponse.redirect(new URL("/login", request.url), 307);
+  if (read && isCatalogPath(pathname)) {
+    const redirect = await catalogRedirect(request);
+    if (redirect) return redirect;
+  }
+  if (PRIVATE_SEGMENTS.has(first) || (request.method !== "GET" && request.method !== "HEAD")) return withNonce(request);
+  return withPolicy(NextResponse.next(), shellPolicy(DEV));
 }
 
-// Everything except Next's own assets and API routes; isCatalogPath decides the rest.
+// The URL index from /api/url-index, kept for a minute per process. The first request after a start waits for it;
+// later refreshes run in the background while the previous copy keeps answering. Without an index (the route failed),
+// pages still resolve redirects themselves, only client-side.
+const INDEX_TTL_MS = 60_000;
+const INDEX_RETRY_MS = 10_000;
+let urlIndex: UrlIndex | undefined;
+let urlIndexAt = 0;
+let loading: Promise<void> | undefined;
+
+async function loadUrlIndex(origin: string) {
+  try {
+    const response = await fetch(new URL("/api/url-index", origin), { cache: "no-store" });
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    urlIndex = { paths: new Map((await response.json()) as [string, UrlTarget][]), conflicts: [] };
+    urlIndexAt = Date.now();
+  } catch (err) {
+    urlIndexAt = Date.now() - INDEX_TTL_MS + INDEX_RETRY_MS;
+    console.error("proxy: URL index unavailable", err);
+  }
+}
+
+async function catalogRedirect(request: NextRequest) {
+  if (Date.now() - urlIndexAt > INDEX_TTL_MS && !loading)
+    loading = loadUrlIndex(request.nextUrl.origin).finally(() => (loading = undefined));
+  if (!urlIndex && loading) await loading;
+  if (!urlIndex) return undefined;
+  // Client-side navigation adds _rsc; the redirect target doesn't keep it.
+  const query = new URLSearchParams(request.nextUrl.search);
+  query.delete("_rsc");
+  const resolved = resolvePath(urlIndex, request.nextUrl.pathname, query.toString());
+  if (resolved.kind !== "redirect") return undefined;
+  return NextResponse.redirect(new URL(resolved.to, request.url), resolved.permanent ? 308 : 307);
+}
+
+// A per-request page: Next puts the nonce from the request's CSP header on its scripts.
+function withNonce(request: NextRequest) {
+  const policy = noncePolicy(newNonce(), DEV);
+  const headers = new Headers(request.headers);
+  headers.set("Content-Security-Policy", policy);
+  return withPolicy(NextResponse.next({ request: { headers } }), policy);
+}
+
+function withPolicy(response: NextResponse, policy: string) {
+  response.headers.set("Content-Security-Policy", policy);
+  return response;
+}
+
+// Everything except Next's own assets and API routes.
 export const config = {
   matcher: ["/((?!_next/|api/).*)"],
 };

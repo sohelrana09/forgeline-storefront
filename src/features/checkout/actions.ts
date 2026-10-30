@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, refresh } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
@@ -31,8 +31,7 @@ import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
 
 // Checkout has its own layout (route group "(checkout)"): refresh it as well as the shop pages (header cart, totals).
 function refreshPages() {
-  revalidatePath("/(shop)", "layout");
-  revalidatePath("/(checkout)", "layout");
+  refresh();
 }
 
 // Public endpoints: both act only on the signed-in customer's own open cart. In a business unit only buyers may

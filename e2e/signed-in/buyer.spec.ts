@@ -78,7 +78,8 @@ test("a company list: create, add a product, delete", async ({ page }) => {
     await page.getByRole("button", { name: "Yes, delete" }).click();
     await page.waitForURL(/\/account\/purchase-lists\?deleted=1$/);
   }
-  await expect(page.getByRole("main")).not.toContainText(name);
+  // Visible text only: Next keeps recently visited pages (here the deleted list's own page) hidden in the DOM.
+  await expect(page.getByRole("main").getByText(name).filter({ visible: true })).toHaveCount(0);
 });
 
 test("order documents: CSV export, order confirmation and invoice", async ({ page }) => {

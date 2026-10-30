@@ -1,11 +1,11 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { blogEnabled } from "@/features/blog/service";
 import { isUrlKey, listPath, pageNumber } from "@/features/blog/utils";
 import { BlogListView } from "@/features/blog/components/BlogListView";
-
-export const dynamic = "force-dynamic";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 type Props = { params: Promise<{ tag: string }>; searchParams: Promise<{ page?: string }> };
 
@@ -21,9 +21,17 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   };
 }
 
-export default async function BlogTagPage({ params, searchParams }: Props) {
+export default function BlogTagPage(props: Props) {
   // Metadata streams in parallel with the page, so its notFound() alone doesn't stop the render.
   if (!blogEnabled()) notFound();
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <BlogTag {...props} />
+    </Suspense>
+  );
+}
+
+async function BlogTag({ params, searchParams }: Props) {
   const [{ tag }, { page }] = await Promise.all([params, searchParams, requireBrowseContext()]);
   return <BlogListView filter={{ tag }} page={pageNumber(page)} />;
 }

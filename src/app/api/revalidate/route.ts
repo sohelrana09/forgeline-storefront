@@ -1,24 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { hasRevalidateSecret } from "@/lib/revalidate-auth";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { forgetCatalogCache } from "@/features/catalog/service";
-import { forgetUrlIndex } from "@/features/urls/service";
-import { forgetSanityCache } from "@/lib/sanity/client";
+import { TAGS, type CacheTag } from "@/lib/cache";
 
-// Refreshes the cached guest pages (src/app/(cached)/g) after content or catalog changes made outside the app:
+// Refreshes the cached reads behind every page ("use cache" tags, src/lib/cache.ts) after content or catalog changes
+// made outside the app:
 // Sanity's publish webhook (pages, blocks and blog; sends { "scope": "content" }) and commercetools Subscriptions for
 // prices, products and Custom Objects (merchants' redirects). Authorized by `Authorization: Bearer <REVALIDATE_SECRET>`.
 //
 // Body (all optional): { "scope": "content" | "catalog" | "all" }, or a commercetools message as delivered by a
 // Subscription (directly, wrapped in EventBridge's { detail }, or in a Pub/Sub push { message: { data } }).
-// Cached pages are marked stale (each re-renders on its next visit) and the in-process data memos are cleared,
-// so the re-render reads fresh data. Signed-in pages render per request and need nothing.
+// The tags of the changed data expire at once, so the next visit reads it fresh, and pages built from it (the static
+// shells) are rebuilt; the in-process search index is cleared too.
 type Scope = "content" | "catalog" | "all";
 
 // An import sends one event per changed price or product. Calls within 10 s of the last purge are folded into it:
-// the purged pages re-render on their next visit, which usually comes after the burst; at worst a change shows at
-// the next 5-minute regeneration.
+// the purged reads reload on their next use, which usually comes after the burst; at worst a change shows when the
+// read's lifetime runs out (15 minutes for prices).
 const COALESCE_MS = 10 * 1000;
 let lastPurge = 0;
 
@@ -33,14 +33,19 @@ export async function POST(request: NextRequest) {
   const scope = scopeOf(await request.json().catch(() => undefined));
   if (Date.now() - lastPurge < COALESCE_MS) return NextResponse.json({ revalidated: false, scope, reason: "coalesced" });
   lastPurge = Date.now();
-  if (scope !== "catalog") forgetSanityCache();
   if (scope !== "content") forgetCatalogCache();
-  // Products, categories and content pages are all in the URL index (new, renamed or removed URLs).
-  forgetUrlIndex();
-  // Content blocks appear on the home and category pages, and prices on every catalog page: purge all of them.
-  revalidatePath("/(cached)/g", "layout");
-  console.info("revalidated cached guest pages", { scope });
+  for (const tag of tagsFor(scope)) revalidateTag(tag, { expire: 0 });
+  console.info("revalidated cached reads", { scope, tags: tagsFor(scope) });
   return NextResponse.json({ revalidated: true, scope });
+}
+
+// Products, categories and content pages are all in the URL index (new, renamed or removed URLs). Custom Objects are
+// merchants' redirects, which only the URL index uses.
+function tagsFor(scope: Scope): CacheTag[] {
+  const catalog: CacheTag[] = [TAGS.catalog, TAGS.categories, TAGS.units];
+  if (scope === "content") return [TAGS.content, TAGS.urls];
+  if (scope === "catalog") return [...catalog, TAGS.urls];
+  return [...catalog, TAGS.content, TAGS.urls];
 }
 
 function scopeOf(body: unknown): Scope {

@@ -29,8 +29,7 @@ export function AddToCartForm({
   if (quoteOnly && !canQuote) return <p className="m-0 text-xs text-gray-600">Sold to business customers on quote.</p>;
   return (
     // Cards (md) are narrow: stack the selector over a full-width button. The PDP (lg) and tables put them side by side.
-    // After adding, tell the mini-cart: on cached guest pages it's loaded in the browser and refreshes on this event.
-    // (The action posts to the public URL, which isn't rewritten, so its response re-renders the per-visitor page.)
+    // After adding, tell the mini-cart: it reloads the visitor's cart on this event.
     <form
       action={async (formData) => {
         await addSku(formData);

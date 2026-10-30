@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requestAnonymousToken } from "@/lib/commercetools/customer-token";
 import { cartCookie, cookieOptions, guestScopes, saveGuest } from "@/features/auth/session";
@@ -81,7 +81,7 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     };
   }
 
-  revalidatePath("/(shop)", "layout");
+  refresh();
   return {
     added: addable.map((l) => ({ ...l, name: skus.get(l.sku)!.name, quoteOnly: Boolean(skus.get(l.sku)!.quoteOnly) })),
     errors,

@@ -13,10 +13,12 @@ import { isDraftMode } from "@/lib/sanity/client";
 import { stegaClean } from "next-sanity";
 import { firstParam } from "@/lib/utils";
 import type { BuyerContext } from "@/features/business-units/types";
+import type { PricingKey } from "@/features/catalog/pricing";
 
 // The catch-all catalog route: a path is a category, a product or a content page,
-// a redirect (old URLs, other spellings, merchants' redirects) or a real 404. Shared by the per-visitor route in
-// (shop) and the cached guest copies in (cached)/g.
+// a redirect (old URLs, other spellings, merchants' redirects) or a real 404. `resolveTarget` runs before anything
+// streams, from the cached URL index, so unknown paths answer 404 and redirects are real redirects; the content
+// (`CatalogContent`) depends on the visitor's prices and streams in behind <Suspense>.
 
 const toQuery = (query: CategoryQuery) => {
   const params = new URLSearchParams();
@@ -24,19 +26,27 @@ const toQuery = (query: CategoryQuery) => {
   return params;
 };
 
-async function resolve(path: string[], query: CategoryQuery) {
-  const target = await resolveUrl(path, toQuery(query));
+// The URL's query is read only for redirects (they keep it) and the Studio's draft preview, so every other path
+// renders without request data up to the content's <Suspense>.
+export async function resolveTarget(path: string[], query: () => Promise<CategoryQuery>) {
+  const target = await resolveUrl(path);
+  if (target.kind === "redirect") {
+    const kept = await resolveUrl(path, toQuery(await query()));
+    if (kept.kind === "redirect") (kept.permanent ? permanentRedirect : redirect)(kept.to);
+  }
   // In the Studio's preview, a page that isn't published yet has no URL in the index: show its draft.
   if (target.kind === "missing" && path.length === 1 && (await isDraftMode()) && (await getPage(path[0]))) {
     return { kind: "page" as const, slug: path[0] };
   }
-  if (target.kind === "redirect") (target.permanent ? permanentRedirect : redirect)(target.to);
   if (target.kind === "missing" || target.kind === "redirect") notFound();
   return target;
 }
 
-export async function catalogMetadata(path: string[], query: CategoryQuery, context: BuyerContext): Promise<Metadata> {
-  const target = await resolve(path, query);
+export type CatalogTarget = Awaited<ReturnType<typeof resolveTarget>>;
+
+// Metadata is the public view (guest prices and assortment), the same for every visitor.
+export async function catalogMetadata(path: string[], query: CategoryQuery, context: PricingKey): Promise<Metadata> {
+  const target = await resolveTarget(path, async () => query);
   if (target.kind === "category") {
     const tree = await getCategoryTree();
     const category = tree.bySlug(target.slug);
@@ -62,8 +72,7 @@ export async function catalogMetadata(path: string[], query: CategoryQuery, cont
   };
 }
 
-export async function CatalogRoute({ path, query, context }: { path: string[]; query: CategoryQuery; context: BuyerContext }) {
-  const target = await resolve(path, query);
+export function CatalogContent({ target, query, context }: { target: CatalogTarget; query: CategoryQuery; context: BuyerContext }) {
   if (target.kind === "category") return <CategoryView context={context} slug={target.slug} query={query} />;
   if (target.kind === "product") return <ProductView context={context} slug={target.slug} sku={firstParam(query.sku)} />;
   return <CmsPageView slug={target.slug} context={context} />;

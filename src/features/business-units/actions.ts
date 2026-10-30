@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { BU_COOKIE, cookieOptions } from "@/features/auth/session";
 import { currentBuyingContext } from "@/features/business-units/context";
 
@@ -11,5 +11,5 @@ export async function selectBusinessUnit(formData: FormData) {
   const current = await currentBuyingContext();
   if (!current?.contexts.some((c) => c.businessUnitKey === key)) return;
   (await cookies()).set(BU_COOKIE, key, cookieOptions);
-  revalidatePath("/(shop)", "layout");
+  refresh();
 }

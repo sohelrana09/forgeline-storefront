@@ -5,8 +5,6 @@ import { requireBrowseContext } from "@/features/business-units/context";
 import { SearchResultsView } from "@/features/catalog/components/SearchResultsView";
 import { listParams } from "@/components/ui/ListToolbar";
 
-export const dynamic = "force-dynamic";
-
 type Search = { q?: string | string[]; page?: string; limit?: string };
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {

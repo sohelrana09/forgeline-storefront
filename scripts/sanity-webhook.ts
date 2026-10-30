@@ -23,7 +23,7 @@ async function main() {
 
   const params = new URLSearchParams({
     name: "Storefront cache refresh",
-    description: `Refreshes the cached guest pages of ${site} after content changes`,
+    description: `Refreshes the cached content of ${site} after a publish`,
     url: `${site}/api/revalidate`,
     filter: `_type in [${TYPES.map((t) => `"${t}"`).join(", ")}]`,
     projection: `{"scope": "content"}`,

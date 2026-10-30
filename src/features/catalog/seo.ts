@@ -54,7 +54,7 @@ export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
   };
 }
 
-// Page metadata, shared by the per-visitor routes and the cached guest copies (canonicals always use the public path).
+// Page metadata, the same for every visitor (canonicals always use the public path).
 export function productMetadata(product: ProductProjection) {
   const name = localize(product.name);
   const description = metaDescription(localize(product.description)) || `${name} from Ironline Supply.`;

@@ -5,7 +5,7 @@
 
 import { after } from "next/server";
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { cartCookie } from "@/features/auth/session";
@@ -45,7 +45,7 @@ export async function requestQuote(_prev: QuoteActionState, formData: FormData):
   }
   // The source cart stays Active in commercetools: forget it so it can't be submitted twice.
   (await cookies()).delete(cartCookie(context.businessUnitKey));
-  revalidatePath("/(shop)", "layout");
+  refresh();
   redirect(`/account/quotes/requests/${requestId}`);
 }
 
@@ -102,6 +102,6 @@ export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData
   } catch (err) {
     return failed(err, "The order could not be placed.");
   }
-  revalidatePath("/(shop)", "layout");
+  refresh();
   redirect(target);
 }

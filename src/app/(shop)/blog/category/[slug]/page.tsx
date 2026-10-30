@@ -1,11 +1,11 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { blogEnabled, getBlogCategory } from "@/features/blog/service";
 import { listPath, pageNumber } from "@/features/blog/utils";
 import { BlogListView } from "@/features/blog/components/BlogListView";
-
-export const dynamic = "force-dynamic";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
 
@@ -22,9 +22,17 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   };
 }
 
-export default async function BlogCategoryPage({ params, searchParams }: Props) {
+export default function BlogCategoryPage(props: Props) {
   // Metadata streams in parallel with the page, so its notFound() alone doesn't stop the render.
   if (!blogEnabled()) notFound();
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <BlogCategory {...props} />
+    </Suspense>
+  );
+}
+
+async function BlogCategory({ params, searchParams }: Props) {
   const [{ slug }, { page }] = await Promise.all([params, searchParams, requireBrowseContext()]);
   const category = await getBlogCategory(slug);
   if (!category) notFound();

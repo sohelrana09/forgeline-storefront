@@ -3,6 +3,7 @@ import type { BusinessUnit, Permission } from "@commercetools/platform-sdk";
 import { cache } from "react";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
+import { cacheFor, TAGS } from "@/lib/cache";
 import { B2C_STORE_KEY } from "@/lib/commercetools/stores";
 import { str } from "@/lib/predicate";
 
@@ -102,6 +103,8 @@ export const GUEST_STORE_KEY = B2C_STORE_KEY;
 export const CONSUMER_COUNTRIES = ["DE", "ES", "FR", "GB"];
 
 async function loadGuestContext(): Promise<BuyerContext> {
+  "use cache: remote";
+  cacheFor("structure", TAGS.units);
   const { body: store } = await apiRoot
     .stores()
     .withKey({ key: GUEST_STORE_KEY })
@@ -192,12 +195,12 @@ export async function permissionsNow(businessUnitKey: string, customerId: string
 // elsewhere a membership change (new associate, removed buyer) can take up to ~5 minutes to show. Cart writes
 // are still enforced by commercetools on the customer token.
 const memo = staleWhileRevalidate<BuyingContext[]>(5 * 60 * 1000);
-const guestMemo = staleWhileRevalidate<BuyerContext>(5 * 60 * 1000);
 
 export const getBuyingContexts = () => memo("contexts", loadBuyingContexts);
 // Call after changing associates or unit details, so the change shows on the next request (not in 5 minutes).
 export const forgetBuyingContexts = () => memo.forget("contexts");
-export const getGuestContext = () => guestMemo("guest", loadGuestContext);
+// The guest context is the same for every visitor: cached and shared, refreshed hourly or when units change.
+export const getGuestContext = () => loadGuestContext();
 // A signed-in consumer: the B2C store's prices (their customer group's where it has its own), a cart and orders of
 // their own, no business unit.
 export const getConsumerContext = async (customerId: string): Promise<BuyerContext> => {

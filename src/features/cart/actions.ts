@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { getActiveCart, setLineQuantity } from "@/features/cart/service";
 import { localize } from "@/features/catalog/utils";
@@ -49,5 +49,5 @@ export async function updateCartLine(formData: FormData) {
     console.error("cart update failed", (err as { body?: unknown })?.body ?? err);
     await flash("error", "We couldn't update your shopping cart. Please try again.");
   }
-  revalidatePath("/(shop)", "layout");
+  refresh();
 }

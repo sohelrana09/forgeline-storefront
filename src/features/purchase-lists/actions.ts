@@ -5,7 +5,7 @@
 // the service's live permission checks for the selected unit. Products are checked against the selected unit's store before they go on a list; "add to cart" goes through the quick-order path (re-priced,
 // unsold products reported, machines for quote).
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { tooManyAttempts } from "@/lib/rate-limit";
@@ -30,7 +30,7 @@ async function run(work: (shop: Shop) => Promise<string>): Promise<ListActionSta
     return { error: "Too many changes. Please wait a few minutes and try again." };
   try {
     const saved = await work(shop);
-    revalidatePath("/(shop)", "layout");
+    refresh();
     return { saved };
   } catch (err) {
     if (isRedirectError(err)) throw err;

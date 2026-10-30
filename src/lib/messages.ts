@@ -1,6 +1,6 @@
 // Page messages ("You added Air Filter to your shopping cart."), passed in a cookie: a Server Action records them in
 // a short-lived cookie (src/lib/flash.ts), and PageMessages (src/components/ui) shows them at the top of the page and
-// clears the cookie. That also works on the cached guest pages, whose HTML never reads cookies: the browser does.
+// clears the cookie (it streams in after the prerendered shell; the browser reads the cookie itself).
 import { isLocalPath } from "@/lib/urls";
 
 export type MessageType = "success" | "error" | "warning";

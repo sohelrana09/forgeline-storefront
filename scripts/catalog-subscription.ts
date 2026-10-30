@@ -1,4 +1,4 @@
-// Creates (or updates) the commercetools Subscription that tells the storefront to refresh its cached guest pages
+// Creates (or updates) the commercetools Subscription that tells the storefront to refresh its cached catalog reads
 // when prices, products, discounts, categories or content change in Merchant Center or through imports.
 // Subscriptions can't call an HTTP URL: they deliver to a queue, which then POSTs to /api/revalidate.
 // Setup of the queue side: docs/cache-refresh.md.

@@ -24,6 +24,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Pages are a prerendered shell (layout, menu, footer) served from the CDN, with the per-visitor parts streamed in
+  // behind <Suspense>; shared data is cached with "use cache" (src/lib/cache.ts). Account, cart, checkout and sign-in
+  // pages render per request (`instant = false`), so they keep the nonce CSP (src/proxy.ts).
+  cacheComponents: true,
+  // Several root layouts ((shop), (private), studio), so unmatched URLs get src/app/global-not-found.tsx.
+  experimental: { globalNotFound: true },
   poweredByHeader: false,
   // Images go through the optimizer only from these exact hosts (a wildcard would make it an open image proxy):
   // the sample data's bucket, this project's commercetools CDN folder (product images uploaded in Merchant Center) and

@@ -10,7 +10,6 @@ import { BLOG_PATH, blogCategoryPath, postPath } from "@/features/blog/utils";
 
 // The public catalog for search engines: home, every category, every product, every active content page, and the
 // blog (list, categories with posts, published posts).
-export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!siteIndexable()) return [];

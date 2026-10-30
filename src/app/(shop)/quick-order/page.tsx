@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { QuickOrderView } from "@/features/quick-order/components/QuickOrderView";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 // Power-buyer page: paste SKUs, or scan the whole catalog as a table.

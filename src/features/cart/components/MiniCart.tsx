@@ -18,11 +18,10 @@ const stepButton =
 // Minicart: the header cart opens a dropdown with the lines (quantity update, remove), the subtotal,
 // "Proceed to Checkout" and "View and Edit Cart" (only while the cart has products; empty shows just a message).
 // Without JavaScript the cart icon is a plain link to /cart.
-//   - per-visitor pages pass `initial`, built from the cart on the server (SiteChrome);
-//   - cached guest pages pass `live`: the page is shared, so the visitor's own cart is loaded here from
-//     /api/cart-summary.
-// Anything that changes the cart fires CART_CHANGED (AddToCartForm, the lines below), which reloads the summary.
-export function MiniCart({ initial = EMPTY_MINICART, live = false }: { initial?: MiniCartSummary; live?: boolean }) {
+// `initial` is built from the visitor's cart on the server (SiteChrome, streamed in on prerendered pages).
+// Anything that changes the cart fires CART_CHANGED (AddToCartForm, the lines below), which reloads the summary from
+// /api/cart-summary.
+export function MiniCart({ initial = EMPTY_MINICART }: { initial?: MiniCartSummary }) {
   const [summary, setSummary] = useState(initial);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -46,23 +45,9 @@ export function MiniCart({ initial = EMPTY_MINICART, live = false }: { initial?:
   }, []);
 
   useEffect(() => {
-    let lastLoad = 0;
-    const loadNow = () => {
-      lastLoad = Date.now();
-      load();
-    };
-    // Coming back to the tab picks up changes from other tabs, at most every 30 s (each load reads the cart).
-    const loadOnFocus = () => {
-      if (Date.now() - lastLoad > 30_000) loadNow();
-    };
-    if (live) loadNow();
-    window.addEventListener(CART_CHANGED, loadNow);
-    if (live) window.addEventListener("focus", loadOnFocus);
-    return () => {
-      window.removeEventListener(CART_CHANGED, loadNow);
-      window.removeEventListener("focus", loadOnFocus);
-    };
-  }, [live, load]);
+    window.addEventListener(CART_CHANGED, load);
+    return () => window.removeEventListener(CART_CHANGED, load);
+  }, [load]);
 
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false);
