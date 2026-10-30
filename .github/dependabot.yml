@@ -11,6 +11,15 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # The project runs on Node 24 (engines, .nvmrc, CI): its types follow that line.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+      # Planned upgrades, not weekly ones: TypeScript 7 (fails the typecheck) and ESLint 10 (waits for eslint-config-next).
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
