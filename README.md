@@ -1,11 +1,11 @@
 # Forgeline
 
-![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
-![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8)
-![GitHub stars](https://img.shields.io/github/stars/sohelrana09/forgeline-storefront?style=social)
-![License](https://img.shields.io/github/license/sohelrana09/forgeline-storefront)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
+[![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500)](https://commercetools.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8)](https://tailwindcss.com/)
+[![GitHub stars](https://img.shields.io/github/stars/sohelrana09/forgeline-storefront?style=social)](https://github.com/sohelrana09/forgeline-storefront)
+[![License](https://img.shields.io/github/license/sohelrana09/forgeline-storefront)](LICENSE)
 
 **An open-source B2B and B2C storefront for commercetools, built with Next.js 16.**
 
@@ -13,6 +13,15 @@ Forgeline is a complete, working online shop on top of [commercetools Composable
 One storefront serves three kinds of customers: **business buyers, consumers, and guests**.
 
 It includes the real B2B features merchants expect: company accounts, quick order, quotes, approval rules, purchase lists and store-specific pricing, without any paid frontend platform.
+
+**Key features**
+
+- **One storefront for B2B and B2C:** business buyers, consumers and guests at the same time, each with their own prices, cart and checkout.
+- **B2B workflows:** company accounts and roles, quick order with CSV upload, quotes, approval rules, company-shared purchase lists, order documents.
+- **Fast for everyone:** pages are cached shells served from the CDN, with each visitor's own prices and cart streamed in (Next.js 16 Cache Components).
+- **Secure by design:** narrowed customer tokens, server-only credentials, rate limits and bot checks, a strict Content-Security-Policy on account and checkout pages.
+- **Content in Sanity:** pages, banners, blocks and a blog, edited in a Studio built into the storefront.
+- **One-command setup:** `npm run setup` takes a commercetools project with the B2B sample data to a running demo shop.
 
 **Live demo:** [Ironline Supply](https://forgeline-storefront-gamma.vercel.app/). Browse the catalog, search and fill a cart as a guest.
 
@@ -38,6 +47,7 @@ To try the business features (company accounts, quotes, approvals, purchase list
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
 - [FAQ](#faq)
+- [Contributing](#contributing)
 
 ## Who it is for
 
@@ -168,6 +178,12 @@ Key design choices:
 
    Open http://localhost:3000. Browse as a guest, or sign in with the password in `.env.demo` as `sofia-lopez@ltsl.com` (buyer), `carlos-garcia@ltsl.com` (approver) or `oliver-smith@ltsl.com` (company admin).
 
+4. **Deploy**
+
+   [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsohelrana09%2Fforgeline-storefront&project-name=forgeline-storefront&repository-name=forgeline-storefront&env=CTP_PROJECT_KEY,CTP_CLIENT_ID,CTP_CLIENT_SECRET,CTP_AUTH_URL,CTP_API_URL,CTP_SCOPES,CTP_STOREFRONT_CLIENT_ID,CTP_STOREFRONT_CLIENT_SECRET,SITE_URL,REVALIDATE_SECRET&envDescription=The%20commercetools%20clients%2C%20the%20public%20address%20and%20the%20cache%20refresh%20secret%2C%20as%20written%20by%20npm%20run%20setup&envLink=https%3A%2F%2Fgithub.com%2Fsohelrana09%2Fforgeline-storefront%2Fblob%2Fmain%2F.env.example)
+
+   The button copies the repository to your GitHub account and creates a Vercel project. It asks for the settings the shop needs: copy them from the `.env` that `npm run setup` wrote, and set `SITE_URL` to the project's public address (for example `https://your-shop.vercel.app`). `vercel.json` runs the functions in `cle1`, next to commercetools' AWS us-east-2; change it if your project is in another region (see [Configuration](#configuration)). Any other Next.js host works too.
+
 ## Configuration
 
 All settings live in `.env` (never commit it). `.env.example` documents every variable.
@@ -244,7 +260,7 @@ Next:
 - Card payments by default (a direct payment provider such as Stripe, or commercetools Checkout).
 - More B2B features, for example recurring orders, spending limits per buyer and shared carts.
 
-Ideas and pull requests are welcome: open an issue first for larger changes.
+Ideas and pull requests are welcome, see [Contributing](#contributing).
 
 ## FAQ
 
@@ -259,6 +275,17 @@ Yes. The storefront reads whatever is in your project. Check `STORE_PRICING` for
 
 **Is it production-ready?**
 It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies). Review it against your own requirements, configure email (Resend) and a card payment provider, and run your own tests before going live.
+
+## Contributing
+
+Bug fixes, new B2B or B2C workflows and better documentation are all welcome. For larger changes, open an issue first so we can agree on the approach.
+
+1. Fork the repository and create a branch: `git checkout -b feature/your-change`.
+2. Make your change, following the [project structure](#project-structure): pages stay thin, Server Actions go in `actions.ts` (every export is a public endpoint), commercetools calls in `service.ts`, and pure logic in small modules with unit tests next to them.
+3. Run the checks: `npm run typecheck`, `npm run lint`, `npm test` and `npm run format:check`, plus `npm run test:e2e` for anything a visitor sees.
+4. Commit, push the branch and open a pull request that says what changed and how you tested it.
+
+Browser tests that sign in or change data must put back what they create, because they run against a shared commercetools project.
 
 ## License
 
