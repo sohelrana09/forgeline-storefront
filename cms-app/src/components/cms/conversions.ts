@@ -38,14 +38,6 @@ export type TBlockForm = {
   endsAt: string;
 };
 
-export type TPageForm = {
-  key: string;
-  title: string;
-  metaDescription: string;
-  active: boolean;
-  content: string;
-};
-
 const list = (value: unknown) => (Array.isArray(value) ? value.join(', ') : '');
 const parseList = (value: string) =>
   value
@@ -124,26 +116,6 @@ export const formToBlock = (f: TBlockForm): Record<string, unknown> => ({
     }),
 });
 
-export const pageToForm = (
-  key = '',
-  v: Record<string, unknown> = {}
-): TPageForm => ({
-  key,
-  title: str(v.title),
-  metaDescription: str(v.metaDescription),
-  active: v.active !== false,
-  content: str(v.content),
-});
-
-export const formToPage = (f: TPageForm): Record<string, unknown> => ({
-  title: f.title.trim(),
-  ...(f.metaDescription.trim() && {
-    metaDescription: f.metaDescription.trim(),
-  }),
-  active: f.active,
-  content: f.content,
-});
-
 // UI Kit field errors are { [errorKey]: true }; we use the message itself as the key and render it as is.
 type TErrors<T> = Partial<Record<keyof T, Record<string, boolean>>>;
 
@@ -195,14 +167,5 @@ export const validateBlock = (f: TBlockForm): TErrors<TBlockForm> => {
       'Give a label and a link starting with "/" or "https:"': true,
     };
   }
-  return e;
-};
-
-export const validatePage = (f: TPageForm): TErrors<TPageForm> => {
-  const e: TErrors<TPageForm> = {};
-  if (!KEY_PATTERN.test(f.key))
-    e.key = { 'Lowercase letters, digits and dashes only': true };
-  if (!f.title.trim()) e.title = { 'Title is required': true };
-  if (!f.content.trim()) e.content = { 'Content is required': true };
   return e;
 };

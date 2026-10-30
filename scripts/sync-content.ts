@@ -1,7 +1,8 @@
-// Pushes content/blocks/*.json and content/pages/*.json into commercetools Custom Objects.
+// Pushes content/blocks/*.json into commercetools Custom Objects. Content pages live in Sanity.
 // Idempotent: unchanged entries are skipped; the file name (without .json) is the key.
 //   npm run ct:content                        sync all
-//   npm run ct:content -- --prune             also LIST objects that no longer have a file (dry run)
+//   npm run ct:content -- --prune             also LIST blocks that no longer have a file, and the old "cms-page"
+//                                             objects left from before Sanity (dry run)
 //   npm run ct:content -- --prune --yes       …and delete them
 // After a change it asks the storefront (SITE_URL) to refresh its cached guest pages, when REVALIDATE_SECRET is set.
 import { readdir, readFile } from "node:fs/promises";
@@ -12,6 +13,8 @@ import type { CustomObject } from "@commercetools/platform-sdk";
 import { apiRoot } from "../src/lib/commercetools/client";
 import { BLOCK_CONTAINER, PAGE_CONTAINER, PLACEMENTS } from "../src/features/cms/types";
 import { isMediaUrl, MEDIA_SOURCES } from "../src/lib/media";
+import { createClient } from "next-sanity";
+import { sanityApiVersion, sanityConfigured, sanityDataset, sanityProjectId } from "../src/lib/sanity/env";
 
 // Resolved from this file, not the working directory, so running it from elsewhere can't sync (or prune) an empty set.
 const CONTENT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "content");
@@ -64,15 +67,36 @@ async function sync(dir: string, container: string, validate: (key: string, valu
       console.log(`? ${container}/${o.key} has no file (would delete; re-run with --prune --yes)`);
       continue;
     }
-    const remove = (version: number) =>
-      apiRoot.customObjects().withContainerAndKey({ container, key: o.key }).delete({ queryArgs: { version } }).execute();
-    await remove(o.version).catch(async (err) => {
-      if (statusOf(err) !== 409) throw err;
-      const { body } = await apiRoot.customObjects().withContainerAndKey({ container, key: o.key }).get().execute();
-      await remove(body.version);
-    });
-    changed += 1;
-    console.log(`- ${container}/${o.key}`);
+    await removeObject(container, o);
+  }
+}
+
+async function removeObject(container: string, o: CustomObject) {
+  const remove = (version: number) =>
+    apiRoot.customObjects().withContainerAndKey({ container, key: o.key }).delete({ queryArgs: { version } }).execute();
+  await remove(o.version).catch(async (err) => {
+    if (statusOf(err) !== 409) throw err;
+    const { body } = await apiRoot.customObjects().withContainerAndKey({ container, key: o.key }).get().execute();
+    await remove(body.version);
+  });
+  changed += 1;
+  console.log(`- ${container}/${o.key}`);
+}
+
+// Pages moved to Sanity: the storefront no longer reads these objects. Only an object whose page exists in Sanity
+// (published, same slug) is removed, so this can never destroy the last copy of a page.
+async function pruneOldPages() {
+  if (!process.argv.includes("--prune")) return;
+  const old = await allObjects(PAGE_CONTAINER);
+  if (old.length === 0) return;
+  if (!sanityConfigured) throw new Error(`Refusing to prune ${PAGE_CONTAINER}: Sanity is not configured, so its pages can't be checked`);
+  const sanity = createClient({ projectId: sanityProjectId, dataset: sanityDataset, apiVersion: sanityApiVersion, useCdn: false });
+  const inSanity = new Set(await sanity.fetch<string[]>(`*[_type == "page" && !(_id in path("drafts.**"))].slug.current`));
+  for (const o of old) {
+    if (!inSanity.has(o.key))
+      console.log(`! ${PAGE_CONTAINER}/${o.key} kept: no published Sanity page "${o.key}" (run ct:sanity-content or create it first)`);
+    else if (process.argv.includes("--yes")) await removeObject(PAGE_CONTAINER, o);
+    else console.log(`? ${PAGE_CONTAINER}/${o.key} is no longer used: the page is in Sanity (would delete; re-run with --prune --yes)`);
   }
 }
 
@@ -111,11 +135,6 @@ function checkCta(value: unknown, name: string, fail: (msg: string) => void) {
   }
 }
 
-function validatePage(key: string, v: Record<string, unknown>) {
-  if (typeof v.title !== "string" || typeof v.content !== "string") throw new Error(`page ${key}: needs "title" and "content"`);
-  if (typeof v.active !== "boolean") throw new Error(`page ${key}: "active" must be true or false`);
-}
-
 // Guests see cached pages (src/app/(cached)/g): tell the storefront to refresh them. Content is saved either way, so
 // a failure here only warns (guests then see the change within 5 minutes).
 async function refreshStorefront() {
@@ -139,7 +158,7 @@ async function refreshStorefront() {
 
 async function main() {
   await sync(path.join(CONTENT_ROOT, "blocks"), BLOCK_CONTAINER, validateBlock);
-  await sync(path.join(CONTENT_ROOT, "pages"), PAGE_CONTAINER, validatePage);
+  await pruneOldPages();
   if (changed > 0) await refreshStorefront();
 }
 

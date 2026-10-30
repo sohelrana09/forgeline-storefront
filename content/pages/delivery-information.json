@@ -1,6 +1,0 @@
-{
-  "title": "Delivery information",
-  "metaDescription": "Delivery methods, costs and regions for Ironline Supply orders.",
-  "active": true,
-  "content": "## Delivery methods\n\n| Method | Regions | Cost | Free above |\n|---|---|---|---|\n| Standard | Europe and North America | 100 | 10,000 |\n| Premium | Europe | 300 | 15,000 |\n\nAmounts are in your account's currency.\n\n## Machines\n\nMachines are delivered and commissioned as part of your quote."
-}

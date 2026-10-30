@@ -5,10 +5,4 @@ query FetchMediaUsage {
       value
     }
   }
-  pages: customObjects(container: "cms-page", limit: 500) {
-    results {
-      key
-      value
-    }
-  }
 }

@@ -7,7 +7,7 @@ export const PERMISSIONS = entryPointUriPathToPermissionKeys(entryPointUriPath);
 
 // ---- Content model (mirrors src/features/cms/types.ts in the storefront; keep the two in sync) ----
 
-export const CONTAINERS = { blocks: 'cms-block', pages: 'cms-page' } as const;
+export const CONTAINERS = { blocks: 'cms-block' } as const;
 export type TContentKind = keyof typeof CONTAINERS;
 
 export const PLACEMENTS = [

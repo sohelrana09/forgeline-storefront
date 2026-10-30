@@ -1,7 +1,6 @@
-// Content (CMS pages and static blocks). Blocks are commercetools Custom Objects; pages are Sanity
-// documents (type "page") when Sanity is configured, else Custom Objects too:
+// Content (CMS pages and static blocks). Blocks are commercetools Custom Objects; pages are Sanity documents
+// (type "page"), so without Sanity configured there are no pages (like the blog):
 //   container "cms-block", key = identifier  → CmsBlock
-//   container "cms-page",  key = url slug    → CmsPage (until Sanity is configured)
 // Pages and components only use the functions below, so swapping the backend for a headless CMS
 // (Contentful, Storyblok, …) means rewriting this file, nothing else.
 import "server-only";
@@ -10,7 +9,7 @@ import { staleWhileRevalidate } from "@/lib/memo";
 import { sanityFetch } from "@/lib/sanity/client";
 import { sanityConfigured } from "@/lib/sanity/env";
 
-import { BLOCK_CONTAINER, PAGE_CONTAINER, type BlockQuery, type CmsBlock, type CmsPage } from "@/features/cms/types";
+import { BLOCK_CONTAINER, type BlockQuery, type CmsBlock, type CmsPage } from "@/features/cms/types";
 import { isLive } from "@/features/cms/utils";
 
 // Content changes far less often than it's read: refresh it at most every 60 seconds, in the background.
@@ -44,23 +43,13 @@ const PAGE_FIELDS = `"slug": slug.current, title, "metaTitle": seo.title, "metaD
 // One page, drafts included in the Studio's preview.
 export async function getPage(slug: string): Promise<CmsPage | undefined> {
   if (!/^[a-z0-9-]+$/.test(slug)) return undefined;
-  if (sanityConfigured) {
-    const page = await sanityFetch<CmsPage | null>(`*[_type == "page" && slug.current == $slug][0]{${PAGE_FIELDS}, body}`, { slug });
-    return page ?? undefined;
-  }
-  const pages = await getPages();
-  return pages.find((p) => p.slug === slug && p.active);
+  if (!sanityConfigured) return undefined;
+  const page = await sanityFetch<CmsPage | null>(`*[_type == "page" && slug.current == $slug][0]{${PAGE_FIELDS}, body}`, { slug });
+  return page ?? undefined;
 }
 
 // Published pages only (URL index, sitemap, footer: shared between visitors, so never drafts).
 export const getPages = (): Promise<CmsPage[]> =>
   sanityConfigured
     ? sanityFetch<CmsPage[]>(`*[_type == "page" && defined(slug.current)] | order(title asc){${PAGE_FIELDS}}`, {}, { drafts: false })
-    : cached(PAGE_CONTAINER, async () => {
-        const { body } = await apiRoot
-          .customObjects()
-          .withContainer({ container: PAGE_CONTAINER })
-          .get({ queryArgs: { limit: 200 } })
-          .execute();
-        return body.results.map((o) => ({ ...(o.value as CmsPage), slug: o.key })).filter((p) => p.active);
-      });
+    : Promise.resolve([]);

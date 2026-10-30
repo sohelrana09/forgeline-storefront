@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ListToolbar } from "@/components/ui/ListToolbar";
 import { lookupSkus } from "@/features/cart/service";
-import { getList, pageLists } from "@/features/purchase-lists/service";
+import { PurchaseListError, companyListsAllowed, getList, pageLists } from "@/features/purchase-lists/service";
+import { listHref, type ListScope } from "@/features/purchase-lists/utils";
+import type { PurchaseListSummary } from "@/features/purchase-lists/types";
 import {
   CreateListForm,
   DeleteListButton,
@@ -17,23 +19,33 @@ import { Message } from "@/components/ui/Message";
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
 
-// The customer's purchase lists in the selected unit's store, newest change first.
+// The customer's purchase lists in the selected unit's store, newest change first; for business buyers who may see
+// them, the company's shared lists below (paged on their own, ?cpage).
 export async function PurchaseListsView({
   session,
   context,
   page,
+  companyPage,
   size,
   deleted,
 }: {
   session: Session;
   context: BuyerContext;
   page: number;
+  companyPage: number;
   size: number;
   deleted: boolean;
 }) {
-  const { lists, total } = await pageLists(session, context, page, size);
-  const hrefFor = (p: number, s: number) =>
-    `/account/purchase-lists?${new URLSearchParams({ ...(p > 1 && { page: String(p) }), ...(s !== 10 && { limit: String(s) }) })}`;
+  const [{ lists, total }, company] = await Promise.all([pageLists(session, context, page, size), companyListsAllowed(session, context)]);
+  const shared = company.view ? await pageLists(session, context, companyPage, size, "company") : undefined;
+  const hrefFor = (key: "page" | "cpage") => (p: number, s: number) => {
+    const pages = { page: key === "page" ? p : page, cpage: key === "cpage" ? p : companyPage };
+    return `/account/purchase-lists?${new URLSearchParams({
+      ...(pages.page > 1 && { page: String(pages.page) }),
+      ...(pages.cpage > 1 && { cpage: String(pages.cpage) }),
+      ...(s !== 10 && { limit: String(s) }),
+    })}`;
+  };
   return (
     <div className="flex flex-col gap-4">
       <Breadcrumbs items={[{ label: "My account", href: "/account" }, { label: "Purchase lists" }]} />
@@ -54,50 +66,118 @@ export async function PurchaseListsView({
             No purchase lists yet. Create one above, or use &ldquo;Add to purchase list&rdquo; on a product, in your cart or in Quick order.
           </p>
         ) : (
-          <>
-            <div className="relative overflow-x-auto">
-              <table className="w-full min-w-[560px] border-collapse text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
-                    <th className="px-5 py-2.5 font-semibold">Name</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Products</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Items</th>
-                    <th className="px-3 py-2.5 font-semibold">Last updated</th>
-                    <th className="px-5 py-2.5 font-semibold">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lists.map((l) => (
-                    <tr key={l.id} className="border-t border-gray-100">
-                      <td className="px-5 py-3 font-semibold">{l.name}</td>
-                      <td className="px-3 py-3 text-right">{l.lines}</td>
-                      <td className="px-3 py-3 text-right">{l.items}</td>
-                      <td className="px-3 py-3">{date(l.lastModifiedAt)}</td>
-                      <td className="px-5 py-3 text-right">
-                        <Link href={`/account/purchase-lists/${l.id}`} className="text-orange-800" aria-label={`View ${l.name}`}>
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="border-t border-gray-200">
-              <ListToolbar page={page} size={size} total={total} label="Purchase lists" hrefFor={hrefFor} />
-            </div>
-          </>
+          <ListsTable lists={lists} scope="mine" label="Purchase lists" page={page} size={size} total={total} hrefFor={hrefFor("page")} />
         )}
       </section>
+      {shared && (
+        <section aria-labelledby="company-lists" className="flex flex-col gap-3">
+          <div>
+            <h2 id="company-lists" className="m-0 text-xl font-bold">
+              Company lists
+            </h2>
+            <p className="m-0 mt-1 text-sm text-gray-600">Lists your colleagues at {context.businessUnitName} can see too.</p>
+          </div>
+          {company.create && (
+            <div className="rounded-md border border-gray-200 bg-white p-5">
+              <CreateListForm scope="company" />
+            </div>
+          )}
+          <div className="rounded-md border border-gray-200 bg-white">
+            {shared.total === 0 ? (
+              <p className="m-0 p-5 text-sm text-gray-600">No company lists yet.</p>
+            ) : (
+              <ListsTable
+                lists={shared.lists}
+                scope="company"
+                label="Company lists"
+                page={companyPage}
+                size={size}
+                total={shared.total}
+                hrefFor={hrefFor("cpage")}
+              />
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
+function ListsTable({
+  lists,
+  scope,
+  label,
+  page,
+  size,
+  total,
+  hrefFor,
+}: {
+  lists: PurchaseListSummary[];
+  scope: ListScope;
+  label: string;
+  page: number;
+  size: number;
+  total: number;
+  hrefFor: (page: number, size: number) => string;
+}) {
+  return (
+    <>
+      <div className="relative overflow-x-auto">
+        <table className="w-full min-w-[560px] border-collapse text-sm">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
+              <th className="px-5 py-2.5 font-semibold">Name</th>
+              {scope === "company" && <th className="px-3 py-2.5 font-semibold">Created by</th>}
+              <th className="px-3 py-2.5 text-right font-semibold">Products</th>
+              <th className="px-3 py-2.5 text-right font-semibold">Items</th>
+              <th className="px-3 py-2.5 font-semibold">Last updated</th>
+              <th className="px-5 py-2.5 font-semibold">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {lists.map((l) => (
+              <tr key={l.id} className="border-t border-gray-100">
+                <td className="px-5 py-3 font-semibold">{l.name}</td>
+                {scope === "company" && <td className="px-3 py-3">{l.owner ?? "Unknown"}</td>}
+                <td className="px-3 py-3 text-right">{l.lines}</td>
+                <td className="px-3 py-3 text-right">{l.items}</td>
+                <td className="px-3 py-3">{date(l.lastModifiedAt)}</td>
+                <td className="px-5 py-3 text-right">
+                  <Link href={listHref(scope, l.id)} className="text-orange-800" aria-label={`View ${l.name}`}>
+                    View
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="border-t border-gray-200">
+        <ListToolbar page={page} size={size} total={total} label={label} hrefFor={hrefFor} />
+      </div>
+    </>
+  );
+}
+
 // One list: its lines priced for the selected unit, with what can't be ordered here and why.
-export async function PurchaseListView({ session, context, id }: { session: Session; context: BuyerContext; id: string }) {
-  const list = await getList(session, context, id);
+export async function PurchaseListView({
+  session,
+  context,
+  id,
+  scope,
+}: {
+  session: Session;
+  context: BuyerContext;
+  id: string;
+  scope: ListScope;
+}) {
+  // A consumer, or an associate without company-list permissions, gets a 404 for company lists too.
+  const list = await getList(session, context, id, scope).catch((err) => {
+    if (err instanceof PurchaseListError) return undefined;
+    throw err;
+  });
   if (!list) notFound();
   const skus = await lookupSkus(
     context,
@@ -147,17 +227,22 @@ export async function PurchaseListView({ session, context, id }: { session: Sess
             {list.lines.length} {list.lines.length === 1 ? "product" : "products"}, {items} {items === 1 ? "item" : "items"} · updated{" "}
             {date(list.lastModifiedAt)}
           </p>
+          {scope === "company" && (
+            <p className="m-0 text-sm text-gray-600">
+              Company list{list.owner ? `, created by ${list.owner}` : ""}. Your colleagues at {context.businessUnitName} see it too.
+            </p>
+          )}
           {/* Keyed by the name: a saved rename re-mounts it closed, with the new name. */}
-          <RenameListForm key={list.name} listId={list.id} name={list.name} />
+          {list.canUpdate && <RenameListForm key={list.name} listId={list.id} name={list.name} scope={scope} />}
         </div>
-        <DeleteListButton listId={list.id} name={list.name} />
+        {list.canDelete && <DeleteListButton listId={list.id} name={list.name} scope={scope} />}
       </div>
       {lines.length === 0 ? (
         <p className="m-0 rounded-md border border-gray-200 bg-white p-5 text-sm text-gray-600">
           This list is empty. Use &ldquo;Add to purchase list&rdquo; on a product page, in your cart or in Quick order.
         </p>
       ) : (
-        <ListEditor listId={list.id} lines={lines} canOrder={context.canOrder} />
+        <ListEditor listId={list.id} scope={scope} lines={lines} canOrder={context.canOrder} canUpdate={list.canUpdate} />
       )}
       {!context.canOrder && <p className="m-0 text-sm text-gray-600">Only associates with the buyer role can add lists to the cart.</p>}
     </div>

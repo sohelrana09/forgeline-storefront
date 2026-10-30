@@ -28,7 +28,7 @@ import { getBuyingContexts, getConsumerContext, getGuestContext } from "@/featur
 import { contextsFor, pickContext } from "@/features/business-units/context";
 import { mergeGuestCart } from "@/features/cart/service";
 import type { ForgotPasswordState, LoginState, RegisterState, ResetPasswordState } from "@/features/auth/types";
-import { resetPassword, sendEmailVerification, startPasswordReset, verifyEmail } from "@/features/auth/service";
+import { notifyExistingAccount, resetPassword, sendEmailVerification, startPasswordReset, verifyEmail } from "@/features/auth/service";
 import { NAME_PATTERN } from "@/features/account/utils";
 import { loginLimits } from "@/features/auth/utils";
 
@@ -43,14 +43,15 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const release = await reserveAttempt(loginLimits(await clientIp(), email, await isKnownDevice(email)));
   if (!release) return { error: "Too many attempts. Please wait a few minutes and try again.", email };
   const result = await signIn(email, password);
-  if ("error" in result) return { ...result, email };
+  if ("error" in result) return { error: result.error, email };
   await release();
   redirect(await mergeGuestCartOnLogin(result));
 }
 
 const ipKey = async () => `ip:${await clientIp()}`;
 
-// Password flow with the narrowed scope list, then the encrypted session cookie. Shared by sign-in and sign-up.
+// Password flow with the narrowed scope list, then the encrypted session cookie. Consumers need a confirmed email;
+// business accounts are set up by our sales team and aren't held back.
 async function signIn(email: string, password: string): Promise<Session | { error: string }> {
   const token = await requestCustomerToken(email, password, await customerScopes());
   if (!token.ok) {
@@ -62,12 +63,21 @@ async function signIn(email: string, password: string): Promise<Session | { erro
   }
   try {
     const { body: me } = await customerApiRoot(token.accessToken).me().get().execute();
+    if (!me.isEmailVerified && contextsFor(await getBuyingContexts(), me.id).length === 0) {
+      void revokeToken(token.accessToken);
+      // Same bucket as "resend" in the account.
+      if (!(await tooManyAttempts(`verify:${me.id}`, 3))) {
+        after(() => sendEmailVerification(me.id, me.email).catch((err) => console.error("verification email failed", err?.body ?? err)));
+      }
+      return { error: "Please confirm your email address first: we sent you a link. Then sign in again." };
+    }
     const session = {
       accessToken: token.accessToken,
       expiresAt: token.expiresAt,
       customerId: me.id,
       email: me.email,
       name: me.firstName,
+      issuedAt: Date.now(),
     };
     await saveSession(session);
     await rememberDevice(me.email.toLowerCase());
@@ -103,20 +113,17 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
     return { error: "Too many sign-ups from your network. Please try again later.", values };
 
   const created = await signUpCustomer({ email, password, firstName, lastName });
-  if (!created.ok) {
-    return {
-      error:
-        created.reason === "exists"
-          ? "There is already an account with this email. Sign in, or reset your password."
-          : "Sign-up is unavailable right now. Please try again later.",
-      values,
-    };
+  if (!created.ok && created.reason !== "exists") return { error: "Sign-up is unavailable right now. Please try again later.", values };
+  // The same answer whether or not the email already had an account, so sign-up can't tell who has one. At most 3
+  // emails per address in 15 minutes, so repeated sign-ups can't flood an inbox.
+  if (!(await tooManyAttempts(`signup-mail:${email}`, 3))) {
+    after(() =>
+      (created.ok ? sendEmailVerification(created.customerId, email) : notifyExistingAccount(email)).catch((err) =>
+        console.error("sign-up email failed", err?.body ?? err),
+      ),
+    );
   }
-  await sendEmailVerification(created.customerId, email).catch((err) => console.error("verification email failed", err?.body ?? err));
-  await flash("success", "Thank you for registering with Ironline Supply.");
-  const session = await signIn(email, password);
-  if ("error" in session) redirect("/login");
-  redirect(await mergeGuestCartOnLogin(session));
+  return { sent: true, values };
 }
 
 // Public endpoint: always the same answer, so it can't be used to find out who has an account.
@@ -199,6 +206,7 @@ export async function confirmEmail(formData: FormData) {
     /^[A-Za-z0-9_-]{10,200}$/.test(token) &&
     !(await tooManyAttempts(`verify-${await ipKey()}`)) &&
     (await verifyEmail(token).catch(() => false));
+  if (!(await getSession())) redirect(`/login?email=${ok ? "verified" : "invalid"}`);
   redirect(`/account?email=${ok ? "verified" : "invalid"}`);
 }
 

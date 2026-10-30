@@ -2,6 +2,7 @@ import "server-only";
 import { apiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";
 import { sendMail, siteUrl } from "@/lib/mailer";
+import { endSessions } from "@/features/auth/revocation";
 
 // Account lifecycle that needs commercetools' customer tokens (password reset, email verification). Creating
 // those tokens requires manage_customers, so the admin client does it, server-side only, for exactly the
@@ -37,7 +38,8 @@ export type ResetResult = "ok" | "invalid";
 
 export async function resetPassword(tokenValue: string, newPassword: string): Promise<ResetResult> {
   try {
-    await apiRoot.customers().passwordReset().post({ body: { tokenValue, newPassword } }).execute();
+    const { body: customer } = await apiRoot.customers().passwordReset().post({ body: { tokenValue, newPassword } }).execute();
+    await endSessions(customer.id).catch((err) => console.error("ending old sessions failed", err?.body ?? err));
     return "ok";
   } catch (err) {
     // An unknown, used or expired token: 400/404. Anything else is an outage, not the customer's fault.
@@ -55,7 +57,21 @@ export async function sendEmailVerification(customerId: string, email: string) {
   await sendMail({
     to: email,
     subject: "Confirm your email for Ironline Supply",
-    text: `Welcome to Ironline Supply. Please confirm your email address:\n${siteUrl()}/verify-email?token=${encodeURIComponent(token.value)}`,
+    text: `Welcome to Ironline Supply. Please confirm your email address:\n${siteUrl()}/verify-email?token=${encodeURIComponent(token.value)}\n\nIf you didn't create an account, ignore this email and don't open the link: the account stays inactive.`,
+  });
+}
+
+// Sign-up with an email that already has an account: the form answers as for a new one, the owner learns about it here.
+export async function notifyExistingAccount(email: string) {
+  await sendMail({
+    to: email,
+    subject: "Your Ironline Supply account",
+    text: `Someone tried to create an account with this email address, but you already have one.
+
+If that was you, sign in: ${siteUrl()}/login
+Forgot your password? ${siteUrl()}/forgot-password
+
+If it wasn't you, ignore this email: nothing has changed.`,
   });
 }
 

@@ -6,6 +6,7 @@ import { staleWhileRevalidate } from "@/lib/memo";
 import type { PricingContext } from "@/features/business-units/types";
 import { allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
 import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
+import { productSearchEnabled, productSearchRequest } from "@/features/catalog/product-search";
 import { MEDIA_PRODUCT_KEY } from "@/features/cms/types";
 
 // The CMS media library is a product too (never published). If someone publishes it by mistake, it still never
@@ -205,9 +206,38 @@ export function forgetCatalogCache() {
 
 // Site search. Product (Projection) Search is not activated in this project, so the header search uses a small
 // in-memory index (refreshed every 5 minutes): names, SKUs and model codes, categories, attributes and descriptions,
-// ranked in features/catalog/search.ts. Fine for a catalog this size; switch to the Product Search API
-// (POST /products/search) once it is activated in Merchant Center.
+// ranked in features/catalog/search.ts. Fine for a catalog this size. For a large catalog, activate the Product
+// Search API in Merchant Center and set CATALOG_SEARCH=product-search (features/catalog/product-search.ts); if it
+// fails (e.g. not activated yet), search falls back to the in-memory index.
 const searchMemo = staleWhileRevalidate<SearchEntry[]>(TTL_MS);
+
+// A product as a search hit: the master variant's price, or the lowest as "from" when variants differ. Products
+// without a price in the context are left out, so a hit always has a card to show.
+function toSearchEntry(p: ProductProjection, tree: CategoryTree): SearchEntry | undefined {
+  if (isMediaLibrary(p)) return undefined;
+  const variants = allVariants(p);
+  const prices = variants.flatMap((v) => (v.price ? [v.price.discounted?.value ?? v.price.value] : []));
+  const priced = p.masterVariant.price ? p.masterVariant : variants.find((v) => v.price);
+  if (!priced) return undefined;
+  const categories = p.categories
+    .map((ref) => tree.all.find((c) => c.id === ref.id))
+    .flatMap((c) => (c ? [...tree.ancestors(c), c].map((x) => localize(x.name)) : []));
+  return {
+    id: p.id,
+    name: localize(p.name),
+    slug: localize(p.slug),
+    sku: priced.sku,
+    image: priced.images?.[0]?.url ?? p.masterVariant.images?.[0]?.url,
+    price: priced.price?.discounted?.value ?? priced.price?.value,
+    fromPrice:
+      new Set(prices.map((m) => m.centAmount)).size > 1 ? prices.reduce((a, b) => (b.centAmount < a.centAmount ? b : a)) : undefined,
+    nameWords: words(localize(p.name)),
+    codes: [...new Set(variants.flatMap((v) => (v.sku ? codeWords(v.sku) : [])))],
+    categories: [...new Set(categories.flatMap(words))],
+    attributes: [...new Set(variants.flatMap((v) => specRows(v).flatMap((r) => words(r.value))))],
+    description: [...new Set(words(localize(p.description)))],
+  };
+}
 
 // One index per store (and customer group), built with the same price selection as the result cards: a product without a price in the
 // store is left out, so the total always matches the cards shown.
@@ -221,37 +251,57 @@ const searchIndex = (ctx: PricingContext) =>
         .get({ queryArgs: { limit: 500, offset, withTotal: false, ...priceSelection(ctx) } })
         .execute();
       for (const p of body.results) {
-        if (isMediaLibrary(p)) continue;
-        const variants = allVariants(p);
-        // The product page opens on the master variant: show its price, or the lowest as "from" when variants differ.
-        const prices = variants.flatMap((v) => (v.price ? [v.price.discounted?.value ?? v.price.value] : []));
-        const priced = p.masterVariant.price ? p.masterVariant : variants.find((v) => v.price);
-        if (!priced) continue;
-        const categories = p.categories
-          .map((ref) => tree.all.find((c) => c.id === ref.id))
-          .flatMap((c) => (c ? [...tree.ancestors(c), c].map((x) => localize(x.name)) : []));
-        entries.push({
-          id: p.id,
-          name: localize(p.name),
-          slug: localize(p.slug),
-          sku: priced.sku,
-          image: priced.images?.[0]?.url ?? p.masterVariant.images?.[0]?.url,
-          price: priced.price?.discounted?.value ?? priced.price?.value,
-          fromPrice:
-            new Set(prices.map((m) => m.centAmount)).size > 1 ? prices.reduce((a, b) => (b.centAmount < a.centAmount ? b : a)) : undefined,
-          nameWords: words(localize(p.name)),
-          codes: [...new Set(variants.flatMap((v) => (v.sku ? codeWords(v.sku) : [])))],
-          categories: [...new Set(categories.flatMap(words))],
-          attributes: [...new Set(variants.flatMap((v) => specRows(v).flatMap((r) => words(r.value))))],
-          description: [...new Set(words(localize(p.description)))],
-        });
+        const entry = toSearchEntry(p, tree);
+        if (entry) entries.push(entry);
       }
       if (body.results.length < 500) break;
     }
     return entries.sort((a, b) => a.name.localeCompare(b.name));
   });
 
+const storeIds = staleWhileRevalidate<string>(TTL_MS);
+const storeId = (key: string) =>
+  storeIds(key, () =>
+    apiRoot
+      .stores()
+      .withKey({ key })
+      .get()
+      .execute()
+      .then((r) => r.body.id),
+  );
+
+// The Product Search API's hits in its own relevance order; undefined when it's off or failed (use the index then).
+// After a failure it rests for 5 minutes, so an outage costs one logged error, not one per search.
+const PRODUCT_SEARCH_RETRY_MS = 5 * 60 * 1000;
+let productSearchFailedAt = 0;
+
+async function productSearch(ctx: PricingContext, query: string, offset: number, limit: number) {
+  if (!productSearchEnabled() || Date.now() - productSearchFailedAt < PRODUCT_SEARCH_RETRY_MS) return undefined;
+  try {
+    const [tree, id] = await Promise.all([getCategoryTree(), storeId(ctx.storeKey)]);
+    const body = productSearchRequest(query, { ...ctx, storeId: id }, { offset, limit, locale: LOCALE });
+    if (!body) return { entries: [], total: 0 };
+    const { body: res } = await apiRoot.products().search().post({ body }).execute();
+    const entries = res.results.flatMap((r) => (r.productProjection ? [toSearchEntry(r.productProjection, tree)] : []));
+    return { entries: entries.filter((e): e is SearchEntry => !!e), total: res.total };
+  } catch (err) {
+    productSearchFailedAt = Date.now();
+    console.error("Product Search failed, using the in-memory index for 5 minutes", (err as { body?: unknown })?.body ?? err);
+    return undefined;
+  }
+}
+
 export async function searchProducts(ctx: PricingContext, query: string, page: number, size: number) {
+  const found = await productSearch(ctx, query, (page - 1) * size, size);
+  if (found)
+    return {
+      products: await getProductsByIds(
+        ctx,
+        found.entries.map((e) => e.id),
+      ),
+      total: found.total,
+      corrected: undefined,
+    };
   const { matches, corrected } = rank(await searchIndex(ctx), query);
   const products = await getProductsByIds(
     ctx,
@@ -262,8 +312,8 @@ export async function searchProducts(ctx: PricingContext, query: string, page: n
 
 // Autocomplete: the best few products (from the index, so no extra API call) and matching categories.
 export async function suggestProducts(ctx: PricingContext, query: string, limit = 6) {
-  const [index, tree] = await Promise.all([searchIndex(ctx), getCategoryTree()]);
-  const { matches, corrected } = rank(index, query);
+  const [found, tree] = await Promise.all([productSearch(ctx, query, 0, limit), getCategoryTree()]);
+  const { matches, corrected } = found ? { matches: found.entries, corrected: undefined } : rank(await searchIndex(ctx), query);
   const qs = words(query);
   const categories = qs.length
     ? tree.all.filter((c) => {
@@ -271,7 +321,7 @@ export async function suggestProducts(ctx: PricingContext, query: string, limit 
         return qs.every((w) => name.some((t) => t.startsWith(w)));
       })
     : [];
-  return { products: matches.slice(0, limit), total: matches.length, corrected, categories: categories.slice(0, 3) };
+  return { products: matches.slice(0, limit), total: found?.total ?? matches.length, corrected, categories: categories.slice(0, 3) };
 }
 
 // Every product a guest can open (the guest store's assortment, priced), page by page (sitemap): the product page

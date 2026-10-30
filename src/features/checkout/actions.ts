@@ -16,7 +16,7 @@ import {
   placeOrder,
   prepareCardPayment,
 } from "@/features/checkout/service";
-import { approvalsForOrders, notifyApprovers } from "@/features/approvals/service";
+import { notifyApproversIfPending } from "@/features/approvals/service";
 import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { CheckoutSession } from "@/lib/commercetools/checkout-session";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
@@ -101,10 +101,7 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
   refreshPages();
   // An order that matched an approval rule waits for an approver: tell them, after the response is sent.
   const placed = order;
-  after(async () => {
-    const approval = (await approvalsForOrders(context, session.customerId, [placed.id]))[placed.id];
-    if (approval?.status === "Pending") await notifyApprovers(context, placed, approval);
-  });
+  after(() => notifyApproversIfPending(context, session.customerId, placed));
   redirect(`/account/orders/${order.id}`);
 }
 

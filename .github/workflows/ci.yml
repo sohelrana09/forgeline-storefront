@@ -1,6 +1,6 @@
 name: CI
 
-# Typecheck, lint and unit tests on every push and pull request. No secrets needed: the unit tests cover pure logic
+# Typecheck, lint, formatting and unit tests on every push and pull request. No secrets needed: the unit tests cover pure logic
 # only. Browser tests (npm run test:e2e) need commercetools credentials and run locally or against a deployment.
 on:
   push:
@@ -24,4 +24,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run format:check
       - run: npm test

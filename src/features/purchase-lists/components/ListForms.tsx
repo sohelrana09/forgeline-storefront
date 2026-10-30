@@ -12,17 +12,19 @@ import {
   renameListAction,
   updateListAction,
 } from "@/features/purchase-lists/actions";
-import { MAX_QUANTITY } from "@/features/purchase-lists/utils";
+import { MAX_QUANTITY, type ListScope } from "@/features/purchase-lists/utils";
 import type { ListActionState } from "@/features/purchase-lists/types";
 import type { QuickOrderState } from "@/features/quick-order/types";
 import { productHref } from "@/features/catalog/utils";
 
-export function CreateListForm() {
+// Personal lists by default; scope "company" creates a list shared in the selected company.
+export function CreateListForm({ scope = "mine" }: { scope?: ListScope }) {
   const [state, action, pending] = useActionState(createListAction, {} as ListActionState);
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="listScope" value={scope} />
       <label className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 text-sm font-semibold">
-        New list name
+        {scope === "company" ? "New company list name" : "New list name"}
         <input
           name="name"
           required
@@ -35,14 +37,14 @@ export function CreateListForm() {
         disabled={pending}
         className="min-h-11 rounded bg-orange-700 px-5 font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
       >
-        {pending ? "Creating…" : "Create list"}
+        {pending ? "Creating…" : scope === "company" ? "Create company list" : "Create list"}
       </button>
       <FormMessage state={state} error={state.error} />
     </form>
   );
 }
 
-export function RenameListForm({ listId, name }: { listId: string; name: string }) {
+export function RenameListForm({ listId, name, scope }: { listId: string; name: string; scope: ListScope }) {
   const [state, action, pending] = useActionState(renameListAction, {} as ListActionState);
   const [open, setOpen] = useState(false);
   if (!open) {
@@ -55,6 +57,7 @@ export function RenameListForm({ listId, name }: { listId: string; name: string 
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="listId" value={listId} />
+      <input type="hidden" name="listScope" value={scope} />
       <label className="flex flex-col gap-1 text-sm font-semibold">
         List name
         <input
@@ -93,7 +96,20 @@ export type EditorLine = {
 
 // The list's lines in one table: tick lines and add them (or all) to the cart, or edit
 // quantities / remove lines and update the list. The two actions use separate forms over the same rows.
-export function ListEditor({ listId, lines, canOrder }: { listId: string; lines: EditorLine[]; canOrder: boolean }) {
+// `canUpdate` false (a colleague's company list without UpdateOthersShoppingLists): quantities are read-only.
+export function ListEditor({
+  listId,
+  scope,
+  lines,
+  canOrder,
+  canUpdate,
+}: {
+  listId: string;
+  scope: ListScope;
+  lines: EditorLine[];
+  canOrder: boolean;
+  canUpdate: boolean;
+}) {
   const [updateState, updateAction, updating] = useActionState(updateListAction, {} as ListActionState);
   const [cartState, cartAction, adding] = useActionState(addListToCartAction, {
     added: [],
@@ -105,9 +121,11 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
     <div className="flex flex-col gap-4">
       <form id={updateForm} action={updateAction}>
         <input type="hidden" name="listId" value={listId} />
+        <input type="hidden" name="listScope" value={scope} />
       </form>
       <form id={cartForm} action={cartAction}>
         <input type="hidden" name="listId" value={listId} />
+        <input type="hidden" name="listScope" value={scope} />
       </form>
       <div className="relative overflow-x-auto rounded-md border border-gray-200 bg-white">
         <table className="w-full min-w-[640px] border-collapse text-sm">
@@ -121,7 +139,7 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
               <th className="px-3 py-2.5 font-semibold">Product</th>
               <th className="px-3 py-2.5 text-right font-semibold">Price</th>
               <th className="px-3 py-2.5 font-semibold">Qty</th>
-              <th className="px-4 py-2.5 font-semibold">Remove</th>
+              {canUpdate && <th className="px-4 py-2.5 font-semibold">Remove</th>}
             </tr>
           </thead>
           <tbody>
@@ -175,27 +193,33 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
                 </td>
                 <td className="px-3 py-3 text-right">{l.price ? formatMoney(l.price) : "None"}</td>
                 <td className="px-3 py-3">
-                  <input
-                    type="number"
-                    name={`qty-${l.id}`}
-                    form={updateForm}
-                    min={1}
-                    max={MAX_QUANTITY}
-                    defaultValue={l.quantity}
-                    aria-label={`Quantity of ${l.name}`}
-                    className="min-h-11 w-24 rounded border border-gray-300 px-2"
-                  />
+                  {canUpdate ? (
+                    <input
+                      type="number"
+                      name={`qty-${l.id}`}
+                      form={updateForm}
+                      min={1}
+                      max={MAX_QUANTITY}
+                      defaultValue={l.quantity}
+                      aria-label={`Quantity of ${l.name}`}
+                      className="min-h-11 w-24 rounded border border-gray-300 px-2"
+                    />
+                  ) : (
+                    l.quantity
+                  )}
                 </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    name="remove"
-                    value={l.id}
-                    form={updateForm}
-                    aria-label={`Remove ${l.name}`}
-                    className="mt-1 size-4"
-                  />
-                </td>
+                {canUpdate && (
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      name="remove"
+                      value={l.id}
+                      form={updateForm}
+                      aria-label={`Remove ${l.name}`}
+                      className="mt-1 size-4"
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -223,7 +247,7 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
           </ul>
         </Message>
       )}
-      {canOrder && (
+      {canOrder && canUpdate && (
         <p className="m-0 text-xs text-gray-600">
           Adding to the cart uses the saved quantities: update the list first after changing them.
         </p>
@@ -249,20 +273,22 @@ export function ListEditor({ listId, lines, canOrder }: { listId: string; lines:
             </button>
           </>
         )}
-        <button
-          form={updateForm}
-          disabled={updating}
-          className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
-        >
-          {updating ? "Saving…" : "Update list"}
-        </button>
+        {canUpdate && (
+          <button
+            form={updateForm}
+            disabled={updating}
+            className="min-h-11 rounded border border-gray-300 bg-white px-5 font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+          >
+            {updating ? "Saving…" : "Update list"}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
 // Deleting can't be undone: ask once before submitting.
-export function DeleteListButton({ listId, name }: { listId: string; name: string }) {
+export function DeleteListButton({ listId, name, scope }: { listId: string; name: string; scope: ListScope }) {
   const [state, action, pending] = useActionState(deleteListAction, {} as ListActionState);
   const [confirming, setConfirming] = useState(false);
   if (!confirming) {
@@ -279,6 +305,7 @@ export function DeleteListButton({ listId, name }: { listId: string; name: strin
   return (
     <form action={action} className="flex flex-wrap items-center gap-2 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
       <input type="hidden" name="listId" value={listId} />
+      <input type="hidden" name="listScope" value={scope} />
       <span>Delete &ldquo;{name}&rdquo;? This can&apos;t be undone.</span>
       <button disabled={pending} className="min-h-11 rounded bg-red-700 px-4 font-semibold text-white disabled:opacity-60">
         {pending ? "Deleting…" : "Yes, delete"}

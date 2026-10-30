@@ -16,9 +16,6 @@ const ApplicationRoutes = (_props: ApplicationRoutesProps) => {
         <Route path={`${match.path}/blocks`}>
           <CmsList kind="blocks" />
         </Route>
-        <Route path={`${match.path}/pages`}>
-          <CmsList kind="pages" />
-        </Route>
         <Route>
           <Redirect to={`${match.url}/blocks`} />
         </Route>

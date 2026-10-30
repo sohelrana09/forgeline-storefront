@@ -1,24 +1,14 @@
-// Moves the content pages (content/pages/*.json, Markdown) into Sanity as "page" documents, and with --sample adds
-// a demo blog (an author, two categories and a post with commercetools product cards).
+// Adds a demo blog to Sanity (an author, two categories and a post with commercetools product cards).
 //   npm run ct:sanity-content                  dry run: lists what would be created
 //   npm run ct:sanity-content -- --yes         creates what's missing
-//   npm run ct:sanity-content -- --sample --yes   also the demo blog
 // Idempotent: documents have fixed ids and are only created when missing, so edits made in the Studio are never
 // overwritten. Needs NEXT_SANITY_PROJECT_ID and SANITY_API_WRITE_TOKEN (an Editor token) in .env.
-// After it ran, the old "cms-page" Custom Objects are no longer read (remove them with `ct:content -- --prune`
-// once the page files are deleted).
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { createClient } from "next-sanity";
-import { markdownToPortableText } from "@portabletext/markdown";
 import { sanityApiVersion, sanityConfigured, sanityDataset, sanityProjectId } from "../src/lib/sanity/env";
 
 const args = process.argv.slice(2);
 const yes = args.includes("--yes");
-const sample = args.includes("--sample");
-const PAGES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../content/pages");
 
 type Doc = { _id: string; _type: string; [field: string]: unknown };
 const key = () => randomUUID().slice(0, 12);
@@ -30,23 +20,6 @@ const text = (t: string, style = "normal") => ({
   children: [{ _type: "span", _key: key(), text: t, marks: [] }],
 });
 const product = (sku: string) => ({ _type: "ctProduct", _key: key(), sku });
-
-function pages(): Doc[] {
-  return readdirSync(PAGES_DIR)
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => {
-      const slug = f.replace(/\.json$/, "");
-      const page = JSON.parse(readFileSync(join(PAGES_DIR, f), "utf8")) as { title: string; metaDescription?: string; content: string };
-      return {
-        _id: `page-${slug}`,
-        _type: "page",
-        title: page.title,
-        slug: { _type: "slug", current: slug },
-        body: markdownToPortableText(page.content),
-        ...(page.metaDescription && { seo: { _type: "seo", description: page.metaDescription } }),
-      };
-    });
-}
 
 function demoBlog(): Doc[] {
   const ref = (id: string) => ({ _type: "reference", _ref: id, _key: key() });
@@ -108,7 +81,7 @@ async function main() {
   if (yes && !token) throw new Error("SANITY_API_WRITE_TOKEN is not set: create an Editor token in sanity.io/manage → API → Tokens.");
   const client = createClient({ projectId: sanityProjectId, dataset: sanityDataset, apiVersion: sanityApiVersion, useCdn: false, token });
 
-  const docs = [...pages(), ...(sample ? demoBlog() : [])];
+  const docs = demoBlog();
   const existing = new Set(await client.fetch<string[]>(`*[_id in $ids]._id`, { ids: docs.map((d) => d._id) }));
   const missing = docs.filter((d) => !existing.has(d._id));
   for (const d of docs) console.log(`${existing.has(d._id) ? "= exists " : yes ? "+ create " : "+ would create"} ${d._type} ${d._id}`);

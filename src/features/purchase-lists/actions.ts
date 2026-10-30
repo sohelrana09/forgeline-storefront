@@ -1,8 +1,8 @@
 "use server";
 
-// Public endpoints for purchase lists. Signed-in customers only (business buyers and consumers); every list is read
-// and written with the customer's own token, so a forged list id is simply not found. Products are checked against
-// the selected unit's store before they go on a list; "add to cart" goes through the quick-order path (re-priced,
+// Public endpoints for purchase lists. Signed-in customers only (business buyers and consumers). Personal lists use
+// the customer's own token, so a forged list id is simply not found; company lists (business buyers only) go through
+// the service's live permission checks for the selected unit. Products are checked against the selected unit's store before they go on a list; "add to cart" goes through the quick-order path (re-priced,
 // unsold products reported, machines for quote).
 
 import { revalidatePath } from "next/cache";
@@ -15,12 +15,14 @@ import { MAX_LINES as CART_BATCH, parseQuickOrder } from "@/features/quick-order
 import { addParsedLines } from "@/features/quick-order/service";
 import { UUID } from "@/features/orders/utils";
 import { addToList, createList, deleteList, getList, PurchaseListError, renameList, updateLines } from "@/features/purchase-lists/service";
-import { LIST_NAME, MAX_QUANTITY } from "@/features/purchase-lists/utils";
+import { LIST_NAME, MAX_QUANTITY, listHref, parseListRef, type ListScope } from "@/features/purchase-lists/utils";
 import type { ListActionState } from "@/features/purchase-lists/types";
 import type { QuickOrderState } from "@/features/quick-order/types";
 
 type Shop = Awaited<ReturnType<typeof requireShopContext>>;
 const str = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
+// The list forms send listScope=company for company lists; anything else is a personal list.
+const scopeOf = (formData: FormData): ListScope => (str(formData, "listScope") === "company" ? "company" : "mine");
 
 async function run(work: (shop: Shop) => Promise<string>): Promise<ListActionState> {
   const shop = await requireShopContext();
@@ -65,11 +67,13 @@ async function addTo(shop: Shop, formData: FormData, lines: { sku: string; quant
     name = checkName(str(formData, "newName"));
     await createList(shop.session, shop.context, name, known);
   } else {
-    if (!UUID.test(listId)) throw new PurchaseListError("Choose a purchase list.");
-    const list = await getList(shop.session, shop.context, listId);
+    // A picker value: a personal list's id, or "company:<id>" (listRef).
+    const ref = parseListRef(listId);
+    if (!ref) throw new PurchaseListError("Choose a purchase list.");
+    const list = await getList(shop.session, shop.context, ref.id, ref.scope);
     if (!list) throw new PurchaseListError("This purchase list no longer exists.");
     name = list.name;
-    await addToList(shop.session, shop.context, listId, known);
+    await addToList(shop.session, shop.context, ref.id, known, ref.scope);
   }
   const count = known.length === 1 ? "1 product" : `${known.length} products`;
   return `Added ${count} to "${name}".${unknown.length ? ` Not found: ${unknown.join(", ")}.` : ""}`;
@@ -77,12 +81,13 @@ async function addTo(shop: Shop, formData: FormData, lines: { sku: string; quant
 
 export async function createListAction(_prev: ListActionState, formData: FormData): Promise<ListActionState> {
   let id = "";
+  const scope = scopeOf(formData);
   const result = await run(async (shop) => {
-    id = await createList(shop.session, shop.context, checkName(str(formData, "name")));
+    id = await createList(shop.session, shop.context, checkName(str(formData, "name")), [], scope);
     return "List created.";
   });
   if (result.error) return result;
-  redirect(`/account/purchase-lists/${id}`);
+  redirect(listHref(scope, id));
 }
 
 export async function addProductToListAction(_prev: ListActionState, formData: FormData): Promise<ListActionState> {
@@ -118,7 +123,7 @@ export async function renameListAction(_prev: ListActionState, formData: FormDat
   const id = str(formData, "listId");
   if (!UUID.test(id)) return { error: "Unknown list." };
   return run(async (shop) => {
-    await renameList(shop.session, shop.context, id, checkName(str(formData, "name")));
+    await renameList(shop.session, shop.context, id, checkName(str(formData, "name")), scopeOf(formData));
     return "List renamed.";
   });
 }
@@ -139,7 +144,7 @@ export async function updateListAction(_prev: ListActionState, formData: FormDat
     else return { error: `Enter quantities from 1 to ${MAX_QUANTITY}.` };
   }
   return run(async (shop) => {
-    await updateLines(shop.session, shop.context, id, changes);
+    await updateLines(shop.session, shop.context, id, changes, scopeOf(formData));
     return removed.size > 0 ? "List updated; removed products are gone." : "List updated.";
   });
 }
@@ -148,7 +153,7 @@ export async function deleteListAction(_prev: ListActionState, formData: FormDat
   const id = str(formData, "listId");
   if (!UUID.test(id)) return { error: "Unknown list." };
   const result = await run(async (shop) => {
-    await deleteList(shop.session, shop.context, id);
+    await deleteList(shop.session, shop.context, id, scopeOf(formData));
     return "List deleted.";
   });
   if (result.error) return result;
@@ -164,7 +169,7 @@ export async function addListToCartAction(_prev: QuickOrderState, formData: Form
     return fail("Too many attempts. Please wait a few minutes and try again.");
   const id = str(formData, "listId");
   try {
-    const list = UUID.test(id) ? await getList(shop.session, shop.context, id) : undefined;
+    const list = UUID.test(id) ? await getList(shop.session, shop.context, id, scopeOf(formData)) : undefined;
     if (!list) return fail("This purchase list no longer exists.");
     const selected = new Set(formData.getAll("line").map(String));
     const all = formData.get("scope") === "all";

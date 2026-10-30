@@ -51,15 +51,13 @@ export type CmsBlock = {
   secondaryCta?: { label: string; href: string };
 };
 
-// A content page: Markdown `content` from the commercetools Custom Objects (legacy), or a Portable Text `body`
-// from Sanity once it is configured.
+// A content page from Sanity (Portable Text `body`; lists leave it out).
 export type CmsPage = {
   slug: string;
   title: string;
   metaDescription?: string;
   metaTitle?: string;
   active: boolean;
-  content?: string;
   body?: PortableTextBlock[];
 };
 

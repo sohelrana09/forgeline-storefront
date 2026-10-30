@@ -3,12 +3,14 @@
 // Public endpoints for quotes. Each one works only for a signed-in buyer, on their own records in the selected
 // business unit; the service re-reads every record with the buyer's token before changing it.
 
+import { after } from "next/server";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { cartCookie } from "@/features/auth/session";
 import { requireBusinessContext } from "@/features/business-units/context";
+import { notifyApproversIfPending } from "@/features/approvals/service";
 import {
   QuoteError,
   cancelQuoteRequest,
@@ -96,6 +98,7 @@ export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData
       str(formData, "purchaseOrderNumber"),
     );
     target = `/account/orders/${order.id}${poSaved ? "" : "?po=failed"}`;
+    after(() => notifyApproversIfPending(context, session.customerId, order));
   } catch (err) {
     return failed(err, "The order could not be placed.");
   }

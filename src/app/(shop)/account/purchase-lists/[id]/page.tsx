@@ -3,7 +3,13 @@ import { PurchaseListView } from "@/features/purchase-lists/components/PurchaseL
 
 export const dynamic = "force-dynamic";
 
-export default async function PurchaseListPage({ params }: { params: Promise<{ id: string }> }) {
-  const [{ session, context }, { id }] = await Promise.all([requireShopContext(), params]);
-  return <PurchaseListView session={session} context={context} id={id} />;
+export default async function PurchaseListPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ scope?: string | string[] }>;
+}) {
+  const [{ session, context }, { id }, { scope }] = await Promise.all([requireShopContext(), params, searchParams]);
+  return <PurchaseListView session={session} context={context} id={id} scope={scope === "company" ? "company" : "mine"} />;
 }

@@ -173,13 +173,18 @@ export async function hasBuyerRoleNow(businessUnitKey: string, customerId: strin
 // Live check of one associate-role permission (e.g. "RenegotiateMyQuotes"). Required wherever the admin client
 // acts for the buyer, because then commercetools doesn't check the associate's permissions itself.
 export async function hasPermissionNow(businessUnitKey: string, customerId: string, permission: Permission): Promise<boolean> {
+  return (await permissionsNow(businessUnitKey, customerId)).has(permission);
+}
+
+// Every permission the customer holds in the unit right now (explicit + inherited roles), for checks that need several.
+export async function permissionsNow(businessUnitKey: string, customerId: string): Promise<Set<Permission>> {
   const [bu, roles] = await Promise.all([businessUnitNow(businessUnitKey), associateRolesNow()]);
   const roleKeys = new Set(
     [...bu.associates, ...(bu.inheritedAssociates ?? [])]
       .filter((a) => a.customer.id === customerId)
       .flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key)),
   );
-  return roles.some((role) => roleKeys.has(role.key) && role.permissions.includes(permission));
+  return new Set(roles.filter((role) => roleKeys.has(role.key)).flatMap((role) => role.permissions));
 }
 
 // Business units, stores and channels change rarely: refresh them every 5 minutes in the background, so no

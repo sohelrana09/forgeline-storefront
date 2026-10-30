@@ -57,12 +57,9 @@ export const useMediaLibrary = (): {
   return { images, productId: data?.product?.id, error, loading, refetch };
 };
 
-type TUsage = Record<
-  'blocks' | 'pages',
-  { results: { key: string; value: unknown }[] }
->;
+type TUsage = Record<'blocks', { results: { key: string; value: unknown }[] }>;
 
-// Deleting from the media library: where an image is still used (blocks and pages whose JSON mentions its URL),
+// Deleting from the media library: where an image is still used (blocks whose JSON mentions its URL),
 // and removing it from the media product. The product's version is read fresh, and a version conflict (someone
 // uploaded meanwhile) is retried once.
 export const useMediaDelete = () => {
@@ -86,10 +83,7 @@ export const useMediaDelete = () => {
         list.results
           .filter((o) => JSON.stringify(o.value).includes(url))
           .map((o) => `${kind} ${o.key}`);
-      return [
-        ...mentions('Block', data.blocks),
-        ...mentions('Page', data.pages),
-      ];
+      return mentions('Block', data.blocks);
     },
     [fetchUsage]
   );

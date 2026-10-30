@@ -16,76 +16,92 @@ const passwordHint = <span className="text-xs font-normal text-gray-600">8 to 12
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState(register, {} as RegisterState);
+  // FormMessage sits outside both views, so it stays mounted when the form hides itself and its message isn't lost.
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <FormGuardFields />
-      <div className="grid grid-cols-2 gap-3">
-        <label className={label}>
-          First name
-          <input
-            name="firstName"
-            required
-            maxLength={60}
-            autoComplete="given-name"
-            defaultValue={state.values?.firstName}
-            className={input}
-          />
-        </label>
-        <label className={label}>
-          Last name
-          <input
-            name="lastName"
-            required
-            maxLength={60}
-            autoComplete="family-name"
-            defaultValue={state.values?.lastName}
-            className={input}
-          />
-        </label>
-      </div>
-      <label className={label}>
-        Email
-        <input
-          name="email"
-          type="email"
-          required
-          maxLength={254}
-          autoComplete="email"
-          defaultValue={state.values?.email}
-          className={input}
-        />
-      </label>
-      <label className={label}>
-        Password
-        <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={input} />
-        {passwordHint}
-      </label>
-      <label className={label}>
-        Confirm password
-        <input
-          name="confirmPassword"
-          type="password"
-          required
-          minLength={8}
-          maxLength={128}
-          autoComplete="new-password"
-          className={input}
-        />
-      </label>
-      <label htmlFor="terms" className="flex min-h-11 items-center gap-2 text-sm">
-        <input id="terms" name="terms" type="checkbox" required className="h-5 w-5" />
-        <span>
-          I accept the{" "}
-          <Link href={pagePath("terms")} target="_blank" className="text-orange-800">
-            terms of sale
+    <>
+      <FormMessage
+        state={state}
+        error={state.error}
+        success={state.sent ? `We sent an email to ${state.values?.email}. Open the link in it to confirm your account.` : undefined}
+      />
+      {state.sent ? (
+        <div className="flex flex-col gap-4 text-sm">
+          <p className="m-0">Check your inbox, then sign in with your email and password. The link works for 24 hours.</p>
+          <Link href="/login" className={`${button} flex items-center justify-center no-underline`}>
+            Go to sign in
           </Link>
-        </span>
-      </label>
-      <FormMessage state={state} error={state.error} />
-      <button disabled={pending} className={button}>
-        {pending ? "Creating account…" : "Create account"}
-      </button>
-    </form>
+        </div>
+      ) : (
+        <form action={action} className="flex flex-col gap-4">
+          <FormGuardFields />
+          <div className="grid grid-cols-2 gap-3">
+            <label className={label}>
+              First name
+              <input
+                name="firstName"
+                required
+                maxLength={60}
+                autoComplete="given-name"
+                defaultValue={state.values?.firstName}
+                className={input}
+              />
+            </label>
+            <label className={label}>
+              Last name
+              <input
+                name="lastName"
+                required
+                maxLength={60}
+                autoComplete="family-name"
+                defaultValue={state.values?.lastName}
+                className={input}
+              />
+            </label>
+          </div>
+          <label className={label}>
+            Email
+            <input
+              name="email"
+              type="email"
+              required
+              maxLength={254}
+              autoComplete="email"
+              defaultValue={state.values?.email}
+              className={input}
+            />
+          </label>
+          <label className={label}>
+            Password
+            <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={input} />
+            {passwordHint}
+          </label>
+          <label className={label}>
+            Confirm password
+            <input
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+              className={input}
+            />
+          </label>
+          <label htmlFor="terms" className="flex min-h-11 items-center gap-2 text-sm">
+            <input id="terms" name="terms" type="checkbox" required className="h-5 w-5" />
+            <span>
+              I accept the{" "}
+              <Link href={pagePath("terms")} target="_blank" className="text-orange-800">
+                terms of sale
+              </Link>
+            </span>
+          </label>
+          <button disabled={pending} className={button}>
+            {pending ? "Creating account…" : "Create account"}
+          </button>
+        </form>
+      )}
+    </>
   );
 }
 

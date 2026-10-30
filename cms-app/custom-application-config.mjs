@@ -21,8 +21,8 @@ if (
 }
 
 /**
- * Merchant Center "Content" app: edits the storefront's CMS blocks and pages, stored as Custom Objects
- * (containers "cms-block" and "cms-page"). Custom Objects are called "key value documents" in OAuth scopes.
+ * Merchant Center "Content" app: edits the storefront's CMS blocks, stored as Custom Objects
+ * (container "cms-block"; content pages are edited in Sanity). Custom Objects are called "key value documents" in OAuth scopes.
  *
  * @type {import('@commercetools-frontend/application-config').ConfigOptionsForCustomApplication}
  */
@@ -64,12 +64,6 @@ const config = {
     {
       uriPath: 'blocks',
       defaultLabel: 'Blocks',
-      labelAllLocales: [],
-      permissions: [PERMISSIONS.View],
-    },
-    {
-      uriPath: 'pages',
-      defaultLabel: 'Pages',
       labelAllLocales: [],
       permissions: [PERMISSIONS.View],
     },

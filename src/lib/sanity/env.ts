@@ -1,7 +1,6 @@
 // Sanity project settings, read on the server only (NEXT_SANITY_*, not NEXT_PUBLIC_*: nothing is inlined into the
 // browser bundle). The embedded Studio gets them as props from its server page (src/app/studio).
-// Content pages and the blog come from Sanity once NEXT_SANITY_PROJECT_ID is set; until then pages fall back
-// to the commercetools Custom Objects and the blog is off.
+// Content pages and the blog come from Sanity once NEXT_SANITY_PROJECT_ID is set; until then both are off.
 export const sanityProjectId = process.env.NEXT_SANITY_PROJECT_ID ?? "";
 export const sanityDataset = process.env.NEXT_SANITY_DATASET || "production";
 export const sanityApiVersion = "2026-10-01";

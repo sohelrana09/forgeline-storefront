@@ -7,9 +7,9 @@ import { Message } from "@/components/ui/Message";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string; email?: string }> }) {
   if (await getSession()) redirect("/");
-  const { reset } = await searchParams;
+  const { reset, email } = await searchParams;
 
   return (
     <AuthShell
@@ -31,6 +31,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <h2 className="mb-1 mt-0 text-lg font-semibold">Registered customers</h2>
       <p className="mb-4 mt-0 text-sm text-gray-600">If you have an account, sign in with your email address.</p>
       {reset === "1" && <Message type="success">Your password was changed. Sign in with the new password.</Message>}
+      {email === "verified" && <Message type="success">Your email address is confirmed. Sign in to start shopping.</Message>}
+      {email === "invalid" && (
+        <Message type="error">This confirmation link has expired or was already used. Sign in to get a new one.</Message>
+      )}
       <LoginForm />
       <p className="mb-0 mt-4 text-sm">
         <Link href="/forgot-password" className="text-orange-800">

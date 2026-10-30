@@ -23,7 +23,6 @@ import {
 import { getErrorMessage } from '../../helpers';
 import { useCmsObjects, type TCmsObject } from '../../hooks/use-cms-connector';
 import BlockDetails from './block-details';
-import PageDetails from './page-details';
 
 const COLUMNS = {
   blocks: [
@@ -34,12 +33,6 @@ const COLUMNS = {
     { key: 'active', label: 'Status' },
     { key: 'lastModifiedAt', label: 'Last modified' },
   ],
-  pages: [
-    { key: 'key', label: 'URL key' },
-    { key: 'title', label: 'Title' },
-    { key: 'active', label: 'Status' },
-    { key: 'lastModifiedAt', label: 'Last modified' },
-  ],
 };
 
 const TITLES = {
@@ -47,11 +40,6 @@ const TITLES = {
     headline: 'Content blocks',
     hint: 'Static blocks shown on the homepage, category, product and cart pages.',
     add: 'Add block',
-  },
-  pages: {
-    headline: 'Content pages',
-    hint: 'Pages published at /pages/<URL key> and linked in the storefront footer.',
-    add: 'Add page',
   },
 };
 
@@ -66,7 +54,7 @@ const CmsList = ({ kind }: { kind: TContentKind }) => {
     page: page.value,
     perPage: perPage.value,
   });
-  const Details = kind === 'blocks' ? BlockDetails : PageDetails;
+  const Details = BlockDetails;
   const close = () => push(match.url);
 
   if (error) {

@@ -3,8 +3,8 @@ import { withBotId } from "botid/next/config";
 
 const sanityProjectId = process.env.NEXT_SANITY_PROJECT_ID;
 
-// Sent with every response. The CSP only covers what can't break the pages (framing, plugins, <base>, form
-// targets); a script-src policy needs nonces for Next's inline scripts and the Checkout SDK hosts first.
+// Sent with every response. Pages get a fuller CSP with script-src from src/proxy.ts (src/lib/csp.ts); this base
+// policy (framing, plugins, <base>, form targets) covers what the proxy doesn't see (API routes, assets).
 // Framing: this site only (the embedded Sanity Studio's Presentation tool previews the storefront in an iframe).
 const securityHeaders = [
   {

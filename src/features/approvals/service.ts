@@ -270,6 +270,12 @@ export async function notifyApprovers(ctx: PricingContext, order: Order, approva
   }
 }
 
+// For every order path (checkout, reorder, order from a quote); call it in after() so it never fails the response.
+export async function notifyApproversIfPending(ctx: PricingContext, customerId: string, order: Order) {
+  const approval = (await approvalsForOrders(ctx, customerId, [order.id]))[order.id];
+  if (approval?.status === "Pending") await notifyApprovers(ctx, order, approval);
+}
+
 async function notifyBuyer(order: Order, flow: ApprovalFlow) {
   if (flow.status === "Pending" || !order.customerId) return;
   try {

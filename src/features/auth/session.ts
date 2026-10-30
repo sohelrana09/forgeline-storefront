@@ -7,6 +7,7 @@ import { customerApiRoot, projectKey } from "@/lib/commercetools/client";
 import { refreshAnonymousToken, revokeToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
 import { GUEST_STORE_KEY, getBuyingContexts } from "@/features/business-units/service";
 import { rememberAccount } from "@/features/auth/utils";
+import { sessionsValidAfter } from "@/features/auth/revocation";
 
 // The browser never sees the customer token: the session cookie is AES-256-GCM encrypted with a key derived
 // from the (server-only) admin client secret. The token itself only carries customerScopes() below.
@@ -21,8 +22,10 @@ export const cookieOptions = {
   maxAge: 60 * 60 * 24 * 30,
 };
 
-// `name` is the first name at sign-in, for the header greeting (older sessions may not have it).
-export type Session = { accessToken: string; expiresAt: number; customerId: string; email: string; name?: string };
+// `name` is the first name at sign-in, for the header greeting (older sessions may not have it). `issuedAt` (sign-in
+// time) is checked against a password reset (./revocation); older sessions count from their token's start.
+export type Session = { accessToken: string; expiresAt: number; customerId: string; email: string; name?: string; issuedAt?: number };
+const TOKEN_LIFETIME_MS = 48 * 60 * 60 * 1000;
 
 // Sealed cookies use their cookie name as AAD, so a guest cookie can never be replayed as a session (or back).
 function key() {
@@ -67,7 +70,9 @@ export async function saveSession(session: Session) {
 export async function getSession(): Promise<Session | undefined> {
   const session = unseal<Session>(SESSION_COOKIE, (await cookies()).get(SESSION_COOKIE)?.value);
   // Tokens last 48h; after that the buyer signs in again (refresh-token flow is a follow-up).
-  return session && session.expiresAt > Date.now() + 60_000 ? session : undefined;
+  if (!session || session.expiresAt <= Date.now() + 60_000) return undefined;
+  const issuedAt = session.issuedAt ?? session.expiresAt - TOKEN_LIFETIME_MS;
+  return issuedAt >= (await sessionsValidAfter(session.customerId)) ? session : undefined;
 }
 
 // Accounts that signed in on this browser (sealed, so it can't be forged; kept on sign-out). They skip the per-email
