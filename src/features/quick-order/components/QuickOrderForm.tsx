@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, useState } from "react";
+import { csvToLines } from "@/features/quick-order/csv";
 import { quickOrder } from "@/features/quick-order/actions";
 import { addQuickOrderToListAction } from "@/features/purchase-lists/actions";
 import { ListResult, ListTargetFields } from "@/features/purchase-lists/components/AddToListForm";
@@ -9,22 +10,82 @@ import type { QuickOrderState } from "@/features/quick-order/types";
 import { Message } from "@/components/ui/Message";
 
 const initial: QuickOrderState = { added: [], errors: [] };
+const MAX_UPLOAD_BYTES = 1024 * 1024;
+
+type Upload = { file: string; lines: number; skipped: number; columns?: string } | { file: string; error: string };
 
 // `lists`: the signed-in customer's purchase lists; the pasted lines can go to one of them instead of the cart.
 export function QuickOrderForm({ lists }: { lists?: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState(quickOrder, initial);
   const [listState, listAction, listPending] = useActionState(addQuickOrderToListAction, {} as ListActionState);
   const listButton = useRef<HTMLButtonElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const [upload, setUpload] = useState<Upload>();
   const lineCount = state.added.length;
+
+  // A spreadsheet fills the box (read here, in the browser); the buyer checks the lines, then adds them to the cart or
+  // a list, where they are validated like typed lines.
+  async function readSpreadsheet(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = ""; // the same file can be chosen again after editing it
+    if (!file || !box.current) return;
+    if (/\.(xlsx?|ods|numbers)$/i.test(file.name))
+      return setUpload({ file: file.name, error: "Save the spreadsheet as CSV (File → Save as → CSV) and upload that file." });
+    if (file.size > MAX_UPLOAD_BYTES) return setUpload({ file: file.name, error: "The file is larger than 1 MB." });
+    const { lines, skipped, columns } = csvToLines(await file.text());
+    if (lines.length === 0) return setUpload({ file: file.name, error: "No SKUs found in the file." });
+    box.current.value = lines.join("\n");
+    setUpload({
+      file: file.name,
+      lines: lines.length,
+      skipped,
+      columns: columns && [columns.sku, columns.quantity].filter(Boolean).join(" and "),
+    });
+  }
 
   return (
     <form action={action} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5 rounded border border-dashed border-gray-300 p-3">
+        <label htmlFor="qo-file" className="text-xs font-semibold">
+          Upload a spreadsheet (CSV)
+        </label>
+        <input
+          id="qo-file"
+          type="file"
+          accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+          onChange={(e) => readSpreadsheet(e.currentTarget)}
+          className="text-sm file:mr-3 file:min-h-9 file:rounded file:border file:border-gray-300 file:bg-white file:px-3 file:text-sm file:font-semibold"
+          aria-describedby="qo-file-help qo-upload"
+        />
+        <p id="qo-file-help" className="m-0 text-xs text-gray-600">
+          Columns SKU and Quantity (other columns are ignored).{" "}
+          <a href="/quick-order-template.csv" download className="text-orange-800">
+            Download a template
+          </a>
+        </p>
+        <div id="qo-upload" aria-live="polite" className="text-sm">
+          {upload &&
+            ("error" in upload ? (
+              <Message type="error">
+                {upload.file}: {upload.error}
+              </Message>
+            ) : (
+              <Message type="success">
+                Loaded {upload.lines} {upload.lines === 1 ? "line" : "lines"} from {upload.file}
+                {upload.columns && ` (columns ${upload.columns})`}
+                {upload.skipped > 0 && `, skipped ${upload.skipped} ${upload.skipped === 1 ? "row" : "rows"} without a SKU`}. Check them
+                below, then add them to the cart or a purchase list.
+              </Message>
+            ))}
+        </div>
+      </div>
       <label htmlFor="qo-lines" className="text-xs font-semibold">
         Order lines
       </label>
       <textarea
         // Re-mount after each submit so the box shows only the lines that still need fixing.
         key={JSON.stringify(state)}
+        ref={box}
         id="qo-lines"
         name="lines"
         rows={7}

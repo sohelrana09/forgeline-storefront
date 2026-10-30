@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { apiRoot } from "@/lib/commercetools/client";
 import { isQuoteOnly, localize, taxNote } from "@/features/catalog/utils";
+import { priceSelection, pricingKey } from "@/features/catalog/pricing";
 import { QuickOrderForm } from "@/features/quick-order/components/QuickOrderForm";
 import { getSession } from "@/features/auth/session";
 import { listNames } from "@/features/purchase-lists/service";
@@ -34,10 +35,8 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
           limit: PAGE_SIZE,
           offset: (page - 1) * PAGE_SIZE,
           sort: ["name.en-US asc"],
-          storeProjection: context.storeKey,
-          priceCurrency: context.currency,
-          priceChannel: context.channelId,
-          ...(context.country && { priceCountry: context.country }),
+          // The store and the visitor's prices (customer group included), like every catalog read.
+          ...priceSelection(pricingKey(context)),
         },
       })
       .execute(),

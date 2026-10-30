@@ -1,12 +1,25 @@
 # Forgeline
 
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
+![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8)
+![GitHub stars](https://img.shields.io/github/stars/sohelrana09/forgeline-storefront?style=social)
+![License](https://img.shields.io/github/license/sohelrana09/forgeline-storefront)
+
 **An open-source B2B and B2C storefront for commercetools, built with Next.js 16.**
 
-Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/). One storefront serves three kinds of customers: business buyers, consumers and guests. It brings the B2B features merchants expect: company accounts, quick order, quotes, approval rules and purchase lists. You can see and adapt everything, without a paid frontend platform.
+Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/).
+One storefront serves three kinds of customers: **business buyers, consumers, and guests**.
 
-The demo shop, **Ironline Supply**, sells heavy machines and spare parts using the commercetools B2B sample data: 72 products, 6 business units and 5 stores.
+It includes the real B2B features merchants expect: company accounts, quick order, quotes, approval rules, purchase lists and store-specific pricing, without any paid frontend platform.
 
-![Next.js 16](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500) ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8)
+**Live demo:** [Ironline Supply](https://forgeline-storefront-gamma.vercel.app/). Browse the catalog, search and fill a cart as a guest.
+
+To try the business features (company accounts, quotes, approvals, purchase lists), run your own copy: `npm run setup` (see [Quick start](#quick-start)) generates a demo password in `.env.demo` for the sample accounts:
+- Buyer: `sofia-lopez@ltsl.com`
+- Approver: `carlos-garcia@ltsl.com`
+- Company admin: `oliver-smith@ltsl.com`
 
 ![Ironline Supply homepage](docs/images/home.jpg)
 
@@ -40,7 +53,7 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 |---|---|
 | **Company accounts** | Buyers sign in as associates of a business unit (company or division) and switch between the units they belong to. |
 | **Company-specific prices** | Each unit buys from its own store and channel, so it sees its own price list and currency (for example EUR for Spain, USD for the US). |
-| **Quick order** | Paste a list of SKUs and quantities, or pick from a searchable catalog table. Unknown SKUs are reported, not silently dropped. |
+| **Quick order** | Paste a list of SKUs and quantities, upload a spreadsheet (CSV, with a template), or pick from a catalog table. Unknown SKUs are reported, not silently dropped. |
 | **Purchase lists** | Save products you reorder, then add one line, a selection or the whole list to the cart in one click. |
 | **Request a quote** | Machines above a set value go into the cart "for quote". Buyers request a quote, negotiate, and order from the accepted quote. |
 | **Approval rules** | Orders above a threshold wait for an approver in the company. Approvers approve or reject with a reason, and the buyer is notified. |
@@ -58,7 +71,7 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 
 ### Everyone
 
-- Fast catalog pages: guest pages are cached and refreshed automatically when products or content change.
+- Fast pages for everyone, signed in or not: what is the same for every visitor (header, menu, product names, pictures, descriptions) comes from a cache next to the visitor, and their own prices, cart and account links stream in right after. Changes refresh at once with the Sanity webhook or `npm run ct:revalidate`, otherwise within a minute (content) or 15 minutes (prices and products).
 - Product pages with an image gallery, variants (for example model year), live stock, specifications, compatible spare parts and related products.
 - My account: dashboard, orders, quotes, purchase lists, addresses and account information.
 
@@ -68,7 +81,7 @@ Everything runs on commercetools. There is no second admin to learn.
 
 | You want to change... | Where |
 |---|---|
-| Products, prices, stock, categories | **Merchant Center** (catalog, standalone prices, inventory). Changes show up on the storefront automatically. |
+| Products, prices, stock, categories | **Merchant Center** (catalog, standalone prices, inventory). Changes show on the storefront within 15 minutes, or at once after `npm run ct:revalidate` (or automatically with the optional catalog Subscription). |
 | Companies, buyers and their roles | **Merchant Center → Customers → Business units** and **Associate roles**. |
 | Homepage banners, info blocks, featured products, static pages (delivery, terms, about), the blog | The **Sanity Studio**, built into the storefront at `/studio`, with image uploads, rich text, live product cards and a preview. Blocks can be limited to stores and categories and scheduled with start and end dates. |
 | Quotes | Merchant Center **Quotes**: answer requests, set prices and validity. |
@@ -100,6 +113,7 @@ Browser ──> Next.js 16 (App Router, Server Components, Server Actions)
 
 Key design choices:
 
+- **Cached, then personal.** Every page is a prerendered shell served from the CDN (Next.js Cache Components), built from shared cached data that never includes anything about the visitor; their prices, cart and account stream in behind it. Account, cart, checkout and sign-in pages render per request instead, so they can carry a strict Content-Security-Policy nonce. Redirects and 404s are decided before streaming, so they keep real status codes.
 - **Server-first.** Pages are React Server Components. Every change (add to cart, place order, approve) is a Server Action. No commercetools credentials ever reach the browser.
 - **Least privilege.** Each signed-in customer gets their own commercetools token, limited to "my" resources in the stores they buy from. The admin client is only used after a live permission check.
 - **Standalone prices.** Prices are selected per store, channel, currency and country, so each company sees its own prices.
@@ -166,8 +180,11 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 | `SITE_URL` | Public address of the shop. Needed for production builds, email links, canonicals and the sitemap. |
 | `SITE_INDEXABLE` | `true` lets search engines index the catalog. Anything else (the default) keeps the whole site out of Google and Bing: `noindex` on every response and an empty sitemap. |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional. Shares the rate limits (sign-in, sign-up, checkout) across all server instances. On Vercel, connect Upstash under Storage and they are set for you. |
-| `REVALIDATE_SECRET` | Lets content and catalog updates refresh cached guest pages (`POST /api/revalidate`). |
+| `REVALIDATE_SECRET` | Password for `POST /api/revalidate`, which refreshes the cached data behind every page after a change (Sanity webhook, `npm run ct:revalidate`, an optional catalog Subscription). Use the same value in `.env` and your hosting. |
 | `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. |
+| `NEXT_SANITY_PROJECT_ID`, `NEXT_SANITY_DATASET`, `SANITY_API_READ_TOKEN`, `SANITY_API_WRITE_TOKEN` | Optional. Sanity for content pages, blocks and the blog (Studio at `/studio`); the read token powers draft preview, the write token only the demo blog script. Without a project id there are no content pages and the blog is off. |
+| `RESEND_API_KEY`, `MAIL_FROM` | Optional. Sends emails (sign-up, password reset, approvals) through Resend; without them, development prints emails to the server log. |
+| `CATALOG_SEARCH` | Optional. `product-search` uses the commercetools Product Search API once it is activated; otherwise search uses a built-in index. |
 
 **Hosting region:** keep the storefront next to your commercetools region, because every page talks to the API. `vercel.json` pins Vercel functions to `cle1` (Cleveland), beside commercetools' AWS us-east-2. If your project is in another region, change it, for example to `fra1` for europe-west1. From far away, each API call adds a few hundred milliseconds.
 
@@ -193,14 +210,20 @@ Store prices: the sample stores have no countries set, so the mapping from store
 | `npm run ct:seed-approval-rules` | Demo approval rule: orders over €10,000 need approval. |
 | `npm run ct:quote-respond -- <requestId> --discount 10` | Acts as the seller and publishes a quote, for testing. |
 | `npm run ct:create-bu -- <key> <email>` | Creates a company business unit with a buyer. |
-| `npm run ct:catalog-subscription` | Catalog changes trigger a cache refresh. |
+| `npm run ct:urls` | Lists catalog URLs and clashes; adds or removes merchants' redirects (`-- --add /old /new`). |
+| `npm run ct:seed-list-permissions` | Gives the buyer and admin roles the permissions for company-shared purchase lists. |
+| `npm run ct:tier-prices` / `ct:customer-group-prices` | Pricing demos: quantity breaks, and B2C prices for a customer group. |
+| `npm run ct:price -- <price key> [<cents> --yes]` | Shows or sets one standalone price (dry run without `--yes`). |
+| `npm run ct:revalidate` | Refreshes the cached data now (`-- --scope catalog` after a price or product import). |
+| `npm run ct:catalog-subscription` | Optional: a commercetools Subscription so catalog changes refresh the cache automatically. Needs a queue service (AWS EventBridge or Google Pub/Sub). |
 
 All scripts are idempotent, so running them twice changes nothing the second time.
 
 ## Project structure
 
 ```
-src/app/           routes only (thin pages): (shop), (auth), (checkout), (cached) guest pages
+src/app/           routes only (thin pages): (shop) cached catalog, content, blog, search, quick order;
+                   (private) per-request account, cart, checkout and sign-in; studio
 src/features/<x>/  one folder per business area: catalog, cart, checkout, orders, quotes,
                    approvals, purchase-lists, company, account, auth, cms, quick-order, ...
     components/    the feature's UI
@@ -215,12 +238,11 @@ docs/images/       screenshots
 
 ## Roadmap
 
-Done: company switcher, customer sign-in, quick order, storefront pages, content management, quotes, guest cart, My account, company area, B2C accounts, SEO, cached guest pages, image gallery, one-page checkout, search autocomplete, homepage banners, purchase lists, approval rules, clean URLs.
+Done: company switcher, customer sign-in, quick order with CSV upload, storefront pages, content management, quotes, guest cart, My account, company area, B2C accounts, SEO, image gallery, one-page checkout, search autocomplete, homepage banners, purchase lists (personal and company-shared), approval rules, clean URLs, order documents (PDF, CSV), cached pages for every visitor, signed-in browser tests, one-command setup.
 
 Next:
-- Company-shared purchase lists.
-- Card payments switched on by default.
-- ERP connector (order export, stock and price import).
+- Card payments by default (a direct payment provider such as Stripe, or commercetools Checkout).
+- More B2B features, for example recurring orders, spending limits per buyer and shared carts.
 
 Ideas and pull requests are welcome: open an issue first for larger changes.
 
@@ -236,7 +258,7 @@ No. Forgeline is plain Next.js and can be hosted anywhere Next.js runs, for exam
 Yes. The storefront reads whatever is in your project. Check `STORE_PRICING` for your stores, and the category menu follows your Merchant Center category tree.
 
 **Is it production-ready?**
-It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies). Review it against your own requirements, add payment and email providers, and run your own tests before going live.
+It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies). Review it against your own requirements, configure email (Resend) and a card payment provider, and run your own tests before going live.
 
 ## License
 
