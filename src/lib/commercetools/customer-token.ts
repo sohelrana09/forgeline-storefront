@@ -7,7 +7,8 @@ import { traceFetch } from "@/lib/commercetools/trace";
 const storefrontAuth = () =>
   `Basic ${Buffer.from(`${requireEnv("CTP_STOREFRONT_CLIENT_ID")}:${requireEnv("CTP_STOREFRONT_CLIENT_SECRET")}`).toString("base64")}`;
 
-export type TokenResult = { ok: true; accessToken: string; expiresAt: number } | { ok: false; reason: "credentials" | "unavailable" };
+export type TokenResult =
+  { ok: true; accessToken: string; expiresAt: number; refreshToken?: string } | { ok: false; reason: "credentials" | "unavailable" };
 
 // Customer password flow: exchanges email + password for a customer-bound token limited to `scopes`.
 // Always pass an explicit list: without one the token inherits every scope of the storefront client.
@@ -26,11 +27,12 @@ export async function requestCustomerToken(email: string, password: string, scop
   });
   const body = (await res.json().catch(() => ({}))) as {
     access_token?: string;
+    refresh_token?: string;
     expires_in?: number;
     error?: string;
   };
   if (res.ok && body.access_token && body.expires_in) {
-    return { ok: true, accessToken: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 };
+    return { ok: true, accessToken: body.access_token, expiresAt: Date.now() + body.expires_in * 1000, refreshToken: body.refresh_token };
   }
   if (res.status === 400 && body.error === "invalid_customer_account_credentials") return { ok: false, reason: "credentials" };
   // Misconfigured client, scopes or an outage: log it, don't disguise it as a wrong password.
@@ -93,6 +95,13 @@ export async function requestAnonymousToken(scopes: string[]): Promise<Anonymous
 export async function refreshAnonymousToken(token: AnonymousToken): Promise<AnonymousToken | undefined> {
   const body = await tokenRequest("/oauth/token", { grant_type: "refresh_token", refresh_token: token.refreshToken });
   return body?.access_token ? { ...token, accessToken: body.access_token, expiresAt: Date.now() + body.expires_in! * 1000 } : undefined;
+}
+
+// A new access token for a signed-in customer (same customer, same narrowed scopes); undefined when the refresh token
+// was revoked or expired.
+export async function refreshCustomerToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: number } | undefined> {
+  const body = await tokenRequest("/oauth/token", { grant_type: "refresh_token", refresh_token: refreshToken });
+  return body?.access_token ? { accessToken: body.access_token, expiresAt: Date.now() + body.expires_in! * 1000 } : undefined;
 }
 
 export type SignUpDraft = { email: string; password: string; firstName: string; lastName: string };

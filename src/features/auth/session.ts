@@ -1,10 +1,10 @@
 // Session cookie + customer-token helpers for the signed-in buyer (server-only).
 import "server-only";
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { customerApiRoot, projectKey } from "@/lib/commercetools/client";
-import { refreshAnonymousToken, revokeToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
+import { refreshAnonymousToken, refreshCustomerToken, revokeToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
 import { GUEST_STORE_KEY, getBuyingContexts } from "@/features/business-units/service";
 import { rememberAccount } from "@/features/auth/utils";
 import { sessionsValidAfter } from "@/features/auth/revocation";
@@ -24,7 +24,16 @@ export const cookieOptions = {
 
 // `name` is the first name at sign-in, for the header greeting (older sessions may not have it). `issuedAt` (sign-in
 // time) is checked against a password reset (./revocation); older sessions count from their token's start.
-export type Session = { accessToken: string; expiresAt: number; customerId: string; email: string; name?: string; issuedAt?: number };
+// `refreshToken` renews the 48 h access token, so a session lasts as long as its cookie (30 days since the last save).
+export type Session = {
+  accessToken: string;
+  expiresAt: number;
+  customerId: string;
+  email: string;
+  name?: string;
+  issuedAt?: number;
+  refreshToken?: string;
+};
 const TOKEN_LIFETIME_MS = 48 * 60 * 60 * 1000;
 
 // Sealed cookies use their cookie name as AAD, so a guest cookie can never be replayed as a session (or back).
@@ -59,20 +68,46 @@ function unseal<T>(name: string, value: string | undefined): T | undefined {
 
 export const sealSession = (session: Session) => seal(SESSION_COOKIE, session);
 
-// Writes the session cookie; it expires with the token. Server Actions and Route Handlers only.
+// Writes the session cookie: 30 days with a refresh token (renewed on every save), else until the token expires.
+// Server Actions and Route Handlers only.
 export async function saveSession(session: Session) {
   (await cookies()).set(SESSION_COOKIE, sealSession(session), {
     ...cookieOptions,
-    maxAge: Math.floor((session.expiresAt - Date.now()) / 1000),
+    maxAge: session.refreshToken ? cookieOptions.maxAge : Math.floor((session.expiresAt - Date.now()) / 1000),
   });
+}
+
+// Renewed access tokens, by refresh token (hashed): Server Components can't write the cookie, so until the next
+// Server Action saves the new token, every request would otherwise refresh again.
+const renewed = new Map<string, Promise<{ accessToken: string; expiresAt: number } | undefined>>();
+
+function renew(refreshToken: string) {
+  const key = createHash("sha256").update(refreshToken).digest("base64url");
+  const hit = renewed.get(key);
+  if (hit) return hit;
+  const now = Date.now();
+  for (const [k, p] of renewed) void p.then((t) => (!t || t.expiresAt <= now + 60_000) && renewed.delete(k));
+  const fresh = refreshCustomerToken(refreshToken).then((t) => {
+    if (!t) renewed.delete(key);
+    return t;
+  });
+  renewed.set(key, fresh);
+  return fresh;
 }
 
 export async function getSession(): Promise<Session | undefined> {
   const session = unseal<Session>(SESSION_COOKIE, (await cookies()).get(SESSION_COOKIE)?.value);
-  // Tokens last 48h; after that the buyer signs in again (refresh-token flow is a follow-up).
-  if (!session || session.expiresAt <= Date.now() + 60_000) return undefined;
+  if (!session) return undefined;
+  // Signed in before a password reset: refused before anything is renewed.
   const issuedAt = session.issuedAt ?? session.expiresAt - TOKEN_LIFETIME_MS;
-  return issuedAt >= (await sessionsValidAfter(session.customerId)) ? session : undefined;
+  if (issuedAt < (await sessionsValidAfter(session.customerId))) return undefined;
+  if (session.expiresAt > Date.now() + 60_000) return session;
+  if (!session.refreshToken) return undefined;
+  const token = await renew(session.refreshToken);
+  if (!token) return undefined;
+  const fresh = { ...session, ...token };
+  await saveSession(fresh).catch(() => {}); // only works in Server Actions and Route Handlers
+  return fresh;
 }
 
 // Accounts that signed in on this browser (sealed, so it can't be forged; kept on sign-out). They skip the per-email
@@ -146,7 +181,10 @@ export async function sessionWorks(): Promise<boolean> {
 // Revokes the customer token and drops every sign-in and cart cookie (sign-out, or a session that stopped working).
 export async function signOut() {
   const session = await getSession();
-  if (session) await revokeToken(session.accessToken);
+  if (session) {
+    await revokeToken(session.accessToken);
+    if (session.refreshToken) await revokeToken(session.refreshToken, "refresh_token");
+  }
   const jar = await cookies();
   for (const c of jar.getAll()) {
     if (c.name === SESSION_COOKIE || c.name === GUEST_COOKIE || c.name === BU_COOKIE || c.name.startsWith("ct_cart_")) jar.delete(c.name);

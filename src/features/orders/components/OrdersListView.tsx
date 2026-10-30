@@ -8,6 +8,7 @@ import { ListToolbar } from "@/components/ui/ListToolbar";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { categoryPath } from "@/lib/urls";
+import { DownloadButton } from "@/components/ui/DownloadButton";
 
 // `page` and `size` come from ListToolbar's listParams (already clamped). `company`: all of the unit's orders,
 // offered to associates with ViewOthersOrders (re-checked live in the service).
@@ -48,12 +49,17 @@ export async function OrdersListView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="m-0 text-2xl font-bold">{all ? "Company orders" : "My orders"}</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="m-0 text-2xl font-bold">{all ? "Company orders" : "My orders"}</h1>
+          {total > 0 && (
+            <p className="m-0 mt-1 text-sm text-gray-600">
+              {total} {total === 1 ? "order" : "orders"} {all ? "by everyone in" : "for"} {context.businessUnitName} · {context.storeName}
+            </p>
+          )}
+        </div>
         {total > 0 && (
-          <p className="m-0 mt-1 text-sm text-gray-600">
-            {total} {total === 1 ? "order" : "orders"} {all ? "by everyone in" : "for"} {context.businessUnitName} · {context.storeName}
-          </p>
+          <DownloadButton href={`/account/orders/export${all ? "?scope=company" : ""}`} label="Export orders" fileType="CSV" size="sm" />
         )}
       </div>
       {seeOthers && (

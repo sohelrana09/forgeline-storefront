@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { localize } from "@/features/catalog/utils";
-import { getMyOrder, orderReference } from "@/features/orders/service";
-import { getCompanyMembers, getCompanyOrder } from "@/features/company/service";
+import { getOrderForViewer, orderReference } from "@/features/orders/service";
+import { getCompanyMembers } from "@/features/company/service";
 import { can } from "@/features/company/utils";
 import { ORDER_STATES } from "@/features/orders/utils";
 import { AddressBlock } from "@/features/account/components/AddressBlock";
@@ -17,6 +17,8 @@ import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
 import { Message } from "@/components/ui/Message";
+import { invoiceAvailable } from "@/features/orders/documents";
+import { DownloadButton } from "@/components/ui/DownloadButton";
 
 // Order view: status and actions, items ordered, totals, then order information (addresses,
 // shipping method, payment method). Right after checkout it doubles as the confirmation page.
@@ -35,11 +37,8 @@ export async function OrderView({
   reorderFailed?: boolean;
   totalChanged?: boolean;
 }) {
-  // Read with the buyer's own token: someone else's order id simply isn't found. Associates who may see
-  // colleagues' orders (ViewOthersOrders, checked live) get the unit's order through the company service.
-  const own = await getMyOrder(session, context, id);
-  const order = own ?? (can(context, "ViewOthersOrders") ? await getCompanyOrder(context, session.customerId, id) : undefined);
-  if (!order || (order.businessUnit?.key ?? "") !== context.businessUnitKey) notFound();
+  const order = await getOrderForViewer(session, context, id);
+  if (!order) notFound();
   const mine = order.customerId === session.customerId;
   // Its approval and the colleagues' names (who placed it, if not you, and who decided the approval), together.
   const [approvals, members] = await Promise.all([
@@ -52,6 +51,7 @@ export async function OrderView({
     ? undefined
     : (members.find((m) => m.customerId === order.customerId)?.name ?? order.customerEmail ?? "a former user");
   const ref = orderReference(order);
+  const invoice = invoiceAvailable(order, approval?.status);
   const isNew = isRecent(order.createdAt, 10 * 60 * 1000);
 
   return (
@@ -109,7 +109,25 @@ export async function OrderView({
             )}
           </p>
         </div>
-        {context.canOrder && mine && <ReorderButton orderId={order.id} prominent />}
+        {/* Documents as secondary buttons, the one action (Reorder) as the primary button last. Phones: the documents
+            side by side, Reorder full width below. */}
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <div className={invoice ? "" : "col-span-2"}>
+            <DownloadButton
+              href={`/account/orders/${order.id}/pdf/confirmation`}
+              label="Order confirmation"
+              shortLabel="Confirmation"
+              fileType="PDF"
+              block
+            />
+          </div>
+          {invoice && <DownloadButton href={`/account/orders/${order.id}/pdf/invoice`} label="Invoice" fileType="PDF" block />}
+          {context.canOrder && mine && (
+            <div className="col-span-2 [&_button]:w-full sm:[&_button]:w-auto">
+              <ReorderButton orderId={order.id} prominent />
+            </div>
+          )}
+        </div>
       </div>
 
       {approval && (

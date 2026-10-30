@@ -45,6 +45,8 @@ The demo shop, **Ironline Supply**, sells heavy machines and spare parts using t
 | **Request a quote** | Machines above a set value go into the cart "for quote". Buyers request a quote, negotiate, and order from the accepted quote. |
 | **Approval rules** | Orders above a threshold wait for an approver in the company. Approvers approve or reject with a reason, and the buyer is notified. |
 | **Order on invoice** | Business checkout with a purchase order (PO) number. |
+| **Order documents** | Download an order confirmation or invoice as PDF, and export order history (own or company-wide) as CSV. |
+| **Company-shared lists** | Buyers keep purchase lists for the whole company; what colleagues may see or change follows their role. |
 | **Company area** | Admins see the company profile, users, roles and permissions, company structure, approval rules and company-wide orders. What each person sees follows their role. |
 
 ### Consumers and guests (B2C)

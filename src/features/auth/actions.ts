@@ -78,6 +78,7 @@ async function signIn(email: string, password: string): Promise<Session | { erro
       email: me.email,
       name: me.firstName,
       issuedAt: Date.now(),
+      refreshToken: token.refreshToken,
     };
     await saveSession(session);
     await rememberDevice(me.email.toLowerCase());

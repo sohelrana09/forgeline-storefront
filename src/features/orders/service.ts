@@ -3,7 +3,9 @@ import type { Order } from "@commercetools/platform-sdk";
 import { customerApiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";
 import { signOutOnAuthError, type Session } from "@/features/auth/session";
-import type { PricingContext } from "@/features/business-units/types";
+import type { BuyerContext, PricingContext } from "@/features/business-units/types";
+import { getCompanyOrder } from "@/features/company/service";
+import { can } from "@/features/company/utils";
 import { UUID } from "@/features/orders/utils";
 
 // The buyer's own orders in the selected store, read with their token (someone else's id is simply not found).
@@ -21,6 +23,14 @@ export async function getMyOrder(session: Session, ctx: PricingContext, orderId:
       if ((err as { body?: { statusCode?: number } })?.body?.statusCode === 404) return undefined;
       throw err;
     });
+}
+
+// An order the signed-in customer may see in the selected unit: their own (read with their token, so someone else's id
+// is simply not found), or a colleague's for associates with ViewOthersOrders (checked live). Order page and documents.
+export async function getOrderForViewer(session: Session, ctx: BuyerContext, orderId: string): Promise<Order | undefined> {
+  const own = await getMyOrder(session, ctx, orderId);
+  const order = own ?? (can(ctx, "ViewOthersOrders") ? await getCompanyOrder(ctx, session.customerId, orderId) : undefined);
+  return order && (order.businessUnit?.key ?? "") === ctx.businessUnitKey ? order : undefined;
 }
 
 export async function listMyOrders(session: Session, ctx: PricingContext, limit = 5): Promise<Order[]> {
@@ -45,4 +55,4 @@ export async function pageMyOrders(session: Session, ctx: PricingContext, page: 
   return { orders: body.results, total: body.total ?? body.count };
 }
 
-export const orderReference = (order: Pick<Order, "orderNumber" | "id">) => order.orderNumber ?? order.id.slice(0, 8).toUpperCase();
+export { orderReference } from "@/features/orders/utils";
