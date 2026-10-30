@@ -14,7 +14,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           # Node 24 ships npm 11, the npm that writes package-lock.json locally: npm 10 reads optional peer
