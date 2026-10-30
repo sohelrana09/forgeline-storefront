@@ -6,6 +6,7 @@ import type { PricingContext } from "@/features/business-units/types";
 import type { QuickOrderLine } from "@/features/quick-order/types";
 import { signOutOnAuthError } from "@/features/auth/session";
 import { isQuoteOnly } from "@/features/catalog/utils";
+import { str } from "@/lib/predicate";
 
 // The token for "my carts": a signed-in buyer's session or a guest's anonymous token.
 export type CartAuth = { accessToken: string };
@@ -71,8 +72,41 @@ const myCarts = (session: CartAuth, context: PricingContext) =>
 const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 
 // One read per page render (React cache): the header and the cart or checkout page share it.
+// A signed-in customer (their session carries a customer id) whose cart cookie is missing or stale, say on a new
+// device, gets their latest open cart in the selected unit, instead of a new cart that would orphan the old one.
+// Guests only ever have the cart in their own cookie.
 export const getActiveCart = cache(async (session: CartAuth, cartId: string | undefined, context: PricingContext) => {
-  if (!cartId) return undefined;
+  const cart = cartId ? await cartById(session, cartId, context) : undefined;
+  if (cart || !("customerId" in session)) return cart;
+  return latestCart(session, context);
+});
+
+// Among the latest 5: a cart that became a quote request stays Active in commercetools, so those are skipped (checked
+// against the customer's own quote requests; if that check fails, the customer simply starts a new cart).
+async function latestCart(session: CartAuth, context: PricingContext): Promise<Cart | undefined> {
+  const unit = context.businessUnitKey ? `businessUnit(key=${str(context.businessUnitKey)})` : "businessUnit is not defined";
+  const { body } = await myCarts(session, context)
+    .get({ queryArgs: { where: `cartState="Active" and ${unit}`, sort: ["lastModifiedAt desc"], limit: 5 } })
+    .execute()
+    .catch(signOutOnAuthError);
+  if (body.results.length === 0) return undefined;
+  const quoted = await customerApiRoot(session.accessToken)
+    .me()
+    .quoteRequests()
+    .get({ queryArgs: { where: `cart(id in (${body.results.map((c) => str(c.id)).join(", ")}))`, limit: 5 } })
+    .execute()
+    .then((r) => new Set(r.body.results.flatMap((q) => (q.cart ? [q.cart.id] : []))))
+    .catch((err) => {
+      console.error("quoted carts check failed", (err as { body?: unknown })?.body ?? err);
+      return undefined;
+    });
+  if (!quoted) return undefined;
+  // Prefer the latest cart with products: an emptied cart shouldn't hide an older one that still has some.
+  const open = body.results.filter((c) => !quoted.has(c.id));
+  return open.find((c) => c.lineItems.length > 0) ?? open[0];
+}
+
+async function cartById(session: CartAuth, cartId: string, context: PricingContext): Promise<Cart | undefined> {
   const cart = await myCarts(session, context)
     .withId({ ID: cartId })
     .get()
@@ -87,7 +121,7 @@ export const getActiveCart = cache(async (session: CartAuth, cartId: string | un
   // A cart only counts if it is still open and belongs to the currently selected business unit
   // (the guest context has the empty key, and guest carts have no business unit).
   return cart?.cartState === "Active" && (cart.businessUnit?.key ?? "") === context.businessUnitKey ? cart : undefined;
-});
+}
 
 const lineDraft = (context: PricingContext, { sku, quantity }: QuickOrderLine) => ({
   sku,
