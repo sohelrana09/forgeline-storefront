@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getImageProps } from "next/image";
-import { isMediaUrl, safeHref, validBanners } from "@/features/cms/utils";
+import { isBannerImage, safeHref, validBanners } from "@/features/cms/utils";
 import type { CmsBlock } from "@/features/cms/types";
 import { Carousel } from "@/components/ui/Carousel";
 
@@ -25,7 +25,9 @@ function HeroBanner({ banner, first }: { banner: CmsBlock; first: boolean }) {
   // getImageProps ignores `priority`: the first banner asks for high fetch priority itself, the rest load lazily.
   const common = { alt: banner.imageAlt ?? "", fill: true, sizes: "(min-width: 1280px) 1216px, 100vw" } as const;
   const { props: desktop } = getImageProps({ ...common, src: banner.image! });
-  const mobile = isMediaUrl(banner.mobileImage) ? getImageProps({ ...common, src: banner.mobileImage, sizes: "100vw" }).props : undefined;
+  const mobile = isBannerImage(banner.mobileImage)
+    ? getImageProps({ ...common, src: banner.mobileImage, sizes: "100vw" }).props
+    : undefined;
   const primary = banner.cta && safeHref(banner.cta.href);
   const secondary = banner.secondaryCta && safeHref(banner.secondaryCta.href);
   const Heading = first ? "h1" : "h2";

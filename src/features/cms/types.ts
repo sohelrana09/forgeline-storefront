@@ -1,14 +1,6 @@
 import type { PortableTextBlock } from "next-sanity";
 
-// Content model for CMS blocks and pages (no API calls: also used by the sync script).
-
-export const BLOCK_CONTAINER = "cms-block";
-export const PAGE_CONTAINER = "cms-page";
-
-// CMS images live on the commercetools CDN as images of one hidden, never-published product (scripts/media-library.ts).
-export const MEDIA_PRODUCT_TYPE_KEY = "cms-media";
-export const MEDIA_PRODUCT_KEY = "cms-media-library";
-export const MEDIA_SKU = "cms-media-library";
+// Content model for CMS blocks and pages (Sanity documents, mapped in service.ts; no API calls).
 
 // Where a block can appear. Add a placement here and render <CmsBlocks placement="…"> where it should show.
 export const PLACEMENTS = [
@@ -21,6 +13,16 @@ export const PLACEMENTS = [
   "cart.sidebar",
 ] as const;
 export type Placement = (typeof PLACEMENTS)[number];
+
+export const PLACEMENT_LABELS: Record<Placement, string> = {
+  "home.hero": "Homepage: main banner",
+  "home.top": "Homepage: top",
+  "home.featured": "Homepage: featured",
+  "plp.top": "Category page: top",
+  "pdp.below-add-to-cart": "Product page: below Add to cart",
+  "pdp.bottom": "Product page: bottom",
+  "cart.sidebar": "Cart: sidebar",
+};
 
 export type CmsBlock = {
   identifier: string;
@@ -36,9 +38,10 @@ export type CmsBlock = {
   // (60 s content memo + 5 min page cache); signed-in pages within a minute.
   startsAt?: string;
   endsAt?: string;
-  // Markdown content, a list of SKUs (a "products" block), or a banner
-  // (homepage hero: picture, headline, text in `content`, up to two buttons).
-  type: "markdown" | "products" | "banner";
+  // Rich text (`body`), a list of SKUs (a "products" block), or a banner (homepage hero: picture, headline, text in
+  // `content`, up to two buttons).
+  type: "text" | "products" | "banner";
+  body?: PortableTextBlock[];
   content?: string;
   skus?: string[];
   cta?: { label: string; href: string };

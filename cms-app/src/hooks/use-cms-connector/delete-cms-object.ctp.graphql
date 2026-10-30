@@ -1,5 +1,0 @@
-mutation DeleteCmsObject($id: String!, $version: Long!) {
-  deleteCustomObject(id: $id, version: $version) {
-    id
-  }
-}

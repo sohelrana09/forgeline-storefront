@@ -1,8 +1,0 @@
-query FetchMediaUsage {
-  blocks: customObjects(container: "cms-block", limit: 500) {
-    results {
-      key
-      value
-    }
-  }
-}

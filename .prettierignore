@@ -5,9 +5,5 @@ package-lock.json
 next-env.d.ts
 test-results/
 playwright-report/
-# The Content app is its own package with its own Prettier config (single quotes)
-cms-app/
-# Content JSON is written by the Content app too; keep both writers' format identical
-content/
 # Prose: keep tables and line breaks as written
 *.md

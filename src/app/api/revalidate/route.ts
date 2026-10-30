@@ -1,16 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { siteUrl } from "@/lib/site-url";
-import { hasRevalidateSecret, merchantCenterUser } from "@/lib/revalidate-auth";
+import { hasRevalidateSecret } from "@/lib/revalidate-auth";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { forgetCatalogCache } from "@/features/catalog/service";
-import { forgetContentCache } from "@/features/cms/service";
 import { forgetUrlIndex } from "@/features/urls/service";
 import { forgetSanityCache } from "@/lib/sanity/client";
 
 // Refreshes the cached guest pages (src/app/(cached)/g) after content or catalog changes made outside the app:
-// `npm run ct:content`, the Merchant Center Content app, Sanity's publish webhook (pages and blog; send
-// { "scope": "content" }) and commercetools Subscriptions for prices and products.
+// Sanity's publish webhook (pages, blocks and blog; sends { "scope": "content" }) and commercetools Subscriptions for
+// prices, products and Custom Objects (merchants' redirects). Authorized by `Authorization: Bearer <REVALIDATE_SECRET>`.
 //
 // Body (all optional): { "scope": "content" | "catalog" | "all" }, or a commercetools message as delivered by a
 // Subscription (directly, wrapped in EventBridge's { detail }, or in a Pub/Sub push { message: { data } }).
@@ -25,11 +23,7 @@ const COALESCE_MS = 10 * 1000;
 let lastPurge = 0;
 
 export async function POST(request: NextRequest) {
-  const authorization = request.headers.get("authorization");
-  const caller = hasRevalidateSecret(authorization)
-    ? "secret"
-    : await merchantCenterUser(authorization, `${siteUrl()}/api/revalidate`).then((user) => user && `mc:${user}`);
-  if (!caller) {
+  if (!hasRevalidateSecret(request.headers.get("authorization"))) {
     // Throttle guessing; authorized callers aren't counted.
     if (await tooManyAttempts(`revalidate:${await clientIp()}`, 20))
       return NextResponse.json({ error: "too many attempts" }, { status: 429 });
@@ -39,16 +33,13 @@ export async function POST(request: NextRequest) {
   const scope = scopeOf(await request.json().catch(() => undefined));
   if (Date.now() - lastPurge < COALESCE_MS) return NextResponse.json({ revalidated: false, scope, reason: "coalesced" });
   lastPurge = Date.now();
-  if (scope !== "catalog") {
-    forgetContentCache();
-    forgetSanityCache();
-  }
+  if (scope !== "catalog") forgetSanityCache();
   if (scope !== "content") forgetCatalogCache();
   // Products, categories and content pages are all in the URL index (new, renamed or removed URLs).
   forgetUrlIndex();
   // Content blocks appear on the home and category pages, and prices on every catalog page: purge all of them.
   revalidatePath("/(cached)/g", "layout");
-  console.info("revalidated cached guest pages", { scope, caller });
+  console.info("revalidated cached guest pages", { scope });
   return NextResponse.json({ revalidated: true, scope });
 }
 

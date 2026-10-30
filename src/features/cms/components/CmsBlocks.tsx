@@ -6,7 +6,7 @@ import type { CmsBlock, Placement } from "@/features/cms/types";
 import { getProductsBySkus } from "@/features/catalog/service";
 import type { BuyerContext } from "@/features/business-units/types";
 import { taxNote } from "@/features/catalog/utils";
-import { Markdown } from "@/components/ui/Markdown";
+import { RichText } from "@/features/cms/components/RichText";
 import { Carousel } from "@/components/ui/Carousel";
 import { ProductCard } from "@/features/catalog/components/ProductCard";
 
@@ -52,7 +52,7 @@ async function CmsBlocksContent({ placement, context, categorySlugs, className =
             data-cms-block={block.identifier}
             className={`rounded-md p-4 text-sm ${STYLES[block.style ?? "plain"]}`}
           >
-            <Markdown>{typeof block.content === "string" ? block.content : ""}</Markdown>
+            <RichText value={block.body} context={context} />
             {block.cta && safeHref(block.cta.href) && (
               <Link href={safeHref(block.cta.href)!} className="mt-2 inline-block font-semibold text-orange-800">
                 {block.cta.label}

@@ -7,11 +7,6 @@ import type { PricingContext } from "@/features/business-units/types";
 import { allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
 import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
 import { productSearchEnabled, productSearchRequest } from "@/features/catalog/product-search";
-import { MEDIA_PRODUCT_KEY } from "@/features/cms/types";
-
-// The CMS media library is a product too (never published). If someone publishes it by mistake, it still never
-// becomes a shop page, a search hit or a sitemap entry.
-const isMediaLibrary = (p: ProductProjection) => p.key === MEDIA_PRODUCT_KEY;
 
 // Catalog reads with the admin client, price-selected for the buyer's store/channel/country.
 
@@ -129,7 +124,7 @@ export const getProductBySlug = cache(async (ctx: PricingContext, slug: string):
     .productProjections()
     .get({ queryArgs: { where: `slug(${LOCALE}="${slug}")`, limit: 1, ...priceSelection(ctx) } })
     .execute();
-  return body.results[0] && !isMediaLibrary(body.results[0]) ? body.results[0] : undefined;
+  return body.results[0];
 });
 
 // For CMS "products" blocks: SKUs come from content files, so only allow SKU characters in the predicate.
@@ -214,7 +209,6 @@ const searchMemo = staleWhileRevalidate<SearchEntry[]>(TTL_MS);
 // A product as a search hit: the master variant's price, or the lowest as "from" when variants differ. Products
 // without a price in the context are left out, so a hit always has a card to show.
 function toSearchEntry(p: ProductProjection, tree: CategoryTree): SearchEntry | undefined {
-  if (isMediaLibrary(p)) return undefined;
   const variants = allVariants(p);
   const prices = variants.flatMap((v) => (v.price ? [v.price.discounted?.value ?? v.price.value] : []));
   const priced = p.masterVariant.price ? p.masterVariant : variants.find((v) => v.price);
@@ -333,7 +327,7 @@ export async function allProductSlugs(guest: PricingContext): Promise<{ slug: st
       .productProjections()
       .get({ queryArgs: { limit: 500, offset, withTotal: false, sort: ["id asc"], ...priceSelection(guest) } })
       .execute();
-    out.push(...body.results.filter((p) => !isMediaLibrary(p)).map((p) => ({ slug: localize(p.slug), lastModified: p.lastModifiedAt })));
+    out.push(...body.results.map((p) => ({ slug: localize(p.slug), lastModified: p.lastModifiedAt })));
     if (body.results.length < 500) return out;
   }
 }

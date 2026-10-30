@@ -41,7 +41,7 @@ export async function HomeView({ session, context }: { session?: Session; contex
       {validBanners(banners).length > 0 ? (
         <HeroBanners banners={banners} />
       ) : (
-        // Default hero until merchants publish a banner in the Content app.
+        // Default hero until a banner block is published in the Studio.
         <section className="flex flex-wrap items-end justify-between gap-6 rounded-md bg-gray-900 p-8 text-gray-50">
           <div className="flex max-w-2xl flex-col gap-3">
             <p className="m-0 text-sm uppercase tracking-widest text-orange-400">

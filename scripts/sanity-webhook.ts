@@ -1,5 +1,5 @@
 // Prints a link that opens Sanity's "create webhook" form, filled in for this storefront: every publish, change or
-// delete of a page, post, author or blog category calls POST <SITE_URL>/api/revalidate with { "scope": "content" },
+// delete of a page, block, post, author or blog category calls POST <SITE_URL>/api/revalidate with { "scope": "content" },
 // so guests see the change at once instead of within a minute.
 //   npm run ct:sanity-webhook                       for SITE_URL
 //   npm run ct:sanity-webhook -- --site https://…   another deployment
@@ -14,7 +14,7 @@ const flag = (name: string) => {
 };
 
 // The document types the storefront reads (src/studio/schemaTypes/documents.ts).
-const TYPES = ["page", "post", "author", "blogCategory"];
+const TYPES = ["page", "cmsBlock", "post", "author", "blogCategory"];
 
 async function main() {
   if (!sanityConfigured) throw new Error("Set NEXT_SANITY_PROJECT_ID first.");

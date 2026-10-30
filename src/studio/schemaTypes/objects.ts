@@ -171,3 +171,20 @@ export const blockContent = defineType({
     defineArrayMember({ type: "productCards" }),
   ],
 });
+
+export const ctaLink = defineType({
+  name: "ctaLink",
+  title: "Button",
+  type: "object",
+  icon: LinkIcon,
+  fields: [
+    defineField({ name: "label", title: "Label", type: "string", validation: (r) => r.required().max(60) }),
+    defineField({
+      name: "href",
+      title: "Link",
+      type: "string",
+      description: "A path on this site such as /spare-parts, or an https:// address.",
+      validation: (r) => r.required().custom((v?: string) => (!v || /^(\/(?!\/)|https:)/.test(v) ? true : 'Start with "/" or "https:"')),
+    }),
+  ],
+});

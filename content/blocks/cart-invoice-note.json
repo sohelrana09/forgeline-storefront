@@ -1,8 +1,0 @@
-{
-  "title": "Invoice note",
-  "active": true,
-  "placement": "cart.sidebar",
-  "style": "info",
-  "type": "markdown",
-  "content": "Orders are **invoiced to your company**. You can add your purchase order number at checkout."
-}

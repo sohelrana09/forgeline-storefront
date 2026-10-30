@@ -1,9 +1,0 @@
-mutation SaveCmsObject($draft: CustomObjectDraft!) {
-  createOrUpdateCustomObject(draft: $draft) {
-    id
-    key
-    version
-    value
-    lastModifiedAt
-  }
-}

@@ -1,33 +1,51 @@
-// Content (CMS pages and static blocks). Blocks are commercetools Custom Objects; pages are Sanity documents
-// (type "page"), so without Sanity configured there are no pages (like the blog):
-//   container "cms-block", key = identifier  → CmsBlock
+// Content: pages ("page") and blocks ("cmsBlock") are Sanity documents; without Sanity configured there are none.
 // Pages and components only use the functions below, so swapping the backend for a headless CMS
 // (Contentful, Storyblok, …) means rewriting this file, nothing else.
 import "server-only";
-import { apiRoot } from "@/lib/commercetools/client";
-import { staleWhileRevalidate } from "@/lib/memo";
 import { sanityFetch } from "@/lib/sanity/client";
+import { stegaClean } from "next-sanity";
 import { sanityConfigured } from "@/lib/sanity/env";
 
-import { BLOCK_CONTAINER, type BlockQuery, type CmsBlock, type CmsPage } from "@/features/cms/types";
+import type { BlockQuery, CmsBlock, CmsPage } from "@/features/cms/types";
 import { isLive } from "@/features/cms/utils";
 
-// Content changes far less often than it's read: refresh it at most every 60 seconds, in the background.
-const memo = staleWhileRevalidate<unknown>(60 * 1000);
-const cached = <T>(key: string, load: () => Promise<T>) => memo(key, load) as Promise<T>;
+// In the Studio's preview, strings carry invisible edit markers: values used for filtering, links and pictures are
+// cleaned; visible text keeps them for click-to-edit.
+const BLOCK_FIELDS = `"identifier": identifier.current, title, "active": coalesce(active, true), placement, sortOrder, style,
+  stores, categories, startsAt, endsAt, "type": select(kind == "products" => "products", kind == "banner" => "banner", "text"),
+  body, "skus": products[].sku, cta{label, href}, secondaryCta{label, href}, headline, "content": text,
+  "image": image.asset->url, "imageAlt": image.alt, "mobileImage": mobileImage.asset->url, theme`;
 
-// After content was saved elsewhere (ct:content, the Merchant Center app): the next read loads it fresh.
-export const forgetContentCache = () => memo.clear();
+// GROQ answers null for empty fields; the block code (and isLive's schedule) expects them left out.
+const withoutNulls = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as T;
 
-const allBlocks = () =>
-  cached(BLOCK_CONTAINER, async () => {
-    const { body } = await apiRoot
-      .customObjects()
-      .withContainer({ container: BLOCK_CONTAINER })
-      .get({ queryArgs: { limit: 500 } })
-      .execute();
-    return body.results.map((o) => ({ ...(o.value as CmsBlock), identifier: o.key }));
-  });
+const cleanBlock = (raw: CmsBlock): CmsBlock => {
+  const b = withoutNulls(raw);
+  return {
+    ...b,
+    ...stegaClean({
+      identifier: b.identifier,
+      placement: b.placement,
+      style: b.style,
+      stores: b.stores,
+      categories: b.categories,
+      startsAt: b.startsAt,
+      endsAt: b.endsAt,
+      type: b.type,
+      skus: b.skus,
+      image: b.image,
+      mobileImage: b.mobileImage,
+      theme: b.theme,
+    }),
+    cta: b.cta && { ...b.cta, href: stegaClean(b.cta.href) },
+    secondaryCta: b.secondaryCta && { ...b.secondaryCta, href: stegaClean(b.secondaryCta.href) },
+  };
+};
+
+const allBlocks = (): Promise<CmsBlock[]> =>
+  sanityConfigured
+    ? sanityFetch<CmsBlock[]>(`*[_type == "cmsBlock" && defined(identifier.current)]{${BLOCK_FIELDS}}`).then((all) => all.map(cleanBlock))
+    : Promise.resolve([]);
 
 export async function getBlocks({ placement, storeKey, categorySlugs = [] }: BlockQuery): Promise<CmsBlock[]> {
   const blocks = await allBlocks();

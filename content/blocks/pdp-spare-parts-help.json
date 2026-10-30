@@ -1,9 +1,0 @@
-{
-  "title": "Ordering many parts?",
-  "active": true,
-  "placement": "pdp.bottom",
-  "style": "info",
-  "categories": ["spare_parts"],
-  "type": "markdown",
-  "content": "### Ordering many parts?\nPaste part numbers and quantities on the [Quick order](/quick-order) page and add them all at once."
-}

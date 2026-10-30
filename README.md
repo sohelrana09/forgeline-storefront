@@ -68,11 +68,9 @@ Everything runs on commercetools. There is no second admin to learn.
 |---|---|
 | Products, prices, stock, categories | **Merchant Center** (catalog, standalone prices, inventory). Changes show up on the storefront automatically. |
 | Companies, buyers and their roles | **Merchant Center → Customers → Business units** and **Associate roles**. |
-| Homepage banners, info blocks, featured products, static pages (delivery, terms, about) | The **Content** app inside Merchant Center (included in `cms-app/`), with image uploads and a Markdown editor. Content can be scheduled with start and end dates. |
+| Homepage banners, info blocks, featured products, static pages (delivery, terms, about), the blog | The **Sanity Studio**, built into the storefront at `/studio`, with image uploads, rich text, live product cards and a preview. Blocks can be limited to stores and categories and scheduled with start and end dates. |
 | Quotes | Merchant Center **Quotes**: answer requests, set prices and validity. |
 | Orders and approvals | Merchant Center **Orders**. Approval rules can also be managed by company admins in the storefront. |
-
-The Content app runs on **commercetools Connect** (see `connect.yaml`), so you don't need extra hosting for it.
 
 ## Screenshots
 
@@ -109,7 +107,7 @@ Key design choices:
 
 ## Quick start
 
-**You need:** Node.js 22 (the Content app pins it in `cms-app/.nvmrc`) and a commercetools project (a free trial works). Load the **B2B sample data** for the demo.
+**You need:** Node.js 22 and a commercetools project (a free trial works). Load the **B2B sample data** for the demo.
 
 1. **Clone and install**
 
@@ -135,10 +133,6 @@ Key design choices:
 
    ```bash
    npm run ct:hello
-   ```
-
-   ```bash
-   npm run ct:content
    ```
 
    To sign in as the sample buyers, create a git-ignored `.env.demo` file with `DEMO_BUYER_PASSWORD=<a password of your choice>`, then run `npm run ct:seed-buyers`. Optionally run `npm run ct:seed-associates` and `npm run ct:seed-approval-rules` too.
@@ -183,13 +177,12 @@ Store prices: the sample stores have no countries set, so the mapping from store
 | `npm run ct:hello` | Smoke test: credentials, project, first products and business units. |
 | `npm run ct:contexts` | Prints each business unit's store, channel and currency. |
 | `npm run -s ct:query -- <path> [where] [limit]` | Read-only API query, handy with `jq`. |
-| `npm run ct:content` | Publishes `content/blocks` and `content/pages` to commercetools. |
-| `npm run ct:media-library` | Image library for content on the commercetools CDN. |
+| `npm run ct:sanity-content` | Demo blog in Sanity (pages and blocks are edited at `/studio`). |
+| `npm run ct:sanity-webhook` | Link to create the Sanity webhook that refreshes cached pages on publish. |
 | `npm run ct:seed-buyers` / `ct:seed-associates` | Demo passwords for the sample buyers, admins and approvers. |
 | `npm run ct:seed-approval-rules` | Demo approval rule: orders over €10,000 need approval. |
 | `npm run ct:quote-respond -- <requestId> --discount 10` | Acts as the seller and publishes a quote, for testing. |
 | `npm run ct:create-bu -- <key> <email>` | Creates a company business unit with a buyer. |
-| `npm run ct:connect-content-app` | Deploys the Content app on commercetools Connect. |
 | `npm run ct:catalog-subscription` | Catalog changes trigger a cache refresh. |
 
 All scripts are idempotent, so running them twice changes nothing the second time.
@@ -205,8 +198,7 @@ src/features/<x>/  one folder per business area: catalog, cart, checkout, orders
     service.ts     commercetools calls and business logic
 src/components/    shared UI: header, footer, buttons, list toolbars
 src/lib/           infrastructure: commercetools clients, caching, rate limits, mailer
-cms-app/           the Merchant Center "Content" custom application
-content/           content as JSON (blocks and pages), published with ct:content
+src/studio/        the Sanity Studio (pages, blocks, blog), embedded at /studio
 scripts/           setup, seed and maintenance scripts
 docs/images/       screenshots
 ```

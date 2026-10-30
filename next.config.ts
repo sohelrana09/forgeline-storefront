@@ -26,7 +26,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Images go through the optimizer only from these exact hosts (a wildcard would make it an open image proxy):
-  // the sample data's bucket, and the commercetools CDN folder that holds uploaded CMS images (MEDIA_SOURCES in src/lib/media.ts).
+  // the sample data's bucket, this project's commercetools CDN folder (product images uploaded in Merchant Center) and
+  // this project's Sanity folder.
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "storage.googleapis.com", pathname: "/merchant-center-europe/**" },
@@ -36,7 +37,7 @@ const nextConfig: NextConfig = {
         hostname: "images.us-east-2.aws.commercetools.com",
         pathname: "/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/**",
       },
-      // Sanity's image CDN, this project's folder only (pages and blog pictures).
+      // Sanity's image CDN, this project's folder only (pages, blocks and blog pictures).
       ...(sanityProjectId ? [{ protocol: "https" as const, hostname: "cdn.sanity.io", pathname: `/images/${sanityProjectId}/**` }] : []),
     ],
   },
