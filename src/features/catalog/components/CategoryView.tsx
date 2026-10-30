@@ -1,5 +1,9 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { getAllProductsInCategories, getCategoryTree } from "@/features/catalog/service";
+import type { Category } from "@commercetools/platform-sdk";
+import { getAllProductsInCategories, getCategoryTree, type CategoryTree } from "@/features/catalog/service";
+import { requireBrowseContext } from "@/features/business-units/context";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { categoryHref, localize, taxNote } from "@/features/catalog/utils";
 import {
   catalogHref,
@@ -22,17 +26,51 @@ import { siteUrl } from "@/lib/site-url";
 import { ProductCard } from "@/features/catalog/components/ProductCard";
 import { CatalogNav, CatalogResults, NavLink, PriceSlider, ShopByPanel, SortToolbar } from "@/features/catalog/components/LayeredNav";
 import { CmsBlocks } from "@/features/cms/components/CmsBlocks";
-import type { BuyerContext } from "@/features/business-units/types";
 
 export type CategoryQuery = Record<string, string | string[] | undefined>;
 
-// Category page (product list): layered navigation on the left ("Shop By", "Now Shopping by"), the
-// toolbar (sort, direction, page size) and the products on the right. All state is in the URL (layered.ts).
-export async function CategoryView({ context, slug, query }: { context: BuyerContext; slug: string; query: CategoryQuery }) {
+// Category page (product list). The shell holds what is the same for every visitor: breadcrumbs, the heading and the
+// breadcrumb JSON-LD; an unknown category answers a real 404 here. The products, filters and counts depend on the
+// visitor's store and prices (and the URL's filters), so the listing streams in behind <Suspense>.
+export async function CategoryView({ slug, query }: { slug: string; query: Promise<CategoryQuery> }) {
   const tree = await getCategoryTree();
   const category = tree.bySlug(slug);
   if (!category) notFound();
+  const trail = [...tree.ancestors(category), category];
 
+  return (
+    <div className="flex flex-col gap-6">
+      <JsonLd
+        data={breadcrumbJsonLd(
+          trail.map((c, i) => ({ name: localize(c.name), url: `${siteUrl()}${categoryHref(trail.slice(0, i + 1))}` })),
+        )}
+      />
+      <Breadcrumbs
+        items={[
+          ...tree.ancestors(category).map((a, i, all) => ({ label: localize(a.name), href: categoryHref(all.slice(0, i + 1)) })),
+          { label: localize(category.name) },
+        ]}
+      />
+      <h1 className="m-0 text-2xl font-bold">{localize(category.name)}</h1>
+      <Suspense fallback={<PageSkeleton />}>
+        <CategoryListing category={category} tree={tree} query={query} />
+      </Suspense>
+    </div>
+  );
+}
+
+// The CMS block on top, layered navigation on the left ("Shop By", "Now Shopping by"), the toolbar (sort, direction,
+// page size) and the products on the right, for this visitor. All state is in the URL (layered.ts).
+async function CategoryListing({
+  category,
+  tree,
+  query: queryPromise,
+}: {
+  category: Category;
+  tree: CategoryTree;
+  query: Promise<CategoryQuery>;
+}) {
+  const [query, { context }] = await Promise.all([queryPromise, requireBrowseContext()]);
   const filters = parseFilters(query);
   const sort = parseSort(query.sort);
   const limit = parseLimit(query.limit);
@@ -57,6 +95,7 @@ export async function CategoryView({ context, slug, query }: { context: BuyerCon
   const href = (change: Parameters<typeof catalogHref>[2]) => catalogHref(basePath, state, change);
   const without = (key: string): Filters => Object.fromEntries(Object.entries(filters).filter(([k]) => k !== key));
   const trail = [...tree.ancestors(category), category];
+  const note = taxNote(context.country);
 
   // Sort By: one entry per field (keeping the direction when it's the current field) and the arrow for the other one.
   const current = SORTS[sort];
@@ -103,20 +142,7 @@ export async function CategoryView({ context, slug, query }: { context: BuyerCon
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <JsonLd
-        data={breadcrumbJsonLd(
-          trail.map((c, i) => ({ name: localize(c.name), url: `${siteUrl()}${categoryHref(trail.slice(0, i + 1))}` })),
-        )}
-      />
-      <Breadcrumbs
-        items={[
-          ...tree.ancestors(category).map((a, i, all) => ({ label: localize(a.name), href: categoryHref(all.slice(0, i + 1)) })),
-          { label: localize(category.name) },
-        ]}
-      />
-      <h1 className="m-0 text-2xl font-bold">{localize(category.name)}</h1>
-
+    <>
       <CmsBlocks placement="plp.top" context={context} categorySlugs={trail.map((c) => localize(c.slug))} />
 
       <CatalogNav>
@@ -212,13 +238,7 @@ export async function CategoryView({ context, slug, query }: { context: BuyerCon
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
                   {shown.map((p) => (
-                    <ProductCard
-                      key={p.id}
-                      product={p}
-                      canOrder={context.canOrder}
-                      canQuote={!context.consumer}
-                      note={taxNote(context.country)}
-                    />
+                    <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={note} />
                   ))}
                 </div>
               )}
@@ -228,6 +248,6 @@ export async function CategoryView({ context, slug, query }: { context: BuyerCon
           </div>
         </div>
       </CatalogNav>
-    </div>
+    </>
   );
 }

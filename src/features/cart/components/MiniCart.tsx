@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { MiniCartBadge } from "@/components/layouts/MiniCartBadge";
 import { checkMessages } from "@/components/ui/PageMessages";
-import { updateCartLine } from "@/features/cart/actions";
+import { rememberCart, updateCartLine } from "@/features/cart/actions";
 import { CART_CHANGED, EMPTY_MINICART, type MiniCartLine, type MiniCartSummary } from "@/features/cart/minicart";
 
 const MAX_QUANTITY = 9999;
@@ -20,8 +20,9 @@ const stepButton =
 // Without JavaScript the cart icon is a plain link to /cart.
 // `initial` is built from the visitor's cart on the server (SiteChrome, streamed in on prerendered pages).
 // Anything that changes the cart fires CART_CHANGED (AddToCartForm, the lines below), which reloads the summary from
-// /api/cart-summary.
-export function MiniCart({ initial = EMPTY_MINICART }: { initial?: MiniCartSummary }) {
+// /api/cart-summary. `remember`: the server found the signed-in buyer's cart without its cookie (a new device), so the
+// cookie is saved once (rememberCart), and later pages skip that lookup.
+export function MiniCart({ initial = EMPTY_MINICART, remember = false }: { initial?: MiniCartSummary; remember?: boolean }) {
   const [summary, setSummary] = useState(initial);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -36,6 +37,10 @@ export function MiniCart({ initial = EMPTY_MINICART }: { initial?: MiniCartSumma
     setLastInitial(initial);
     setSummary(initial);
   }
+
+  useEffect(() => {
+    if (remember) rememberCart().catch(() => {});
+  }, [remember]);
 
   const load = useCallback(() => {
     fetch("/api/cart-summary", { cache: "no-store" })

@@ -1,12 +1,14 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { cookies } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { getActiveCart, setLineQuantity } from "@/features/cart/service";
 import { localize } from "@/features/catalog/utils";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { addParsedLines } from "@/features/quick-order/service";
 import { flash } from "@/lib/flash";
+import { cartCookie, cookieOptions } from "@/features/auth/session";
 
 // Public endpoint: one "Add to cart" button (single SKU line).
 export async function addSku(formData: FormData) {
@@ -23,6 +25,16 @@ export async function addSku(formData: FormData) {
     );
   }
   for (const error of result.errors) await flash("error", `${error.reason}.`.replace(/\.\.$/, "."));
+}
+
+// Public endpoint: a signed-in buyer on a new device has no cart cookie (or a stale one), so every page looked up their
+// latest open cart again (getActiveCart; Server Components can't set cookies). The minicart calls this once to save
+// it. Takes no argument: it repeats that lookup with the buyer's own token and saves only what it finds.
+export async function rememberCart() {
+  const { session, auth, context, cartId } = await requireBrowseContext();
+  if (!session || !auth) return;
+  const cart = await getActiveCart(auth, cartId, context);
+  if (cart && cart.id !== cartId) (await cookies()).set(cartCookie(context.businessUnitKey), cart.id, cookieOptions);
 }
 
 // Public endpoint: only ever touches the caller's own open cart (the buyer's for the selected unit, or the guest's).

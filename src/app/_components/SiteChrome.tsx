@@ -94,9 +94,10 @@ async function VisitorAccount({ lenient }: { lenient: boolean }) {
 }
 
 async function VisitorCart({ lenient }: { lenient: boolean }) {
-  const { auth, cartId, context } = await visitor(lenient);
+  const { session, auth, cartId, context } = await visitor(lenient);
   const cart = auth ? await getActiveCart(auth, cartId, context) : undefined;
-  return <MiniCart initial={toMiniCart(cart, context.canOrder)} />;
+  // A signed-in buyer's cart found without its cookie (or with a stale one): the minicart saves the cookie once.
+  return <MiniCart initial={toMiniCart(cart, context.canOrder)} remember={Boolean(session && cart && cart.id !== cartId)} />;
 }
 
 // Page messages; the cookie value tells the bar when a form action left a new one.

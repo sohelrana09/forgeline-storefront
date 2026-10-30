@@ -4,7 +4,7 @@ import { apiRoot, asAssociate, customerApiRoot } from "@/lib/commercetools/clien
 import { localize } from "@/features/catalog/utils";
 import { signOutOnAuthError, type Session } from "@/features/auth/session";
 import { permissionsNow } from "@/features/business-units/service";
-import type { PricingContext } from "@/features/business-units/types";
+import type { BuyerContext, PricingContext } from "@/features/business-units/types";
 import { UUID } from "@/features/orders/utils";
 import {
   MAX_QUANTITY,
@@ -210,26 +210,25 @@ export async function pageLists(session: Session, ctx: PricingContext, page: num
 }
 
 // Names and picker values, for "Add to purchase list" (newest first): the personal lists, then the company lists the
-// associate may change (their value carries the scope, see listRef).
-export async function listNames(session: Session, ctx: PricingContext): Promise<{ id: string; name: string }[]> {
+// associate may change (their value carries the scope, see listRef). Display only, so it trusts the unit's
+// permissions in the buying context (memoized, up to 5 minutes old) and reads both kinds of list at once; adding to a
+// list checks the permissions live (access), and commercetools enforces them on the as-associate endpoint too.
+export async function listNames(session: Session, ctx: BuyerContext): Promise<{ id: string; name: string }[]> {
+  const held = new Set(ctx.permissions);
   const mine = myLists(session, ctx);
-  // The personal lists don't depend on company permissions: read both at once.
-  const [own, allowed] = await Promise.all([
+  const company = ctx.businessUnitKey && canSeeCompanyLists(held) ? companyLists(session, ctx) : undefined;
+  const [own, shared] = await Promise.all([
     mine.query({ sort: ["lastModifiedAt desc"], limit: MAX_LISTS }).catch(mine.fail),
-    companyListsAllowed(session, ctx),
+    // Best effort: the picker still offers the personal lists if the company ones can't be read.
+    company?.query({ sort: ["lastModifiedAt desc"], limit: MAX_LISTS }).catch((err) => {
+      console.error("company lists failed", (err as { body?: unknown })?.body ?? err);
+      return undefined;
+    }),
   ]);
-  const options = own.results.map((l) => ({ id: listRef("mine", l.id), name: localize(l.name) }));
-  if (!allowed.view) return options;
-  // Best effort: the picker still offers the personal lists if the company ones can't be read.
-  const a = await access(session, ctx, "company");
-  const shared = await a.api.query({ sort: ["lastModifiedAt desc"], limit: MAX_LISTS }).catch((err) => {
-    console.error("company lists failed", (err as { body?: unknown })?.body ?? err);
-    return undefined;
-  });
   return [
-    ...options,
+    ...own.results.map((l) => ({ id: listRef("mine", l.id), name: localize(l.name) })),
     ...(shared?.results ?? [])
-      .filter((l) => rightsFor(a, l, session.customerId).update)
+      .filter((l) => companyListRights(held, l.customer?.id, session.customerId).update)
       .map((l) => ({ id: listRef("company", l.id), name: `${localize(l.name)} (company)` })),
   ];
 }

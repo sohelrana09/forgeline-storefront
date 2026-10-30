@@ -53,3 +53,18 @@ test("old and misspelled URLs redirect permanently to the clean one, keeping the
   await expect(page).toHaveURL(/\/excavators\/wheeled-excavators$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Wheeled");
 });
+
+// Links to old URLs (a CMS link to /pages/delivery-information) once made the router prefetch them hundreds of times a
+// second after a client-side navigation, because the proxy answered its prefetch with an HTTP redirect.
+test("a page opened from a category doesn't keep prefetching its links", async ({ page }) => {
+  await page.goto("/spare-parts");
+  await page.locator("main article a").first().click();
+  await expect(page.getByText(/SKU /)).toBeVisible();
+  await page.waitForTimeout(1000);
+  let routerRequests = 0;
+  page.on("request", (r) => {
+    if (r.headers()["rsc"]) routerRequests++;
+  });
+  await page.waitForTimeout(3000);
+  expect(routerRequests).toBeLessThan(10);
+});

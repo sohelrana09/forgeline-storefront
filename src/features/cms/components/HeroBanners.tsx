@@ -60,16 +60,22 @@ function HeroBanner({ banner, first }: { banner: CmsBlock; first: boolean }) {
       <div className={`flex max-w-xl flex-col gap-3 p-6 sm:p-10 ${dark ? "text-white" : "text-gray-900"}`}>
         <Heading className="m-0 text-3xl font-bold text-balance sm:text-4xl">{banner.headline}</Heading>
         {banner.content && <p className={`m-0 text-base sm:text-lg ${dark ? "text-gray-200" : "text-gray-700"}`}>{banner.content}</p>}
+        {/* No prefetch: editors' links can point at an old URL that redirects, which the router would re-fetch in a loop. */}
         {(primary || secondary) && (
           <div className="mt-2 flex flex-wrap gap-3">
             {primary && (
-              <Link href={primary} className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline hover:bg-orange-800">
+              <Link
+                href={primary}
+                prefetch={false}
+                className="rounded bg-orange-700 px-5 py-3 font-semibold text-white no-underline hover:bg-orange-800"
+              >
                 {banner.cta!.label}
               </Link>
             )}
             {secondary && (
               <Link
                 href={secondary}
+                prefetch={false}
                 className={`rounded border px-5 py-3 font-semibold no-underline ${
                   dark ? "border-white/70 text-white hover:bg-white/10" : "border-gray-800 text-gray-900 hover:bg-gray-900/5"
                 }`}

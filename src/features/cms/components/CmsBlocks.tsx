@@ -54,7 +54,7 @@ async function CmsBlocksContent({ placement, context, categorySlugs, className =
           >
             <RichText value={block.body} context={context} />
             {block.cta && safeHref(block.cta.href) && (
-              <Link href={safeHref(block.cta.href)!} className="mt-2 inline-block font-semibold text-orange-800">
+              <Link href={safeHref(block.cta.href)!} prefetch={false} className="mt-2 inline-block font-semibold text-orange-800">
                 {block.cta.label}
               </Link>
             )}
@@ -77,7 +77,7 @@ async function ProductsBlock({ block, context }: { block: CmsBlock; context: Buy
       <div className="mb-4 flex items-baseline justify-between gap-4">
         {block.title && <h2 className="m-0 text-xl font-semibold">{block.title}</h2>}
         {block.cta && ctaHref && (
-          <Link href={ctaHref} className="text-sm text-orange-800">
+          <Link href={ctaHref} prefetch={false} className="text-sm text-orange-800">
             {block.cta.label}
           </Link>
         )}

@@ -91,8 +91,9 @@ const components = (context?: BuyerContext): PortableTextComponents => ({
     link: ({ value, children }) => {
       const href = safeHref(stegaClean(value?.href));
       if (!href) return <>{children}</>;
+      // Editors' links can point at an old URL that redirects; prefetching one makes the router re-fetch it in a loop.
       return href.startsWith("/") ? (
-        <Link href={href} className="text-orange-800 underline">
+        <Link href={href} prefetch={false} className="text-orange-800 underline">
           {children}
         </Link>
       ) : (

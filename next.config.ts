@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
   // behind <Suspense>; shared data is cached with "use cache" (src/lib/cache.ts). Account, cart, checkout and sign-in
   // pages render per request (`instant = false`), so they keep the nonce CSP (src/proxy.ts).
   cacheComponents: true,
+  // Off on purpose (unset logs a warning). With it, a link prefetches one shell per route, and every catalog URL is one
+  // catch-all route whose shared shell holds only the header and footer; without it, each visible link prefetches its
+  // own URL's shell (a product's name, pictures and description). It would also serve unknown catalog paths a
+  // fallback with status 200 instead of a real 404.
+  partialPrefetching: false,
   // Several root layouts ((shop), (private), studio), so unmatched URLs get src/app/global-not-found.tsx.
   experimental: { globalNotFound: true },
   poweredByHeader: false,
@@ -46,6 +51,13 @@ const nextConfig: NextConfig = {
       // Sanity's image CDN, this project's folder only (pages, blocks and blog pictures).
       ...(sanityProjectId ? [{ protocol: "https" as const, hostname: "cdn.sanity.io", pathname: `/images/${sanityProjectId}/**` }] : []),
     ],
+    // Resized pictures stay cached for 30 days (default 60 s). Merchant Center and Sanity uploads get a new URL when a
+    // picture changes; the sample data's bucket reuses names, so a replaced sample picture shows within a month.
+    minimumCacheTTL: 30 * 24 * 60 * 60,
+    // Only the widths the storefront asks for (sizes props: 48 to 80 px thumbnails, card grids, the full-width
+    // banner): fewer variants per picture, so more of them come from the cache. Default minus 32, 750, 2048 and 3840.
+    imageSizes: [48, 64, 96, 128, 256, 384],
+    deviceSizes: [640, 828, 1080, 1200, 1920],
   },
   async headers() {
     return [

@@ -43,19 +43,22 @@ const SESSION_COOKIE = "ct_session";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Redirects are for page loads only; the router's own requests (prefetches and client navigations, sent with the RSC
+  // header) go on to the page. The router re-fetches a prefetched link that answers with an HTTP redirect, again and
+  // again, so links that may point at a redirecting URL (editors' links in CMS content) don't prefetch.
+  const pageLoad = (request.method === "GET" || request.method === "HEAD") && !request.headers.has("rsc");
   // Catalog URLs are lowercase (urlKey). Redirecting other casings before the page cache matters: a cached redirect
   // for "/Excavators" would overwrite the "/excavators" shell on a case-insensitive disk (macOS) and loop.
-  if (request.method === "GET" && isCatalogPath(pathname) && pathname !== pathname.toLowerCase()) {
+  if (pageLoad && isCatalogPath(pathname) && pathname !== pathname.toLowerCase()) {
     const url = request.nextUrl.clone();
     url.pathname = pathname.toLowerCase();
     return NextResponse.redirect(url, 308);
   }
   if (pathname.startsWith("/studio")) return withPolicy(NextResponse.next(), studioPolicy());
   const first = pathname.split("/")[1] ?? "";
-  const read = request.method === "GET" || request.method === "HEAD";
-  if (read && first === "account" && !request.cookies.has(SESSION_COOKIE))
+  if (pageLoad && first === "account" && !request.cookies.has(SESSION_COOKIE))
     return NextResponse.redirect(new URL("/login", request.url), 307);
-  if (read && isCatalogPath(pathname)) {
+  if (pageLoad && isCatalogPath(pathname)) {
     const redirect = await catalogRedirect(request);
     if (redirect) return redirect;
   }
