@@ -1,5 +1,5 @@
 import { NextResponse, connection } from "next/server";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { isRedirect } from "@/lib/next-errors";
 import { currentBrowseContext } from "@/features/business-units/context";
 import { getActiveCart } from "@/features/cart/service";
 import { EMPTY_MINICART, toMiniCart, type MiniCartSummary } from "@/features/cart/minicart";
@@ -14,7 +14,7 @@ export async function GET() {
     summary = toMiniCart(auth ? await getActiveCart(auth, cartId, context) : undefined, context.canOrder);
   } catch (err) {
     // An expired or revoked token means "no cart" here; the full pages handle signing out.
-    if (!isRedirectError(err)) console.error("cart summary failed", (err as { body?: unknown })?.body ?? err);
+    if (!isRedirect(err)) console.error("cart summary failed", (err as { body?: unknown })?.body ?? err);
   }
   return NextResponse.json(summary, { headers: { "Cache-Control": "private, no-store" } });
 }

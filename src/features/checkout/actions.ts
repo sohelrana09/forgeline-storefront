@@ -3,8 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath, refresh } from "next/cache";
 import { after } from "next/server";
-import { redirect } from "next/navigation";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { hasBuyerRoleNow } from "@/features/business-units/service";
 import { getActiveCart } from "@/features/cart/service";
 import {
@@ -54,7 +53,7 @@ export async function chooseDelivery(_prev: DeliveryState, formData: FormData): 
       shippingMethodKey: String(formData.get("shippingMethodKey") ?? ""),
     });
   } catch (err) {
-    if (isRedirectError(err)) throw err; // signed out (revoked token)
+    unstable_rethrow(err); // signed out (revoked token)
     if (err instanceof CheckoutError) return { error: err.message };
     console.error("checkout details failed", (err as { body?: unknown })?.body ?? err);
     return { error: "Your choice could not be saved. Please try again." };
@@ -86,7 +85,7 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
       context.consumer ? "" : String(formData.get("purchaseOrderNumber") ?? "").trim(),
     );
   } catch (err) {
-    if (isRedirectError(err)) throw err; // signed out (revoked token)
+    unstable_rethrow(err); // signed out (revoked token)
     // Re-render the page so the form carries the cart's current version (setting the PO may have bumped it).
     revalidatePath("/checkout");
     if (err instanceof CheckoutError) return { error: err.message };
@@ -125,7 +124,7 @@ export async function startCardPayment(_prev: CardPaymentState, formData: FormDa
     const prepared = await prepareCardPayment(auth, context, cartId, Number(formData.get("cartVersion")), session?.email);
     return { session: prepared.session, reviewedCentAmount: prepared.reviewedCentAmount };
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     if (err instanceof CheckoutError) return { error: err.message };
     console.error("card payment start failed", (err as { body?: unknown })?.body ?? (err as Error).message);
     return { error: "Card payment is unavailable right now. Please try again later." };
@@ -176,7 +175,7 @@ export async function saveGuestDetails(_prev: GuestDetailsState, formData: FormD
       shippingMethodKey: String(formData.get("shippingMethodKey") ?? ""),
     });
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     if (err instanceof CheckoutError) return { error: err.message };
     console.error("guest checkout details failed", (err as { body?: unknown })?.body ?? err);
     return { error: "Your details could not be saved. Please try again." };
@@ -208,7 +207,7 @@ export async function placeBankTransferOrderAction(_prev: BankTransferState, for
     const order = await placeBankTransferOrder(auth, context, cartId, Number(formData.get("cartVersion")), session?.email);
     orderId = order.id;
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     revalidatePath("/checkout");
     if (err instanceof CheckoutError) return { error: err.message };
     const body = (err as { body?: { statusCode?: number } })?.body;

@@ -4,7 +4,7 @@
 // the approver's permission, the flow's state and version, and refuses their own orders.
 
 import { refresh } from "next/cache";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { ApprovalError, decideApproval } from "@/features/approvals/service";
@@ -42,7 +42,7 @@ export async function decideApprovalAction(_prev: ApprovalActionState, formData:
               : "You approved this step. The order now waits for the next approver.",
     };
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     if (err instanceof ApprovalError) return { error: err.message };
     console.error("approval decision failed", (err as { body?: unknown })?.body ?? err);
     return { error: "Your decision could not be saved. Please try again." };

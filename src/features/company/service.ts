@@ -1,12 +1,10 @@
 import "server-only";
 import type {
-  AssociateRole,
   AssociateRoleAssignment,
   AssociateRoleAssignmentDraft,
   BusinessUnit,
   BusinessUnitUpdateAction,
   Order,
-  Permission,
 } from "@commercetools/platform-sdk";
 import { randomBytes } from "node:crypto";
 import { after } from "next/server";
@@ -17,21 +15,23 @@ import { staleWhileRevalidate } from "@/lib/memo";
 import { associateRolesNow, businessUnitNow, forgetBuyingContexts, hasPermissionNow } from "@/features/business-units/service";
 import type { PricingContext } from "@/features/business-units/types";
 import type { CompanyMember, CompanyRole, CompanyUnit } from "@/features/company/types";
+import {
+  CompanyError,
+  editable,
+  grantable,
+  keepsAManager,
+  permissionsIn,
+  toCompanyRoles,
+  visibleEmail,
+  type Decision,
+} from "@/features/company/permissions";
+
+export { CompanyError };
 
 // Company administration. The customer token carries no business-unit scope: the only
 // ones the storefront client could grant (view/manage_business_units) are project-wide, i.e. every company.
 // So reads and writes use the admin client, always for the SELECTED unit only, and every write first checks the
 // acting associate's permission live (hasPermissionNow), like quote renegotiation.
-
-export class CompanyError extends Error {
-  // "forbidden": the acting associate lacks the permission or tried to give more than they hold.
-  constructor(
-    message: string,
-    readonly reason?: "forbidden",
-  ) {
-    super(message);
-  }
-}
 
 const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 const unitByKey = (key: string) => apiRoot.businessUnits().withKey({ key });
@@ -47,9 +47,6 @@ export const getRoles = () =>
     return body.results.filter((r) => r.buyerAssignable).map((r) => ({ key: r.key, name: r.name ?? r.key, permissions: r.permissions }));
   });
 
-// Fresh roles for decisions (writes, permission checks); getRoles() above is the cached copy for display.
-const toCompanyRoles = (roles: AssociateRole[]): CompanyRole[] =>
-  roles.map((r) => ({ key: r.key, name: r.name ?? r.key, permissions: r.buyerAssignable ? r.permissions : [] }));
 async function liveRoles(): Promise<CompanyRole[]> {
   const { body } = await apiRoot
     .associateRoles()
@@ -59,14 +56,6 @@ async function liveRoles(): Promise<CompanyRole[]> {
 }
 // Page reads share one roles read per render with the permission checks (writes use liveRoles).
 const pageRoles = async () => toCompanyRoles(await associateRolesNow());
-
-// What a customer may do in this unit right now: roles held directly or inherited, from the unit as just read.
-function permissionsIn(bu: BusinessUnit, customerId: string, roles: CompanyRole[]): Set<Permission> | undefined {
-  const held = [...bu.associates, ...(bu.inheritedAssociates ?? [])].filter((a) => a.customer.id === customerId);
-  if (held.length === 0) return undefined; // not a member (any more)
-  const keys = held.flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key));
-  return new Set(roles.filter((r) => keys.includes(r.key)).flatMap((r) => r.permissions));
-}
 
 const toUnit = (bu: BusinessUnit): CompanyUnit => ({
   key: bu.key,
@@ -88,7 +77,6 @@ export async function getCompanyMembers(ctx: PricingContext, viewerId: string): 
   const [bu, roles] = await Promise.all([businessUnitNow(ctx.businessUnitKey), pageRoles()]);
   const viewer = permissionsIn(bu, viewerId, roles);
   if (!viewer) throw new CompanyError("You are no longer a user of this company.");
-  const showEmails = viewer.has("UpdateAssociates");
   const byCustomer = new Map<string, CompanyMember>();
   const entry = (id: string) => {
     if (!byCustomer.has(id)) byCustomer.set(id, { customerId: id, name: "", email: "", roles: [], inheritedRoles: [], explicit: false });
@@ -111,7 +99,7 @@ export async function getCompanyMembers(ctx: PricingContext, viewerId: string): 
     for (const c of body.results) {
       const m = byCustomer.get(c.id)!;
       m.name = [c.firstName, c.lastName].filter(Boolean).join(" ");
-      m.email = showEmails || c.id === viewerId ? c.email : "";
+      m.email = visibleEmail(viewer, viewerId, c);
     }
   }
   return [...byCustomer.values()].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
@@ -167,10 +155,6 @@ export async function pageCompanyOrders(ctx: PricingContext, customerId: string,
 // the actor must hold the permission right now, may only grant roles within their own permissions, and the unit
 // must keep at least one user who can manage users.
 
-type Decision = { bu: BusinessUnit; roles: CompanyRole[]; actor: Set<Permission> };
-
-const CAN_MANAGE: Permission = "UpdateAssociates";
-
 type Managing = "UpdateAssociates" | "UpdateBusinessUnitDetails";
 
 // The unit and roles as they are now, and the actor's permissions in it; refused unless they hold `permission`.
@@ -207,33 +191,6 @@ async function updateUnit(
     }
   }
   forgetBuyingContexts();
-}
-
-// Known roles only, and none that would give the user power the admin doesn't have. Own-purchasing permissions
-// ("…My…": CreateMyCarts, AcceptMyQuotes, …) only act on the user's own carts, orders and quotes, so they don't
-// count: in the sample data the admin role has none of them, and admins must still be able to create buyers.
-const ownOnly = (p: Permission) => p.includes("My");
-
-function grantable(keys: string[], { roles, actor }: Decision): string[] {
-  const chosen = [...new Set(keys)]
-    .map((k) => roles.find((r) => r.key === k && r.permissions.length > 0))
-    .filter((r): r is CompanyRole => !!r);
-  if (chosen.length === 0) throw new CompanyError("Choose at least one role.");
-  const beyond = chosen.find((r) => r.permissions.some((p) => !ownOnly(p) && !actor.has(p)));
-  if (beyond) throw new CompanyError(`You can't give the ${beyond.name} role: it allows more than your own roles do.`, "forbidden");
-  return chosen.map((r) => r.key);
-}
-
-// After the change, someone (directly or through the parent unit) must still be able to manage users.
-function keepsAManager({ bu, roles }: Decision, change: { customerId: string; roles?: string[] }) {
-  const managerRoles = new Set(roles.filter((r) => r.permissions.includes(CAN_MANAGE)).map((r) => r.key));
-  const explicit = bu.associates.flatMap((a) =>
-    a.customer.id === change.customerId ? (change.roles ?? []) : a.associateRoleAssignments.map((r) => r.associateRole.key),
-  );
-  const inherited = (bu.inheritedAssociates ?? []).flatMap((a) => a.associateRoleAssignments.map((r) => r.associateRole.key));
-  if (![...explicit, ...inherited].some((k) => managerRoles.has(k))) {
-    throw new CompanyError("The company needs at least one user who can manage users. Give someone else that role first.");
-  }
 }
 
 export async function updateCompanyProfile(ctx: PricingContext, actorId: string, name: string, contactEmail: string) {
@@ -372,21 +329,6 @@ export async function acceptInvitation(code: string, customerId: string): Promis
     throw new CompanyError("The invitation could not be accepted. Ask for a new one.");
   }
   return pending.unitName;
-}
-
-// Explicit members only (inherited roles are managed in the parent unit), and never the acting admin themselves,
-// so an admin can't lock the company out by mistake.
-// Also never someone holding a role the company can't assign (set by our team): changing or removing them would
-// silently drop that role, which the admin couldn't give back.
-function editable({ bu, roles }: Decision, actorId: string, customerId: string) {
-  if (customerId === actorId) throw new CompanyError("You can't change your own roles or remove yourself.");
-  const current = bu.associates.find((a) => a.customer.id === customerId);
-  if (!current) throw new CompanyError("This user's roles come from the parent unit. Change them there.");
-  const sellerRole = current.associateRoleAssignments.find(
-    (a) => !roles.some((r) => r.key === a.associateRole.key && r.permissions.length > 0),
-  );
-  if (sellerRole) throw new CompanyError("This user has a role set by our team. Contact us to change or remove them.");
-  return current;
 }
 
 export async function changeCompanyUserRoles(ctx: PricingContext, actorId: string, customerId: string, roleKeys: string[]) {

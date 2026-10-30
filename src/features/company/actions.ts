@@ -4,8 +4,7 @@
 // service, which re-checks the associate's permission live in the selected unit.
 
 import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireBusinessContext, requireShopContext } from "@/features/business-units/context";
 import {
@@ -35,7 +34,7 @@ async function run(
   try {
     await work(current);
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     if (err instanceof CompanyError) return { error: err.message };
     console.error("company update failed", (err as { body?: unknown })?.body ?? err);
     return { error: "The change could not be saved. Please try again." };

@@ -4,7 +4,7 @@
 //   npm run setup -- --yes         no questions (CI): fails if .env lacks the admin client; with --demo-passwords it
 //                                  also sets the demo password on the sample users
 //   npm run setup -- --with-pricing-demo   also loads the pricing demos (tier prices, trade-member prices)
-// Steps: .env (admin client, region, a generated REVALIDATE_SECRET) → admin client works → B2B sample data loaded →
+// Steps: .env (admin client, region, generated REVALIDATE_SECRET and SESSION_SECRET) → admin client works → B2B sample data loaded →
 // storefront API client (created with exactly the shop's scopes when the admin client may create API clients, else
 // you paste its id and secret) → demo password in .env.demo, set on the sample users → purchase-list permissions and
 // the demo approval rule → demo blog in Sanity when configured. Values already in .env are never replaced, and no
@@ -15,6 +15,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { demoPassword, parseEnv, REGIONS, regionOf, regionUrls, setEnvValue, storefrontScopes } from "./setup/lib";
+import { RUNTIME_SCOPES, runtimeScopes } from "../src/lib/commercetools/scopes";
 
 const args = process.argv.slice(2);
 const check = args.includes("--check");
@@ -154,7 +155,8 @@ async function envFile() {
       for (const [key, value] of Object.entries(regionUrls(pick.id))) setEnv(key, value);
     }
   }
-  if (!filled("CTP_SCOPES")) {
+  // With a separate admin client, CTP_SCOPES stays empty: the shop's narrowed client gets all of its own scopes.
+  if (!filled("CTP_SCOPES") && !filled("CTP_ADMIN_CLIENT_ID")) {
     if (check) say("todo", "CTP_SCOPES is empty (setup sets it to manage_project:<project key>)");
     else setEnv("CTP_SCOPES", `manage_project:${filled("CTP_PROJECT_KEY")}`);
   }
@@ -165,15 +167,35 @@ async function envFile() {
       say("ok", "generated REVALIDATE_SECRET (add the same value to your hosting, e.g. Vercel)");
     }
   }
+  if (!filled("SESSION_SECRET")) {
+    if (check) say("todo", "SESSION_SECRET is empty (setup generates one; until then the key comes from CTP_CLIENT_SECRET)");
+    else {
+      setEnv("SESSION_SECRET", randomBytes(32).toString("hex"));
+      say("ok", "generated SESSION_SECRET (add the same value to your hosting, e.g. Vercel)");
+    }
+  }
   say("ok", `project ${filled("CTP_PROJECT_KEY")} in ${regionOf(filled("CTP_API_URL")) ?? filled("CTP_API_URL")}`);
+}
+
+// The client for setup and the seed scripts: CTP_ADMIN_CLIENT_* once the shop runs on its own narrowed client
+// (CTP_CLIENT_*, see runtimeClient below), else CTP_CLIENT_* as before.
+function adminCredentials() {
+  if (filled("CTP_ADMIN_CLIENT_ID"))
+    return {
+      id: filled("CTP_ADMIN_CLIENT_ID")!,
+      secret: filled("CTP_ADMIN_CLIENT_SECRET") ?? "",
+      scope: filled("CTP_ADMIN_SCOPES") ?? `manage_project:${filled("CTP_PROJECT_KEY")}`,
+    };
+  return { id: filled("CTP_CLIENT_ID")!, secret: filled("CTP_CLIENT_SECRET")!, scope: filled("CTP_SCOPES")! };
 }
 
 async function adminClient() {
   heading("2. Admin API client");
-  const admin = await token(filled("CTP_CLIENT_ID")!, filled("CTP_CLIENT_SECRET")!, filled("CTP_SCOPES")!);
+  const { id, secret, scope } = adminCredentials();
+  const admin = await token(id, secret, scope);
   if (!admin.ok)
     throw new SetupError(
-      `the admin client was refused (${admin.error}): fix CTP_CLIENT_ID, CTP_CLIENT_SECRET, the region URLs or CTP_SCOPES in ${ENV_FILE} (setup never replaces a value that is set) and run it again`,
+      `the admin client was refused (${admin.error}): fix ${filled("CTP_ADMIN_CLIENT_ID") ? "CTP_ADMIN_CLIENT_ID, CTP_ADMIN_CLIENT_SECRET" : "CTP_CLIENT_ID, CTP_CLIENT_SECRET"}, the region URLs or the scopes in ${ENV_FILE} (setup never replaces a value that is set) and run it again`,
     );
   const project = await api<{ name: string; currencies: string[] }>(admin.accessToken, "");
   say("ok", `signed in to "${project.name}" (${project.currencies.join(", ")})`);
@@ -211,7 +233,8 @@ async function storefrontClient(stores: string[]) {
   const scopes = storefrontScopes(projectKey, stores);
   if (!filled("CTP_STOREFRONT_CLIENT_ID") || !filled("CTP_STOREFRONT_CLIENT_SECRET")) {
     if (check) return say("todo", "no storefront API client in .env (setup creates one or asks for it)");
-    const manager = await token(filled("CTP_CLIENT_ID")!, filled("CTP_CLIENT_SECRET")!, `manage_api_clients:${projectKey}`);
+    const admin = adminCredentials();
+    const manager = await token(admin.id, admin.secret, `manage_api_clients:${projectKey}`);
     if (manager.ok) {
       const created = await api<{ id: string; secret: string }>(manager.accessToken, "/api-clients", {
         method: "POST",
@@ -242,8 +265,27 @@ async function storefrontClient(stores: string[]) {
   say("todo", `the storefront client lacks: ${missing.join(" ")} (edit it in Merchant Center)`);
 }
 
+// The client the running shop uses (CTP_CLIENT_*). Fine to start with the admin client; for production it should
+// hold only RUNTIME_SCOPES, so a leak can't change products, prices or project settings (docs/api-clients.md).
+async function runtimeClient() {
+  heading("5. Runtime API client (the running shop)");
+  const projectKey = filled("CTP_PROJECT_KEY")!;
+  const id = filled("CTP_CLIENT_ID")!;
+  const secret = filled("CTP_CLIENT_SECRET")!;
+  if ((await token(id, secret, `manage_project:${projectKey}`)).ok)
+    return say(
+      "info",
+      "the shop uses an admin client (manage_project): fine locally; for production give it its own client, see docs/api-clients.md",
+    );
+  if ((await token(id, secret, runtimeScopes(projectKey))).ok)
+    return say("ok", `narrowed client: exactly the ${RUNTIME_SCOPES.length} scopes the shop needs, no manage_project`);
+  const missing: string[] = [];
+  for (const scope of RUNTIME_SCOPES) if (!(await token(id, secret, `${scope}:${projectKey}`)).ok) missing.push(scope);
+  say("todo", `the runtime client (CTP_CLIENT_*) lacks: ${missing.join(" ")} (edit it in Merchant Center)`);
+}
+
 async function demoUsers() {
-  heading("5. Demo sign-ins");
+  heading("6. Demo sign-ins");
   let password = parseEnv(demoText).get("DEMO_BUYER_PASSWORD");
   if (!password) {
     if (check) return say("todo", `no demo password yet (setup writes one to ${DEMO_FILE})`);
@@ -265,7 +307,7 @@ async function demoUsers() {
 }
 
 function featureSeeds() {
-  heading("6. Demo data for the B2B features");
+  heading("7. Demo data for the B2B features");
   seed("seed-shopping-list-permissions.ts", check ? [] : ["--yes"]);
   if (check) say("info", "the demo approval rule (orders over €10,000 in the Spanish unit) is seeded by npm run setup");
   else {
@@ -279,7 +321,7 @@ function featureSeeds() {
 }
 
 function sanity() {
-  heading("7. Content (Sanity, optional)");
+  heading("8. Content (Sanity, optional)");
   if (!filled("NEXT_SANITY_PROJECT_ID")) return say("info", "no Sanity project: no content pages or blog (see .env.example)");
   if (!filled("SANITY_API_WRITE_TOKEN")) return say("info", "Sanity configured; add SANITY_API_WRITE_TOKEN to load the demo blog");
   seed("sanity-content.ts", check ? [] : ["--yes"]);
@@ -291,6 +333,7 @@ async function main() {
   const adminToken = await adminClient();
   const { sample, sellingStores } = await sampleData(adminToken);
   await storefrontClient(sellingStores);
+  await runtimeClient();
   if (sample) {
     await demoUsers();
     featureSeeds();

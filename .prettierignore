@@ -5,5 +5,7 @@ package-lock.json
 next-env.d.ts
 test-results/
 playwright-report/
+.sanity/
+dist/
 # Prose: keep tables and line breaks as written
 *.md

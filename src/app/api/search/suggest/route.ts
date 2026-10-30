@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { isRedirect } from "@/lib/next-errors";
 import { currentBrowseContext } from "@/features/business-units/context";
 import { getCategoryTree, suggestProducts } from "@/features/catalog/service";
 import { categoryHref, localize } from "@/features/catalog/utils";
@@ -7,12 +7,15 @@ import { productPath } from "@/lib/urls";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { formatMoney } from "@/lib/utils";
 import type { Suggestions } from "@/components/layouts/SearchBox";
+import { studioCors } from "@/lib/cors";
 
 // Header search autocomplete: the visitor's store decides assortment and prices, so the answer is per visitor.
 // Served from the in-memory search index (no commercetools call per keystroke once the index is warm).
 export async function GET(request: NextRequest) {
   const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 100);
   const empty: Suggestions = { products: [], categories: [], total: 0 };
+  const json = (body: Suggestions, status = 200) =>
+    NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store", ...studioCors(request) } });
   if (q.length < 2) return json(empty);
   if (await tooManyAttempts(`suggest:${await clientIp()}`, 3000)) return json(empty, 429);
   try {
@@ -31,9 +34,7 @@ export async function GET(request: NextRequest) {
       corrected: r.corrected,
     });
   } catch (err) {
-    if (!isRedirectError(err)) console.error("search suggestions failed", (err as { body?: unknown })?.body ?? err);
+    if (!isRedirect(err)) console.error("search suggestions failed", (err as { body?: unknown })?.body ?? err);
     return json(empty);
   }
 }
-
-const json = (body: Suggestions, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store" } });

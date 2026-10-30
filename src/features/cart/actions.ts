@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 import { getActiveCart, setLineQuantity } from "@/features/cart/service";
 import { localize } from "@/features/catalog/utils";
 import { requireBrowseContext } from "@/features/business-units/context";
@@ -57,7 +57,7 @@ export async function updateCartLine(formData: FormData) {
     // Removing says so; a changed quantity speaks for itself.
     if (quantity === 0 && line) await flash("success", `You removed ${localize(line.name)} from your shopping cart.`);
   } catch (err) {
-    if (isRedirectError(err)) throw err; // signed out (revoked token)
+    unstable_rethrow(err); // signed out (revoked token)
     console.error("cart update failed", (err as { body?: unknown })?.body ?? err);
     await flash("error", "We couldn't update your shopping cart. Please try again.");
   }

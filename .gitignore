@@ -48,6 +48,12 @@ docs/*.md
 # ...except the setup guides the code and scripts point to
 !docs/cache-refresh.md
 !docs/checkout-setup.md
+!docs/api-clients.md
+!docs/sanity-studio.md
+
+# Standalone Sanity Studio build (sanity build / deploy)
+/.sanity/
+/dist/
 
 # Playwright output
 /test-results/

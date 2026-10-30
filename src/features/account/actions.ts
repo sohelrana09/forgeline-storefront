@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireShopContext } from "@/features/business-units/context";
 import { saveSession } from "@/features/auth/session";
@@ -28,7 +28,7 @@ export async function updateAccountInformation(_prev: AccountInfoState, formData
       { action: "setLastName", lastName },
     ]);
   } catch (err) {
-    if (isRedirectError(err)) throw err; // signed out (revoked token)
+    unstable_rethrow(err); // signed out (revoked token)
     console.error("account update failed", (err as { body?: unknown })?.body ?? err);
     return { error: "Your details could not be saved. Please try again." };
   }
@@ -57,7 +57,7 @@ export async function saveAddress(_prev: AddressFormState, formData: FormData): 
       defaultBilling: formData.get("defaultBilling") === "on",
     });
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     console.error("address save failed", (err as { body?: unknown })?.body ?? err);
     return { error: "The address could not be saved. Please try again." };
   }
@@ -73,7 +73,7 @@ export async function deleteAddress(formData: FormData) {
   try {
     await removeMyAddress(session, id);
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     console.error("address remove failed", (err as { body?: unknown })?.body ?? err);
   }
   refresh();

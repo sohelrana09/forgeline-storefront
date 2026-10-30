@@ -1,17 +1,19 @@
 import type { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
+import { basePolicy, studioOrigin } from "./src/lib/csp";
 
 const sanityProjectId = process.env.NEXT_SANITY_PROJECT_ID;
 
 // Sent with every response. Pages get a fuller CSP with script-src from src/proxy.ts (src/lib/csp.ts); this base
 // policy (framing, plugins, <base>, form targets) covers what the proxy doesn't see (API routes, assets).
-// Framing: this site only (the embedded Sanity Studio's Presentation tool previews the storefront in an iframe).
+// Framing: this site (the embedded Sanity Studio's Presentation tool previews the storefront in an iframe), plus the
+// Studio's own domain when it runs outside the storefront (STUDIO_URL). Browsers apply every CSP header they get, so
+// this one must allow what the proxy's fuller policy allows.
+const studio = studioOrigin(process.env.STUDIO_URL);
 const securityHeaders = [
-  {
-    key: "Content-Security-Policy",
-    value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
-  },
-  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Content-Security-Policy", value: basePolicy(studio).join("; ") },
+  // For browsers without frame-ancestors; it can't name another site, so it's left out when the Studio lives elsewhere.
+  ...(studio ? [] : [{ key: "X-Frame-Options", value: "SAMEORIGIN" }]),
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },

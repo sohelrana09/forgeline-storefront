@@ -1,6 +1,7 @@
 # Forgeline
 
 [![CI](https://github.com/sohelrana09/forgeline-storefront/actions/workflows/ci.yml/badge.svg)](https://github.com/sohelrana09/forgeline-storefront/actions/workflows/ci.yml)
+[![Browser tests](https://github.com/sohelrana09/forgeline-storefront/actions/workflows/e2e.yml/badge.svg)](https://github.com/sohelrana09/forgeline-storefront/actions/workflows/e2e.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
 [![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500)](https://commercetools.com/)
@@ -193,15 +194,18 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 
 | Variable | Purpose |
 |---|---|
-| `CTP_PROJECT_KEY`, `CTP_CLIENT_ID`, `CTP_CLIENT_SECRET`, `CTP_SCOPES` | Admin API client (server only). |
+| `CTP_PROJECT_KEY`, `CTP_CLIENT_ID`, `CTP_CLIENT_SECRET`, `CTP_SCOPES` | The API client the running shop uses (server only). To start, the admin client; before going live, a client with only the scopes the shop needs: [docs/api-clients.md](docs/api-clients.md). |
+| `CTP_ADMIN_CLIENT_ID`, `CTP_ADMIN_CLIENT_SECRET` | Optional, local only. The admin client for `npm run setup` and the `ct:*` scripts once the shop has its own client. Never in the hosting. |
 | `CTP_AUTH_URL`, `CTP_API_URL` | Your region, for example `https://auth.us-east-2.aws.commercetools.com`. |
 | `CTP_STOREFRONT_CLIENT_ID`, `CTP_STOREFRONT_CLIENT_SECRET` | Client for customer sign-in (password flow). |
 | `SITE_URL` | Public address of the shop. Needed for production builds, email links, canonicals and the sitemap. |
 | `SITE_INDEXABLE` | `true` lets search engines index the catalog. Anything else (the default) keeps the whole site out of Google and Bing: `noindex` on every response and an empty sitemap. |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional. Shares the rate limits (sign-in, sign-up, checkout) across all server instances. On Vercel, connect Upstash under Storage and they are set for you. |
 | `REVALIDATE_SECRET` | Password for `POST /api/revalidate`, which refreshes the cached data behind every page after a change (Sanity webhook, `npm run ct:revalidate`, an optional catalog Subscription). Use the same value in `.env` and your hosting. Setup: [docs/cache-refresh.md](docs/cache-refresh.md). |
+| `SESSION_SECRET` (`SESSION_SECRET_PREVIOUS`) | Encrypts the sign-in and guest cookies (at least 32 characters; `npm run setup` generates it). To rotate it without signing anyone out, move the old value to `SESSION_SECRET_PREVIOUS` for 30 days. Without it the key comes from `CTP_CLIENT_SECRET`, so rotating the API secret would sign everyone out. |
 | `B2C_CARD_PAYMENTS`, `CTP_CHECKOUT_APPLICATION_KEY` | Card payments through commercetools Checkout (a Payment Only application in Merchant Center). Off by default: consumers pay by bank transfer. Setup: [docs/checkout-setup.md](docs/checkout-setup.md). |
 | `NEXT_SANITY_PROJECT_ID`, `NEXT_SANITY_DATASET`, `SANITY_API_READ_TOKEN`, `SANITY_API_WRITE_TOKEN` | Optional. Sanity for content pages, blocks and the blog (Studio at `/studio`); the read token powers draft preview, the write token only the demo blog script. Without a project id there are no content pages and the blog is off. |
+| `STUDIO_URL` | Optional. A Studio deployed on its own domain (`npx sanity deploy`), recommended for production: `/studio` redirects there and only that origin may preview the pages. See [docs/sanity-studio.md](docs/sanity-studio.md). |
 | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Sends emails (sign-up, password reset, approvals) through Resend; without them, development prints emails to the server log. |
 | `CATALOG_SEARCH` | Optional. `product-search` uses the commercetools Product Search API once it is activated; otherwise search uses a built-in index. |
 
@@ -219,7 +223,7 @@ Store prices: the sample stores have no countries set, so the mapping from store
 | `npm run format` / `npm run format:check` | Prettier (2 spaces, width 140; `.editorconfig` for editors). |
 | `npm test` | Unit tests (Vitest). |
 | `npm run setup` | One-command setup: `.env`, both API clients, demo sign-ins and demo data (`-- --check` reports only). |
-| `npm run test:e2e` | Browser tests (Playwright): guest flows (read-only), plus signed-in buyer, approver and admin flows when `.env.demo` has the demo password. Run `npx playwright install chromium` once. |
+| `npm run test:e2e` | Browser tests (Playwright): guest flows (read-only), plus signed-in buyer, approver and admin flows when `.env.demo` has the demo password. Run `npx playwright install chromium` once. The guest tests also run every night against the live demo (`.github/workflows/e2e.yml`). |
 | `npm run ct:hello` | Smoke test: credentials, project, first products and business units. |
 | `npm run ct:contexts` | Prints each business unit's store, channel and currency. |
 | `npm run -s ct:query -- <path> [where] [limit]` | Read-only API query, handy with `jq`. |
@@ -276,8 +280,15 @@ No. Forgeline is plain Next.js and can be hosted anywhere Next.js runs, for exam
 **Can I use my own catalog instead of the sample data?**
 Yes. The storefront reads whatever is in your project. Check `STORE_PRICING` for your stores, and the category menu follows your Merchant Center category tree.
 
+**How big a catalog does it handle?**
+Out of the box, search and the category filters run in memory on each server, because commercetools' search APIs are off in a new project. That is fast up to about 500 products per category and a few thousand in all. For a bigger catalog, activate the Product Search API in Merchant Center and set `CATALOG_SEARCH=product-search`: search and suggestions then come from commercetools. Category pages with filters still load up to 500 products per category, so very large categories need their filters moved to the Product Search API too.
+
 **Is it production-ready?**
-It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies). Review it against your own requirements, configure email (Resend) and a card payment provider, and run your own tests before going live.
+It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies, a strict Content-Security-Policy). Before going live:
+- give the shop its own API client with only the scopes it needs ([docs/api-clients.md](docs/api-clients.md)) and set `SESSION_SECRET`;
+- connect Upstash Redis, so the sign-in limits are shared by all server instances;
+- move the Sanity Studio to its own domain ([docs/sanity-studio.md](docs/sanity-studio.md));
+- configure email (Resend) and a card payment provider, send the server's error lines (one JSON line per error, `"event":"request_error"`) to your log or error tracking, and run your own tests.
 
 ## Contributing
 

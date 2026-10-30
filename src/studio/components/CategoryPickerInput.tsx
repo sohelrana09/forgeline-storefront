@@ -5,6 +5,7 @@ import { set, unset, type ArrayOfPrimitivesInputProps } from "sanity";
 import { Box, Button, Card, Flex, Stack, Text, TextInput } from "@sanity/ui";
 import { CloseIcon } from "@sanity/icons/Close";
 import { SearchIcon } from "@sanity/icons/Search";
+import { storefrontUrl } from "@/studio/storefront";
 
 // Stores commercetools category slugs; the list comes from the storefront's /api/catalog/categories.
 type Category = { slug: string; path: string };
@@ -17,7 +18,7 @@ export function CategoryPickerInput(props: ArrayOfPrimitivesInputProps) {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    fetch("/api/catalog/categories", { signal: ctrl.signal })
+    fetch(`${storefrontUrl}/api/catalog/categories`, { signal: ctrl.signal })
       .then((r) => (r.ok ? (r.json() as Promise<{ categories: Category[] }>) : { categories: [] }))
       .then((data) => setCategories(data.categories))
       .catch(() => {});

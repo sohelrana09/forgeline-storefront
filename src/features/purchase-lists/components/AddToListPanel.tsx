@@ -1,4 +1,4 @@
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 import { getSession } from "@/features/auth/session";
 import { listNames } from "@/features/purchase-lists/service";
 import { AddToListForm } from "@/features/purchase-lists/components/AddToListForm";
@@ -11,7 +11,7 @@ export async function AddToListPanel({ context, kind, sku }: { context: BuyerCon
   const session = await getSession();
   if (!session) return null;
   const lists = await listNames(session, context).catch((err) => {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     return [];
   });
   return (

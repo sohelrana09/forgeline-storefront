@@ -1,9 +1,10 @@
 import { NextResponse, connection } from "next/server";
 import { getCategoryTree } from "@/features/catalog/service";
 import { localize } from "@/features/catalog/utils";
+import { studioCors } from "@/lib/cors";
 
 // Category slugs and paths for the Studio's category picker (public catalog data, like the menu).
-export async function GET() {
+export async function GET(request: Request) {
   // Answered per request (from the cached tree), not frozen at build time.
   await connection();
   try {
@@ -11,9 +12,9 @@ export async function GET() {
     const categories = tree.all
       .map((c) => ({ slug: localize(c.slug), path: [...tree.ancestors(c), c].map((x) => localize(x.name)).join(" › ") }))
       .sort((a, b) => a.path.localeCompare(b.path));
-    return NextResponse.json({ categories }, { headers: { "Cache-Control": "public, max-age=300" } });
+    return NextResponse.json({ categories }, { headers: { "Cache-Control": "public, max-age=300", ...studioCors(request) } });
   } catch (err) {
     console.error("category list failed", (err as { body?: unknown })?.body ?? err);
-    return NextResponse.json({ categories: [] }, { status: 503 });
+    return NextResponse.json({ categories: [] }, { status: 503, headers: studioCors(request) });
   }
 }

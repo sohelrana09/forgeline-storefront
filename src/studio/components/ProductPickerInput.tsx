@@ -5,6 +5,7 @@ import { set, setIfMissing, unset, type ObjectInputProps } from "sanity";
 import { Box, Button, Card, Flex, Spinner, Stack, Text, TextInput } from "@sanity/ui";
 import { CloseIcon } from "@sanity/icons/Close";
 import { SearchIcon } from "@sanity/icons/Search";
+import { storefrontUrl } from "@/studio/storefront";
 
 // commercetools product picker for the Studio. It searches the storefront's own suggestion endpoint
 // (/api/search/suggest, guest catalog, same origin as the embedded Studio), so the Studio never holds commercetools
@@ -24,7 +25,7 @@ export function ProductPickerInput(props: ObjectInputProps<Value>) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       setLoading(true);
-      fetch(`/api/search/suggest?${new URLSearchParams({ q })}`, { signal: ctrl.signal, cache: "no-store" })
+      fetch(`${storefrontUrl}/api/search/suggest?${new URLSearchParams({ q })}`, { signal: ctrl.signal, cache: "no-store" })
         .then((r) => (r.ok ? (r.json() as Promise<{ products?: Suggestion[] }>) : { products: [] }))
         .then((data) => setResults((data.products ?? []).filter((p) => p.detail)))
         .catch(() => {})

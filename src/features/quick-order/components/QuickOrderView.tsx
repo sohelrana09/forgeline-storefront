@@ -1,4 +1,4 @@
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { apiRoot } from "@/lib/commercetools/client";
@@ -23,7 +23,7 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
     const session = context.guest ? undefined : await getSession();
     if (!session) return undefined;
     return listNames(session, context).catch((err) => {
-      if (isRedirectError(err)) throw err;
+      unstable_rethrow(err);
       return [];
     });
   };

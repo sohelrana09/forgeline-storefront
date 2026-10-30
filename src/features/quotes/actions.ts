@@ -6,8 +6,7 @@
 import { after } from "next/server";
 import { cookies } from "next/headers";
 import { revalidatePath, refresh } from "next/cache";
-import { redirect } from "next/navigation";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { cartCookie } from "@/features/auth/session";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { notifyApproversIfPending } from "@/features/approvals/service";
@@ -25,7 +24,7 @@ const str = (formData: FormData, name: string) => String(formData.get(name) ?? "
 
 // Maps service errors to a message; anything unexpected is logged and shown generically.
 function failed(err: unknown, fallback: string): QuoteActionState {
-  if (isRedirectError(err)) throw err;
+  unstable_rethrow(err);
   if (err instanceof QuoteError) return { error: err.message };
   const body = (err as { body?: { statusCode?: number } })?.body;
   console.error(fallback, body ?? err);

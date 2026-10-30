@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { isRedirect } from "@/lib/next-errors";
 import { getActiveCart } from "@/features/cart/service";
 import { getPages } from "@/features/cms/service";
 import { categoryMenu, getCategoryTree } from "@/features/catalog/service";
@@ -66,7 +66,7 @@ const visitor = cache(async (lenient: boolean): Promise<BrowseContext> => {
   try {
     return await currentBrowseContext();
   } catch (err) {
-    if (!lenient || !isRedirectError(err)) throw err;
+    if (!lenient || !isRedirect(err)) throw err;
     return { session: await getSession(), contexts: [], context: await getGuestContext() };
   }
 });

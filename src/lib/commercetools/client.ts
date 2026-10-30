@@ -11,16 +11,22 @@ export function requireEnv(name: string): string {
 
 export const projectKey = requireEnv("CTP_PROJECT_KEY");
 
+// Two clients. The running storefront (inside Next) uses CTP_CLIENT_* with the scopes in CTP_SCOPES (RUNTIME_SCOPES in
+// ./scopes). Scripts (tsx, outside Next) change catalog data and need more: they use CTP_ADMIN_CLIENT_* when set, with
+// CTP_ADMIN_SCOPES or all of that client's scopes; without it, CTP_CLIENT_* with all of its scopes, as before.
+const inScript = !process.env.NEXT_RUNTIME;
+const adminScript = inScript && !!process.env.CTP_ADMIN_CLIENT_ID;
+const scopesFrom = (value: string | undefined) => value?.split(" ").filter(Boolean);
+
 const client = new ClientBuilder()
   .withProjectKey(projectKey)
   .withClientCredentialsFlow({
     host: requireEnv("CTP_AUTH_URL"),
     projectKey,
-    credentials: {
-      clientId: requireEnv("CTP_CLIENT_ID"),
-      clientSecret: requireEnv("CTP_CLIENT_SECRET"),
-    },
-    scopes: process.env.CTP_SCOPES?.split(" ").filter(Boolean),
+    credentials: adminScript
+      ? { clientId: requireEnv("CTP_ADMIN_CLIENT_ID"), clientSecret: requireEnv("CTP_ADMIN_CLIENT_SECRET") }
+      : { clientId: requireEnv("CTP_CLIENT_ID"), clientSecret: requireEnv("CTP_CLIENT_SECRET") },
+    scopes: adminScript ? scopesFrom(process.env.CTP_ADMIN_SCOPES) : inScript ? undefined : scopesFrom(process.env.CTP_SCOPES),
     httpClient: traceFetch,
   })
   .withHttpMiddleware({

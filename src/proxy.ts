@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { RESERVED_SEGMENTS } from "@/lib/urls";
-import { newNonce, noncePolicy, shellPolicy, studioPolicy } from "@/lib/csp";
+import { RESERVED_SEGMENTS, isLocalPath } from "@/lib/urls";
+import { siteUrl } from "@/lib/site-url";
+import { newNonce, noncePolicy, shellPolicy, studioOrigin, studioPolicy, type PolicyOptions } from "@/lib/csp";
 import { resolvePath, type UrlIndex, type UrlTarget } from "@/features/urls/url-index";
 
 // Every page gets its Content-Security-Policy here (src/lib/csp.ts), chosen by route group:
@@ -29,6 +30,9 @@ const PRIVATE_SEGMENTS = new Set([
   "no-access",
 ]);
 const DEV = process.env.NODE_ENV !== "production";
+// A Studio on its own domain (STUDIO_URL, docs/sanity-studio.md): /studio leads there, and its preview may frame pages.
+const STUDIO_URL = process.env.STUDIO_URL;
+const POLICY: PolicyOptions = { dev: DEV, sanityProjectId: process.env.NEXT_SANITY_PROJECT_ID, studioOrigin: studioOrigin(STUDIO_URL) };
 
 // Catalog URLs: not the app's own routes, not files (catalog URL keys never contain a dot). Old /c/, /p/ and /pages/
 // URLs count: they redirect from the catalog route.
@@ -54,7 +58,10 @@ export async function proxy(request: NextRequest) {
     url.pathname = pathname.toLowerCase();
     return NextResponse.redirect(url, 308);
   }
-  if (pathname.startsWith("/studio")) return withPolicy(NextResponse.next(), studioPolicy());
+  if (pathname === "/studio" || pathname.startsWith("/studio/")) {
+    if (POLICY.studioOrigin) return NextResponse.redirect(`${STUDIO_URL!.replace(/\/+$/, "")}${pathname.slice("/studio".length)}`, 307);
+    return withPolicy(NextResponse.next(), studioPolicy());
+  }
   const first = pathname.split("/")[1] ?? "";
   if (pageLoad && first === "account" && !request.cookies.has(SESSION_COOKIE))
     return NextResponse.redirect(new URL("/login", request.url), 307);
@@ -63,12 +70,15 @@ export async function proxy(request: NextRequest) {
     if (redirect) return redirect;
   }
   if (PRIVATE_SEGMENTS.has(first) || (request.method !== "GET" && request.method !== "HEAD")) return withNonce(request);
-  return withPolicy(NextResponse.next(), shellPolicy(DEV));
+  return withPolicy(NextResponse.next(), shellPolicy(POLICY));
 }
 
 // The URL index from /api/url-index, kept for a minute per process. The first request after a start waits for it;
 // later refreshes run in the background while the previous copy keeps answering. Without an index (the route failed),
 // pages still resolve redirects themselves, only client-side.
+// Fetched from the configured public URL (SITE_URL), never the request's origin: that comes from the Host header, and
+// behind a proxy that passes it through, a forged Host would load an attacker's index and serve its redirects to every
+// visitor for a minute. Preview deployments therefore use the production index. In development, the dev server itself.
 const INDEX_TTL_MS = 60_000;
 const INDEX_RETRY_MS = 10_000;
 let urlIndex: UrlIndex | undefined;
@@ -89,20 +99,21 @@ async function loadUrlIndex(origin: string) {
 
 async function catalogRedirect(request: NextRequest) {
   if (Date.now() - urlIndexAt > INDEX_TTL_MS && !loading)
-    loading = loadUrlIndex(request.nextUrl.origin).finally(() => (loading = undefined));
+    loading = loadUrlIndex(DEV ? request.nextUrl.origin : siteUrl()).finally(() => (loading = undefined));
   if (!urlIndex && loading) await loading;
   if (!urlIndex) return undefined;
   // Client-side navigation adds _rsc; the redirect target doesn't keep it.
   const query = new URLSearchParams(request.nextUrl.search);
   query.delete("_rsc");
   const resolved = resolvePath(urlIndex, request.nextUrl.pathname, query.toString());
-  if (resolved.kind !== "redirect") return undefined;
+  // Same-site targets only, whatever the index says (the index checks merchants' redirects too).
+  if (resolved.kind !== "redirect" || !isLocalPath(resolved.to)) return undefined;
   return NextResponse.redirect(new URL(resolved.to, request.url), resolved.permanent ? 308 : 307);
 }
 
 // A per-request page: Next puts the nonce from the request's CSP header on its scripts.
 function withNonce(request: NextRequest) {
-  const policy = noncePolicy(newNonce(), DEV);
+  const policy = noncePolicy(newNonce(), POLICY);
   const headers = new Headers(request.headers);
   headers.set("Content-Security-Policy", policy);
   return withPolicy(NextResponse.next({ request: { headers } }), policy);

@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { refresh } from "next/cache";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 import { requestAnonymousToken } from "@/lib/commercetools/customer-token";
 import { cartCookie, cookieOptions, guestScopes, saveGuest } from "@/features/auth/session";
 import { currentBrowseContext } from "@/features/business-units/context";
@@ -71,7 +71,7 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
     }
   } catch (err) {
     // signOutOnAuthError's redirect must not be swallowed here (a revoked token would loop "try again").
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     // Log the details server-side; the browser only gets a generic reason.
     console.error("quick order failed", (err as { body?: unknown })?.body ?? err);
     return {

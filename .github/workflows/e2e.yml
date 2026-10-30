@@ -1,0 +1,38 @@
+name: Browser tests
+
+# The guest browser tests (e2e/, read-only: no carts, orders or accounts) against the live demo, every night and on
+# demand. No secrets: without E2E_PASSWORD the signed-in tests are skipped. Set the repository variable E2E_BASE_URL
+# to test another deployment.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Deployment to test
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  guest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_BASE_URL: ${{ inputs.base_url || vars.E2E_BASE_URL || 'https://forgeline-storefront-gamma.vercel.app' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

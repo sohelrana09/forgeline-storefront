@@ -6,8 +6,7 @@
 // unsold products reported, machines for quote).
 
 import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { requireShopContext } from "@/features/business-units/context";
 import { getActiveCart, lookupSkus } from "@/features/cart/service";
@@ -33,7 +32,7 @@ async function run(work: (shop: Shop) => Promise<string>): Promise<ListActionSta
     refresh();
     return { saved };
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     if (err instanceof PurchaseListError) return { error: err.message };
     console.error("purchase list update failed", (err as { body?: unknown })?.body ?? err);
     return { error: "The purchase list could not be saved. Please try again." };
@@ -198,7 +197,7 @@ export async function addListToCartAction(_prev: QuickOrderState, formData: Form
           : result.errors,
     };
   } catch (err) {
-    if (isRedirectError(err)) throw err;
+    unstable_rethrow(err);
     console.error("purchase list to cart failed", (err as { body?: unknown })?.body ?? err);
     return fail("The list could not be added to your cart. Please try again.");
   }

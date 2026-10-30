@@ -36,16 +36,26 @@ export type Session = {
 };
 const TOKEN_LIFETIME_MS = 48 * 60 * 60 * 1000;
 
+// Cookie keys. SESSION_SECRET seals new cookies; SESSION_SECRET_PREVIOUS (during a rotation) still opens the ones it
+// sealed, so rotating signs nobody out. Without SESSION_SECRET the key comes from CTP_CLIENT_SECRET, as before it
+// existed; that key keeps opening older cookies after SESSION_SECRET is set, until the API secret itself is rotated.
 // Sealed cookies use their cookie name as AAD, so a guest cookie can never be replayed as a session (or back).
-function key() {
-  const secret = process.env.CTP_CLIENT_SECRET;
-  if (!secret) throw new Error("CTP_CLIENT_SECRET is required to encrypt sessions");
-  return Buffer.from(hkdfSync("sha256", secret, "ct-storefront", "session-cookie-v1", 32));
+const derive = (secret: string, info: string) => Buffer.from(hkdfSync("sha256", secret, "ct-storefront", info, 32));
+
+let cookieKeys: Buffer[] | undefined;
+function keys(): Buffer[] {
+  if (cookieKeys) return cookieKeys;
+  const own = [process.env.SESSION_SECRET, process.env.SESSION_SECRET_PREVIOUS].filter((s): s is string => !!s);
+  if (own.some((s) => s.length < 32)) throw new Error("SESSION_SECRET and SESSION_SECRET_PREVIOUS need at least 32 characters");
+  const legacy = process.env.CTP_CLIENT_SECRET;
+  if (own.length === 0 && !legacy) throw new Error("SESSION_SECRET (or CTP_CLIENT_SECRET) is required to encrypt sessions");
+  cookieKeys = [...own.map((s) => derive(s, "session-cookie-v2")), ...(legacy ? [derive(legacy, "session-cookie-v1")] : [])];
+  return cookieKeys;
 }
 
 function seal(name: string, value: object): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key(), iv, { authTagLength: 16 });
+  const cipher = createCipheriv("aes-256-gcm", keys()[0], iv, { authTagLength: 16 });
   cipher.setAAD(Buffer.from(name));
   const data = Buffer.concat([cipher.update(JSON.stringify(value), "utf8"), cipher.final()]);
   return [iv, cipher.getAuthTag(), data].map((b) => b.toString("base64url")).join(".");
@@ -53,17 +63,20 @@ function seal(name: string, value: object): string {
 
 function unseal<T>(name: string, value: string | undefined): T | undefined {
   if (!value) return undefined;
-  try {
-    const [iv, tag, data] = value.split(".").map((p) => Buffer.from(p, "base64url"));
-    // Fixed lengths: never let a cookie choose a shorter (cheaper to forge) GCM tag.
-    if (iv?.length !== 12 || tag?.length !== 16 || !data) return undefined;
-    const decipher = createDecipheriv("aes-256-gcm", key(), iv, { authTagLength: 16 });
-    decipher.setAAD(Buffer.from(name));
-    decipher.setAuthTag(tag);
-    return JSON.parse(Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8")) as T;
-  } catch {
-    return undefined; // tampered or from an old key
+  const [iv, tag, data] = value.split(".").map((p) => Buffer.from(p, "base64url"));
+  // Fixed lengths: never let a cookie choose a shorter (cheaper to forge) GCM tag.
+  if (iv?.length !== 12 || tag?.length !== 16 || !data) return undefined;
+  for (const key of keys()) {
+    try {
+      const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
+      decipher.setAAD(Buffer.from(name));
+      decipher.setAuthTag(tag);
+      return JSON.parse(Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8")) as T;
+    } catch {
+      // tampered, or sealed with another key: try the next one
+    }
   }
+  return undefined;
 }
 
 export const sealSession = (session: Session) => seal(SESSION_COOKIE, session);
