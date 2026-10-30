@@ -21,21 +21,32 @@ export const checkoutApplicationKey = () => process.env.CTP_CHECKOUT_APPLICATION
 
 let cached: { token: string; expiresAt: number } | undefined;
 
+// Orders limited to the B2C store when the client was created with that store scope; commercetools grants only scopes
+// a client holds by name, so a client with project-wide manage_orders (RUNTIME_SCOPES) gets that one instead.
+const sessionScopes = () => [
+  `manage_sessions:${projectKey} manage_orders:${projectKey}:${B2C_STORE_KEY}`,
+  `manage_sessions:${projectKey} manage_orders:${projectKey}`,
+];
+
 async function sessionToken(): Promise<string> {
   if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
   const basic = Buffer.from(`${requireEnv("CTP_CLIENT_ID")}:${requireEnv("CTP_CLIENT_SECRET")}`).toString("base64");
-  const res = await fetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token`, {
-    method: "POST",
-    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      scope: `manage_sessions:${projectKey} manage_orders:${projectKey}:${B2C_STORE_KEY}`,
-    }),
-  });
-  const body = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string };
-  if (!res.ok || !body.access_token || !body.expires_in) throw new Error(`checkout token failed: ${res.status} ${body.error ?? ""}`);
-  cached = { token: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 };
-  return cached.token;
+  let failure = "";
+  for (const scope of sessionScopes()) {
+    const res = await fetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token`, {
+      method: "POST",
+      headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", scope }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string };
+    if (res.ok && body.access_token && body.expires_in) {
+      cached = { token: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 };
+      return cached.token;
+    }
+    failure = `${res.status} ${body.error ?? ""}`;
+    if (body.error !== "invalid_scope") break;
+  }
+  throw new Error(`checkout token failed: ${failure}`);
 }
 
 export type CheckoutSession = { sessionId: string; projectKey: string; region: string };

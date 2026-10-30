@@ -16,7 +16,11 @@ export const projectKey = requireEnv("CTP_PROJECT_KEY");
 // CTP_ADMIN_SCOPES or all of that client's scopes; without it, CTP_CLIENT_* with all of its scopes, as before.
 const inScript = !process.env.NEXT_RUNTIME;
 const adminScript = inScript && !!process.env.CTP_ADMIN_CLIENT_ID;
-const scopesFrom = (value: string | undefined) => value?.split(" ").filter(Boolean);
+// Empty or unset: no scope list, so the token gets all of the client's scopes.
+const scopesFrom = (value: string | undefined) => {
+  const scopes = value?.split(" ").filter(Boolean);
+  return scopes?.length ? scopes : undefined;
+};
 
 const client = new ClientBuilder()
   .withProjectKey(projectKey)
