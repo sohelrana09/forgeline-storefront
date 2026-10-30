@@ -1,0 +1,58 @@
+name: Bug report
+description: Something in the storefront, the setup or a script doesn't work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Security problems go through a private report instead, see SECURITY.md.
+        Never paste API client secrets, `.env` values or customer data here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as the buyer
+        2. Open /quick-order
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Live demo
+        - My own copy (local)
+        - My own copy (deployed)
+        - npm run setup or another script
+    validations:
+      required: true
+  - type: dropdown
+    id: visitor
+    attributes:
+      label: Signed in as
+      options:
+        - Guest
+        - Consumer
+        - Business buyer
+        - Approver or company admin
+        - Not relevant
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v2.0.0 or e85ef13
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Server log lines, browser console errors or a screenshot. Remove any secrets first.
+      render: text

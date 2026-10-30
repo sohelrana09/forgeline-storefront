@@ -1,5 +1,6 @@
 # Forgeline
 
+[![CI](https://github.com/sohelrana09/forgeline-storefront/actions/workflows/ci.yml/badge.svg)](https://github.com/sohelrana09/forgeline-storefront/actions/workflows/ci.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
 [![commercetools](https://img.shields.io/badge/commercetools-Composable%20Commerce-f7b500)](https://commercetools.com/)
@@ -8,6 +9,8 @@
 [![License](https://img.shields.io/github/license/sohelrana09/forgeline-storefront)](LICENSE)
 
 **An open-source B2B and B2C storefront for commercetools, built with Next.js 16.**
+
+**[Live demo](https://forgeline-storefront-gamma.vercel.app/)** · [Quick start](#quick-start) · [Screenshots](#screenshots) · [Contributing](CONTRIBUTING.md)
 
 Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/).
 One storefront serves three kinds of customers: **business buyers, consumers, and guests**.
@@ -286,6 +289,8 @@ Bug fixes, new B2B or B2C workflows and better documentation are all welcome. Fo
 4. Commit, push the branch and open a pull request that says what changed and how you tested it.
 
 Browser tests that sign in or change data must put back what they create, because they run against a shared commercetools project.
+
+The full guide is in [CONTRIBUTING.md](CONTRIBUTING.md). Please report security problems privately, see [SECURITY.md](SECURITY.md), and follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

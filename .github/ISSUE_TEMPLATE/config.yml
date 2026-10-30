@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/sohelrana09/forgeline-storefront/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
+  - name: commercetools documentation
+    url: https://docs.commercetools.com/
+    about: Questions about commercetools itself (APIs, Merchant Center, sample data).
