@@ -230,6 +230,10 @@ Yes. The storefront reads whatever is in your project. Check `STORE_PRICING` for
 **Is it production-ready?**
 It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies). Review it against your own requirements, add payment and email providers, and run your own tests before going live.
 
+## License
+
+[MIT](LICENSE). You may use, change and redistribute Forgeline, also in commercial projects, as long as the copyright notice stays.
+
 ---
 
 Made with Next.js and commercetools. If Forgeline helps you, please give it a star.
