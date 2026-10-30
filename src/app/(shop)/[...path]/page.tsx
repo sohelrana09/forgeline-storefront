@@ -6,6 +6,7 @@ import type { CategoryQuery } from "@/features/catalog/components/CategoryView";
 import { CatalogContent, catalogMetadata, resolveTarget, type CatalogTarget } from "@/features/urls/components/CatalogRoute";
 import { getUrlIndex } from "@/features/urls/service";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { ProductView } from "@/features/catalog/components/ProductView";
 
 type Params = { params: Promise<{ path: string[] }>; searchParams: Promise<CategoryQuery> };
 
@@ -26,11 +27,12 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
 }
 
 // Every catalog URL (category paths, products, content pages, old URLs that redirect). The path resolves before the
-// first <Suspense>, so unknown paths answer a real 404 and redirects are real redirects; the content is priced for the
-// visitor and streams in.
+// first <Suspense>, so unknown paths answer a real 404 and redirects are real redirects. A product renders its shell
+// (name, pictures, description) right away; a category or content page streams in, priced for the visitor.
 export default async function CatalogPage({ params, searchParams }: Params) {
   const { path } = await params;
   const target = await resolveTarget(path, () => searchParams);
+  if (target.kind === "product") return <ProductView slug={target.slug} query={searchParams} />;
   return (
     <Suspense fallback={<PageSkeleton />}>
       <Content target={target} searchParams={searchParams} />
@@ -38,7 +40,13 @@ export default async function CatalogPage({ params, searchParams }: Params) {
   );
 }
 
-async function Content({ target, searchParams }: { target: CatalogTarget; searchParams: Promise<CategoryQuery> }) {
+async function Content({
+  target,
+  searchParams,
+}: {
+  target: Exclude<CatalogTarget, { kind: "product" }>;
+  searchParams: Promise<CategoryQuery>;
+}) {
   const [query, { context }] = await Promise.all([searchParams, requireBrowseContext()]);
   return <CatalogContent target={target} query={query} context={context} />;
 }

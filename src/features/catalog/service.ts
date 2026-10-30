@@ -149,6 +149,19 @@ async function productBySlug(key: PricingKey, slug: string): Promise<ProductProj
   return body.results[0];
 }
 
+// The product as every visitor sees it (name, pictures, description, variants), without a price: the product page's
+// prerendered shell. Shared by everyone; prices and stock come from getProductBySlug for the visitor.
+export async function getProductContent(slug: string): Promise<ProductProjection | undefined> {
+  "use cache: remote";
+  cacheFor("prices", TAGS.catalog);
+  if (!/^[A-Za-z0-9._-]+$/.test(slug)) return undefined;
+  const { body } = await apiRoot
+    .productProjections()
+    .get({ queryArgs: { where: `slug(${LOCALE}="${slug}")`, limit: 1 } })
+    .execute();
+  return body.results[0];
+}
+
 // For CMS "products" blocks: SKUs come from content files, so only allow SKU characters in the predicate.
 export function getProductsBySkus(ctx: PricingKey, skus: unknown): Promise<ProductProjection[]> {
   if (!Array.isArray(skus)) return Promise.resolve([]);

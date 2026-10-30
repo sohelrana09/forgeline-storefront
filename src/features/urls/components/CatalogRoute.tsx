@@ -4,7 +4,6 @@ import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { getCategoryTree, getProductBySlug } from "@/features/catalog/service";
 import { categoryMetadata, productMetadata } from "@/features/catalog/seo";
 import { CategoryView, type CategoryQuery } from "@/features/catalog/components/CategoryView";
-import { ProductView } from "@/features/catalog/components/ProductView";
 import { getPage } from "@/features/cms/service";
 import { CmsPageView } from "@/features/cms/components/CmsPageView";
 import { resolveUrl } from "@/features/urls/service";
@@ -72,8 +71,16 @@ export async function catalogMetadata(path: string[], query: CategoryQuery, cont
   };
 }
 
-export function CatalogContent({ target, query, context }: { target: CatalogTarget; query: CategoryQuery; context: BuyerContext }) {
+// Categories and content pages, streamed for the visitor. Products render their own shell (ProductView).
+export function CatalogContent({
+  target,
+  query,
+  context,
+}: {
+  target: Exclude<CatalogTarget, { kind: "product" }>;
+  query: CategoryQuery;
+  context: BuyerContext;
+}) {
   if (target.kind === "category") return <CategoryView context={context} slug={target.slug} query={query} />;
-  if (target.kind === "product") return <ProductView context={context} slug={target.slug} sku={firstParam(query.sku)} />;
   return <CmsPageView slug={target.slug} context={context} />;
 }
