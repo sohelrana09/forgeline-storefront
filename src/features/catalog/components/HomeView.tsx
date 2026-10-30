@@ -1,8 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCategoryTiles, getCategoryTree, getProductsInCategories } from "@/features/catalog/service";
-import { listMyOrders, orderReference } from "@/features/orders/service";
-import { formatMoney } from "@/lib/utils";
 import { taxNote } from "@/features/catalog/utils";
 import { ProductCard } from "@/features/catalog/components/ProductCard";
 import { Carousel } from "@/components/ui/Carousel";
@@ -10,20 +8,19 @@ import { CmsBlocks } from "@/features/cms/components/CmsBlocks";
 import { HeroBanners } from "@/features/cms/components/HeroBanners";
 import { getBlocks } from "@/features/cms/service";
 import { validBanners } from "@/features/cms/utils";
-import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { categoryPath } from "@/lib/urls";
 
 const SPARE_PARTS_SLUG = "spare_parts";
 
-// Guests (no session) see list prices and no recent orders.
-export async function HomeView({ session, context }: { session?: Session; context: BuyerContext }) {
+// The same page for guests (list prices) and signed-in customers; recent orders are on the account page.
+export async function HomeView({ context }: { context: BuyerContext }) {
   const tree = await getCategoryTree();
   const spareParts = tree.bySlug(SPARE_PARTS_SLUG);
   const machineRoots = tree.roots.filter((c) => c.id !== spareParts?.id);
 
   // Categories have no images: each tile uses the first product of its subtree (cached per store).
-  const [banners, tiles, parts, orders] = await Promise.all([
+  const [banners, tiles, parts] = await Promise.all([
     // The main banner is the first thing on the page, so it isn't streamed in later like other CMS blocks.
     getBlocks({ placement: "home.hero", storeKey: context.storeKey }).catch((err) => {
       console.error("CMS hero failed", err?.body ?? err);
@@ -31,7 +28,6 @@ export async function HomeView({ session, context }: { session?: Session; contex
     }),
     getCategoryTiles(context, machineRoots, tree),
     spareParts ? getProductsInCategories(context, tree.subtreeIds(spareParts.id), { limit: 12 }) : undefined,
-    session ? listMyOrders(session, context, 5) : undefined,
   ]);
   const ship = context.defaultShippingAddress;
   const note = taxNote(context.country);
@@ -136,46 +132,6 @@ export async function HomeView({ session, context }: { session?: Session; contex
               <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={note} />
             ))}
           </Carousel>
-        </section>
-      )}
-
-      {orders && (
-        <section aria-labelledby="orders" className="rounded-md border border-gray-200 bg-white p-5">
-          <h2 id="orders" className="mb-3 mt-0 text-xl font-semibold">
-            Recent orders
-          </h2>
-          {orders.length === 0 ? (
-            <p className="m-0 text-sm text-gray-600">No orders for {context.businessUnitName} yet.</p>
-          ) : (
-            <div className="relative overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
-                    <th className="py-2 pr-3 font-semibold">Order</th>
-                    <th className="py-2 pr-3 font-semibold">Date</th>
-                    <th className="py-2 pr-3 font-semibold">PO</th>
-                    <th className="py-2 pr-3 font-semibold">Status</th>
-                    <th className="py-2 text-right font-semibold">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((o) => (
-                    <tr key={o.id} className="border-t border-gray-100">
-                      <td className="py-2.5 pr-3">
-                        <Link href={`/account/orders/${o.id}`} className="font-mono text-orange-800">
-                          {orderReference(o)}
-                        </Link>
-                      </td>
-                      <td className="py-2.5 pr-3">{new Date(o.createdAt).toLocaleDateString("en-GB")}</td>
-                      <td className="py-2.5 pr-3">{o.purchaseOrderNumber ?? "None"}</td>
-                      <td className="py-2.5 pr-3">{o.orderState}</td>
-                      <td className="py-2.5 text-right">{formatMoney(o.taxedPrice?.totalGross ?? o.totalPrice)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </section>
       )}
     </div>

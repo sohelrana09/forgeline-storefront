@@ -7,6 +7,6 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function HomePage() {
-  const { session, context } = await requireBrowseContext();
-  return <HomeView session={session} context={context} />;
+  const { context } = await requireBrowseContext();
+  return <HomeView context={context} />;
 }
