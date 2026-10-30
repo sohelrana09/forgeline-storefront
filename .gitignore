@@ -52,3 +52,7 @@ docs/*.md
 /blob-report/
 /playwright/.cache/
 /e2e/.auth/
+
+# Research notes and reports (local only)
+/research_notes/
+/reports/
