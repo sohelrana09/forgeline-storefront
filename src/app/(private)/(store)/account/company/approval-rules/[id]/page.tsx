@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { can } from "@/features/company/utils";
@@ -5,6 +6,8 @@ import { CompanyError, getRoles } from "@/features/company/service";
 import { getApprovalRule } from "@/features/company/approval-rules";
 import { ApprovalRuleForm } from "@/features/company/components/ApprovalRuleForm";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+
+export const metadata: Metadata = { title: "Edit approval rule" };
 
 export default async function EditApprovalRulePage({ params }: { params: Promise<{ id: string }> }) {
   const [{ session, context }, { id }] = await Promise.all([requireBusinessContext(), params]);

@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { can } from "@/features/company/utils";
 import { ApprovalRulesView } from "@/features/company/components/ApprovalRulesView";
+
+export const metadata: Metadata = { title: "Approval rules" };
 
 export default async function ApprovalRulesPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
   const [{ session, context }, { saved }] = await Promise.all([requireBusinessContext(), searchParams]);

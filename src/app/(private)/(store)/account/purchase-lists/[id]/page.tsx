@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { requireShopContext } from "@/features/business-units/context";
 import { PurchaseListView } from "@/features/purchase-lists/components/PurchaseListsView";
+
+export const metadata: Metadata = { title: "Purchase list" };
 
 export default async function PurchaseListPage({
   params,

@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { requireShopContext } from "@/features/business-units/context";
 import { PurchaseListsView } from "@/features/purchase-lists/components/PurchaseListsView";
 import { listParams } from "@/components/ui/ListToolbar";
+
+export const metadata: Metadata = { title: "Purchase lists" };
 
 type Search = { page?: string; cpage?: string; limit?: string; deleted?: string };
 

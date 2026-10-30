@@ -16,11 +16,8 @@ import { TAGS, type CacheTag } from "@/lib/cache";
 // shells) are rebuilt; the in-process search index is cleared too.
 type Scope = "content" | "catalog" | "all";
 
-// An import sends one event per changed price or product. Calls within 10 s of the last purge are folded into it:
-// the purged reads reload on their next use, which usually comes after the burst; at worst a change shows when the
-// read's lifetime runs out (15 minutes for prices).
-const COALESCE_MS = 10 * 1000;
-let lastPurge = 0;
+// An import sends one event per changed price or product, and every call is applied: expiring tags is cheap (the reads
+// reload once, on their next use), while skipping a call left its change stale for the read's whole lifetime.
 
 export async function POST(request: NextRequest) {
   if (!hasRevalidateSecret(request.headers.get("authorization"))) {
@@ -31,8 +28,6 @@ export async function POST(request: NextRequest) {
   }
 
   const scope = scopeOf(await request.json().catch(() => undefined));
-  if (Date.now() - lastPurge < COALESCE_MS) return NextResponse.json({ revalidated: false, scope, reason: "coalesced" });
-  lastPurge = Date.now();
   if (scope !== "content") forgetCatalogCache();
   for (const tag of tagsFor(scope)) revalidateTag(tag, { expire: 0 });
   console.info("revalidated cached reads", { scope, tags: tagsFor(scope) });

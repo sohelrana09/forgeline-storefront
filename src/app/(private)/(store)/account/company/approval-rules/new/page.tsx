@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { can } from "@/features/company/utils";
 import { getRoles } from "@/features/company/service";
 import { ApprovalRuleForm } from "@/features/company/components/ApprovalRuleForm";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+
+export const metadata: Metadata = { title: "New approval rule" };
 
 export default async function NewApprovalRulePage() {
   const { context } = await requireBusinessContext();

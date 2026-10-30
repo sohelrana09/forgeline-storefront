@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { logout } from "@/features/auth/actions";
 import { getSession } from "@/features/auth/session";
 import { AuthShell } from "@/features/auth/components/AuthShell";
+
+export const metadata: Metadata = { title: "No access" };
 
 // A business associate whose unit can't be shopped right now (e.g. its store has no price channel). They are
 // never switched to consumer prices silently; our sales team has to fix the unit.

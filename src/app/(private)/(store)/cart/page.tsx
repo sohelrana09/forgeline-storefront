@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { CartView } from "@/features/cart/components/CartView";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Shopping cart", robots: { index: false, follow: false } };
 
 export default async function CartPage({
   searchParams,

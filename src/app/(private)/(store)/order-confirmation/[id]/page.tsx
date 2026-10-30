@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { GuestOrderConfirmation } from "@/features/checkout/components/GuestOrderConfirmation";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Order confirmation", robots: { index: false, follow: false } };
 
 export default async function OrderConfirmationPage({
   params,

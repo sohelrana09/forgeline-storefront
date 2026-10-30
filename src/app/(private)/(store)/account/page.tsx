@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { requireShopContext } from "@/features/business-units/context";
 import { AccountDashboardView } from "@/features/account/components/AccountDashboardView";
+
+export const metadata: Metadata = { title: "My account" };
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ email?: string; joined?: string }> }) {
   const [{ email, joined }, { session, context }] = await Promise.all([searchParams, requireShopContext()]);

@@ -28,7 +28,9 @@
     "ct:urls": "tsx --conditions=react-server --env-file=.env scripts/urls.ts",
     "ct:sanity-content": "tsx --conditions=react-server --env-file=.env scripts/sanity-content.ts",
     "ct:sanity-webhook": "tsx --conditions=react-server --env-file=.env scripts/sanity-webhook.ts",
-    "ct:seed-list-permissions": "tsx --conditions=react-server --env-file=.env scripts/seed-shopping-list-permissions.ts"
+    "ct:seed-list-permissions": "tsx --conditions=react-server --env-file=.env scripts/seed-shopping-list-permissions.ts",
+    "ct:price": "tsx --conditions=react-server --env-file=.env scripts/standalone-price.ts",
+    "ct:revalidate": "tsx --conditions=react-server --env-file=.env scripts/revalidate.ts"
   },
   "dependencies": {
     "@commercetools/checkout-browser-sdk": "^1.7.5",

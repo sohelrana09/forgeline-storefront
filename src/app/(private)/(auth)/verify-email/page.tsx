@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { AuthShell } from "@/features/auth/components/AuthShell";
 import { VerifyEmailForm } from "@/features/auth/components/AccountForms";
+
+export const metadata: Metadata = { title: "Confirm your email" };
 
 // Opening the link doesn't confirm anything: email scanners open links too, and the token works only once.
 // The customer confirms with the button.

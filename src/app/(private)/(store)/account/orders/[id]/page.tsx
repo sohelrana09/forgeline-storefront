@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { requireShopContext } from "@/features/business-units/context";
 import { OrderView } from "@/features/orders/components/OrderView";
+
+export const metadata: Metadata = { title: "Order" };
 
 export default async function OrderPage({
   params,

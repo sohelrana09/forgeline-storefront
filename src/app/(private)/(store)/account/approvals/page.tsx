@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { can } from "@/features/company/utils";
 import { ApprovalsListView } from "@/features/approvals/components/ApprovalsListView";
 import { listParams } from "@/components/ui/ListToolbar";
+
+export const metadata: Metadata = { title: "Order approvals" };
 
 type Search = { view?: string; page?: string; limit?: string };
 
