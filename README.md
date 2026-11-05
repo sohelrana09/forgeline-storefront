@@ -11,6 +11,8 @@
 
 **An open-source B2B and B2C storefront for commercetools, built with Next.js 16.**
 
+Built by [Sohel Rana](https://sohelrana.io), Adobe Certified Master Architect and Claude Certified Architect – Foundations (CCAR-F). More about the project on the [Forgeline page](https://sohelrana.io/products/forgeline).
+
 **[Live demo](https://forgeline-storefront-gamma.vercel.app/)** · [Quick start](#quick-start) · [Screenshots](#screenshots) · [Contributing](CONTRIBUTING.md)
 
 Forgeline is a complete, working online shop on top of [commercetools Composable Commerce](https://commercetools.com/).
