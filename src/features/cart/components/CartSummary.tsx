@@ -15,6 +15,7 @@ export function CartSummary({ cart, title = "Summary" }: { cart: Cart | Order | 
         label={s.shipping ? `Shipping · ${s.shipping.name}` : "Shipping"}
         value={s.shipping?.amount === undefined ? "Chosen at checkout" : s.shipping.amount === 0 ? "Free" : money(s.shipping.amount)}
       />
+      {s.discount ? <Row label="Discount" value={`-${money(s.discount)}`} /> : null}
       {s.taxes?.map((t, i) => (
         <Row key={i} label={t.label} value={money(t.amount)} muted={s.taxIncluded} />
       ))}

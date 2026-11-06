@@ -2,6 +2,7 @@
 // Pages and components only use the functions below, so swapping the backend for a headless CMS
 // (Contentful, Storyblok, …) means rewriting this file, nothing else.
 import "server-only";
+import { connection } from "next/server";
 import { sanityFetch } from "@/lib/sanity/client";
 import { stegaClean } from "next-sanity";
 import { sanityConfigured } from "@/lib/sanity/env";
@@ -47,7 +48,10 @@ const allBlocks = (): Promise<CmsBlock[]> =>
     ? sanityFetch<CmsBlock[]>(`*[_type == "cmsBlock" && defined(identifier.current)]{${BLOCK_FIELDS}}`).then((all) => all.map(cleanBlock))
     : Promise.resolve([]);
 
+// The schedule (isLive) reads the clock, so blocks are request-time: connection() keeps them out of prerendered
+// shells (callers render them behind a <Suspense>), while the Sanity read itself stays cached.
 export async function getBlocks({ placement, storeKey, categorySlugs = [] }: BlockQuery): Promise<CmsBlock[]> {
+  await connection();
   const blocks = await allBlocks();
   return blocks
     .filter((b) => b.active && b.placement === placement && isLive(b))

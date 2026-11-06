@@ -9,9 +9,9 @@
 import { isDeepStrictEqual } from "node:util";
 import type { ChangeSubscription, Destination, SubscriptionUpdateAction } from "@commercetools/platform-sdk";
 import { apiRoot } from "../src/lib/commercetools/client";
+import { destinationFromArgs } from "./subscription-destination";
 
 const KEY = "storefront-cache-refresh";
-const REGION = "us-east-2";
 // Every create, update and delete of these resources. "changes" (not messages) need no Messages setting, and cover
 // staged product edits too: those refresh the cache needlessly, which is harmless.
 const CHANGES: ChangeSubscription[] = [
@@ -21,26 +21,6 @@ const CHANGES: ChangeSubscription[] = [
   { resourceTypeId: "category" },
   { resourceTypeId: "key-value-document" },
 ];
-
-function destinationFromArgs(args: string[]): Destination | undefined {
-  const value = (flag: string) => {
-    const i = args.indexOf(flag);
-    return i >= 0 ? args[i + 1] : undefined;
-  };
-  const account = value("--eventbridge");
-  if (account) {
-    if (!/^\d{12}$/.test(account)) throw new Error("--eventbridge needs the 12-digit AWS account id");
-    // `source` is set by commercetools (the SDK type wrongly requires it on create).
-    return { type: "EventBridge", region: REGION, accountId: account } as Destination;
-  }
-  const pubsub = value("--pubsub");
-  if (pubsub) {
-    const [projectId, topic] = pubsub.split("/");
-    if (!projectId || !topic) throw new Error("--pubsub needs <gcp-project>/<topic>");
-    return { type: "GoogleCloudPubSub", projectId, topic };
-  }
-  return undefined;
-}
 
 async function main() {
   const args = process.argv.slice(2);

@@ -31,7 +31,7 @@ describe("compareScopes", () => {
       "view_products",
     ];
     expect(compareScopes(granted)).toEqual({
-      missing: ["manage_business_units", "manage_sessions"],
+      missing: ["manage_business_units", "manage_sessions", "manage_payments"],
       extra: [
         "manage_associate_roles",
         "manage_categories",

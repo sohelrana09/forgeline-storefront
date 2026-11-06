@@ -8,12 +8,14 @@ import { priceSelection, pricingKey, pricingKeyId, type PricingKey } from "@/fea
 import { allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
 import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
 import { productSearchEnabled, productSearchRequest } from "@/features/catalog/product-search";
+import { companyBasePrices, withCompanyPrice, withCompanyPrices } from "@/features/company-pricing/service";
 
 // Catalog reads with the admin client, price-selected for the buyer's store/channel/country.
 // Price-selected reads take only a PricingKey (features/catalog/pricing.ts): each exported read turns the buying
 // context into its key and hands just that to an inner "use cache" read, so entries are shared per store and price
 // list and nothing about the person can reach the cache. Refreshed within 15 minutes, or when /api/revalidate clears
-// the catalog tag.
+// the catalog tag. Units with company prices from the price service (ctx.externalPriceCompany) get them laid over the
+// cached result per visitor (features/company-pricing), outside the cache.
 
 // ---------- Categories (42 in the sample data; products are assigned to leaf categories only) ----------
 
@@ -77,12 +79,13 @@ export function categoryMenu(tree: CategoryTree, maxDepth = 3): CategoryMenuItem
 // Ids come from commercetools (category tree, product references), never from user input.
 const idList = (ids: string[]) => ids.map((id) => `"${id}"`).join(", ");
 
-export function getProductsInCategories(
+export async function getProductsInCategories(
   ctx: PricingKey,
   categoryIds: string[],
   options: { limit?: number; offset?: number; sort?: string } = {},
 ) {
-  return productsInCategories(pricingKey(ctx), categoryIds, options);
+  const body = await productsInCategories(pricingKey(ctx), categoryIds, options);
+  return ctx.externalPriceCompany ? { ...body, results: await withCompanyPrices(ctx, body.results) } : body;
 }
 
 async function productsInCategories(
@@ -111,8 +114,8 @@ async function productsInCategories(
 // counts, sorts and pages them itself, because Product Projection Search (and its facets) is deactivated here.
 // Fine for catalogs of a few hundred products per category; past CATEGORY_MAX switch to the Product Search API.
 export const CATEGORY_MAX = 500;
-export const getAllProductsInCategories = cache((ctx: PricingKey, categoryIds: string[]) =>
-  allProductsInCategories(pricingKey(ctx), categoryIds),
+export const getAllProductsInCategories = cache(async (ctx: PricingKey, categoryIds: string[]) =>
+  withCompanyPrices(ctx, await allProductsInCategories(pricingKey(ctx), categoryIds)),
 );
 
 async function allProductsInCategories(key: PricingKey, categoryIds: string[]) {
@@ -135,7 +138,9 @@ async function allProductsInCategories(key: PricingKey, categoryIds: string[]) {
 }
 
 // React cache(): the page's metadata and the page itself share one query per request (same context object).
-export const getProductBySlug = cache((ctx: PricingKey, slug: string) => productBySlug(pricingKey(ctx), slug));
+export const getProductBySlug = cache(async (ctx: PricingKey, slug: string) =>
+  withCompanyPrice(ctx, await productBySlug(pricingKey(ctx), slug)),
+);
 
 async function productBySlug(key: PricingKey, slug: string): Promise<ProductProjection | undefined> {
   "use cache: remote";
@@ -163,10 +168,10 @@ export async function getProductContent(slug: string): Promise<ProductProjection
 }
 
 // For CMS "products" blocks: SKUs come from content files, so only allow SKU characters in the predicate.
-export function getProductsBySkus(ctx: PricingKey, skus: unknown): Promise<ProductProjection[]> {
-  if (!Array.isArray(skus)) return Promise.resolve([]);
+export async function getProductsBySkus(ctx: PricingKey, skus: unknown): Promise<ProductProjection[]> {
+  if (!Array.isArray(skus)) return [];
   const safe = skus.filter((s): s is string => typeof s === "string" && /^[A-Za-z0-9._-]+$/.test(s)).slice(0, 100);
-  return safe.length === 0 ? Promise.resolve([]) : productsBySkus(pricingKey(ctx), safe);
+  return safe.length === 0 ? [] : withCompanyPrices(ctx, await productsBySkus(pricingKey(ctx), safe));
 }
 
 async function productsBySkus(key: PricingKey, safe: string[]): Promise<ProductProjection[]> {
@@ -189,8 +194,8 @@ async function productsBySkus(key: PricingKey, safe: string[]): Promise<ProductP
     .filter((p, i, arr): p is ProductProjection => !!p && arr.indexOf(p) === i);
 }
 
-export function getProductsByIds(ctx: PricingKey, ids: string[]): Promise<ProductProjection[]> {
-  return ids.length === 0 ? Promise.resolve([]) : productsByIds(pricingKey(ctx), ids);
+export async function getProductsByIds(ctx: PricingKey, ids: string[]): Promise<ProductProjection[]> {
+  return ids.length === 0 ? [] : withCompanyPrices(ctx, await productsByIds(pricingKey(ctx), ids));
 }
 
 async function productsByIds(key: PricingKey, ids: string[]): Promise<ProductProjection[]> {
@@ -327,7 +332,7 @@ export async function searchProducts(ctx: PricingKey, query: string, page: numbe
   if (found)
     return {
       products: await getProductsByIds(
-        key,
+        ctx,
         found.entries.map((e) => e.id),
       ),
       total: found.total,
@@ -335,7 +340,7 @@ export async function searchProducts(ctx: PricingKey, query: string, page: numbe
     };
   const { matches, corrected } = rank(await searchIndex(key), query);
   const products = await getProductsByIds(
-    key,
+    ctx,
     matches.slice((page - 1) * size, page * size).map((e) => e.id),
   );
   return { products, total: matches.length, corrected };
@@ -353,7 +358,24 @@ export async function suggestProducts(ctx: PricingKey, query: string, limit = 6)
         return qs.every((w) => name.some((t) => t.startsWith(w)));
       })
     : [];
-  return { products: matches.slice(0, limit), total: found?.total ?? matches.length, corrected, categories: categories.slice(0, 3) };
+  return {
+    products: await withCompanySuggestionPrices(ctx, matches.slice(0, limit)),
+    total: found?.total ?? matches.length,
+    corrected,
+    categories: categories.slice(0, 3),
+  };
+}
+
+// Suggestions come from the per-store index (web prices): show a unit's company price instead.
+async function withCompanySuggestionPrices(ctx: PricingKey, entries: SearchEntry[]): Promise<SearchEntry[]> {
+  const prices = await companyBasePrices(
+    ctx,
+    entries.flatMap((e) => (e.sku ? [e.sku] : [])),
+  );
+  return entries.map((e) => {
+    const price = e.sku ? prices.get(e.sku) : undefined;
+    return price ? { ...e, price: price.value, fromPrice: undefined } : e;
+  });
 }
 
 // Every product a guest can open (the guest store's assortment, priced), page by page (sitemap): the product page

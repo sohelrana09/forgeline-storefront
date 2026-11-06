@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { localize } from "@/features/catalog/utils";
 import { getOrderForViewer, orderReference } from "@/features/orders/service";
+import { orderPaymentKind } from "@/features/order-processing/service";
 import { getCompanyMembers } from "@/features/company/service";
 import { can } from "@/features/company/utils";
 import { ORDER_STATES } from "@/features/orders/utils";
@@ -41,9 +42,10 @@ export async function OrderView({
   if (!order) notFound();
   const mine = order.customerId === session.customerId;
   // Its approval and the colleagues' names (who placed it, if not you, and who decided the approval), together.
-  const [approvals, members] = await Promise.all([
+  const [approvals, members, payment] = await Promise.all([
     approvalsForOrders(context, session.customerId, [order.id]),
     context.consumer ? [] : getCompanyMembers(context, session.customerId).catch(() => []),
+    orderPaymentKind(order),
   ]);
   const approval = approvals[order.id];
   const nameOf = (id?: string) => (id === session.customerId ? "you" : (members.find((m) => m.customerId === id)?.name ?? "a former user"));
@@ -214,9 +216,9 @@ export async function OrderView({
           </InfoBlock>
           <InfoBlock title="Payment method">
             <p className="m-0">
-              {order.paymentInfo?.payments.length
+              {payment === "card"
                 ? `Card${order.paymentState ? ` (${order.paymentState.toLowerCase()})` : ""}`
-                : context.consumer
+                : payment === "bank-transfer"
                   ? "Bank transfer (details in the order confirmation)"
                   : `Invoice to ${context.businessUnitName}`}
             </p>

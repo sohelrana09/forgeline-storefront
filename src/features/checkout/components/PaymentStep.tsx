@@ -29,6 +29,7 @@ export function PaymentStep({
   purchaseOrderNumber,
   ready,
   waitingFor,
+  paymentOpen = false,
 }: {
   kind: PaymentKind;
   billing: string;
@@ -36,6 +37,8 @@ export function PaymentStep({
   purchaseOrderNumber?: string;
   ready: boolean;
   waitingFor?: string;
+  // The cart is frozen: a card payment was opened for it (features/cart/freeze.ts).
+  paymentOpen?: boolean;
 }) {
   const method = METHODS[kind];
   return (
@@ -57,7 +60,7 @@ export function PaymentStep({
         {kind === "invoice" ? (
           <PlaceOrderForm cartVersion={cartVersion} purchaseOrderNumber={purchaseOrderNumber} ready={ready} />
         ) : kind === "card" ? (
-          <CardPayment cartVersion={cartVersion} ready={ready} />
+          <CardPayment cartVersion={cartVersion} ready={ready} paymentOpen={paymentOpen} />
         ) : (
           <BankTransferForm cartVersion={cartVersion} ready={ready} />
         )}

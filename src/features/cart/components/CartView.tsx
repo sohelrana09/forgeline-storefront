@@ -7,6 +7,7 @@ import { nextStep, unitPriceAt } from "@/features/catalog/tiers";
 import { formatMoney } from "@/lib/utils";
 import { AddToListPanel } from "@/features/purchase-lists/components/AddToListPanel";
 import { CartSummary } from "@/features/cart/components/CartSummary";
+import { DiscountCodes } from "@/features/cart/components/DiscountCodes";
 import { RequestQuoteForm } from "@/features/quotes/components/RequestQuoteForm";
 import { CmsBlocks } from "@/features/cms/components/CmsBlocks";
 import { QuantityInput } from "@/components/ui/QuantityInput";
@@ -16,6 +17,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
 import { categoryPath } from "@/lib/urls";
 import { Message } from "@/components/ui/Message";
+import { CART_LOCKED_MESSAGE } from "@/features/cart/freeze";
 
 // After sign-in, the guest cart's lines were added here: ?merged=<count>&skipped=<skus not sold to this unit>.
 type MergeNotice = { merged?: string; skipped?: string };
@@ -92,6 +94,11 @@ export async function CartView({
     <div className="flex flex-col gap-6">
       <MergeBanner merge={merge} context={context} />
       <h1 className="m-0 text-2xl font-bold">{context.guest || context.consumer ? "Cart" : `Cart · ${context.businessUnitName}`}</h1>
+      {cart.cartState === "Frozen" && (
+        <Message type="warning" link={{ href: "/checkout", label: "Go to checkout" }}>
+          {CART_LOCKED_MESSAGE}
+        </Message>
+      )}
       <div className="flex flex-wrap items-start gap-6">
         <section aria-label="Cart lines" className="min-w-0 flex-[999_1_560px] rounded-md border border-gray-200 bg-white">
           <ul className="m-0 list-none p-0">
@@ -159,6 +166,7 @@ export async function CartView({
 
         <div className="flex w-full flex-col gap-4 md:max-w-sm md:flex-[1_1_300px]">
           <CartSummary cart={cart} />
+          {context.canOrder && <DiscountCodes cart={cart} />}
           <Suspense fallback={null}>
             <AddToListPanel context={context} kind="cart" />
           </Suspense>

@@ -2,7 +2,7 @@ import "server-only";
 import type { BaseAddress, Cart, Order } from "@commercetools/platform-sdk";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
-import { cartAddress, getActiveCart, getShippingOptions, updateMyCart, type CartAuth } from "@/features/cart/service";
+import { cartAddress, getActiveCart, getShippingOptions, setCartFrozen, updateMyCart, type CartAuth } from "@/features/cart/service";
 import { createCheckoutSession, type CheckoutSession } from "@/lib/commercetools/checkout-session";
 export { getShippingOptions, type ShippingOption } from "@/features/cart/service";
 import { isQuoteOnly } from "@/features/catalog/utils";
@@ -150,6 +150,10 @@ async function readyB2CCart(auth: CartAuth, ctx: PricingContext, cartId: string,
 }
 
 // Opens a Checkout Session for a ready cart; Checkout takes the payment and creates the Order.
+// G5: the cart is frozen first, with the version the buyer reviewed (a change since fails with a 409), so Checkout
+// charges exactly the reviewed total: commercetools keeps prices, discounts and the shipping method, and the storefront
+// refuses cart changes while the freeze is fresh (features/cart/freeze.ts). A cart that is already frozen (the buyer
+// reloaded the page and pays again) stays frozen. If no session can be opened, the cart is unfrozen again.
 export async function prepareCardPayment(
   auth: CartAuth,
   ctx: PricingContext,
@@ -157,8 +161,21 @@ export async function prepareCardPayment(
   expectedVersion: number,
   email: string | undefined,
 ): Promise<{ session: CheckoutSession; reviewedCentAmount: number }> {
-  const cart = await readyB2CCart(auth, ctx, cartId, expectedVersion, email);
-  return { session: await createCheckoutSession(cart.id), reviewedCentAmount: cart.taxedPrice!.totalGross.centAmount };
+  let cart = await readyB2CCart(auth, ctx, cartId, expectedVersion, email);
+  const freezing = cart.cartState === "Active";
+  if (freezing) cart = await setCartFrozen(ctx, cart, true);
+  try {
+    return { session: await createCheckoutSession(cart.id), reviewedCentAmount: cart.taxedPrice!.totalGross.centAmount };
+  } catch (err) {
+    if (freezing) await setCartFrozen(ctx, cart, false).catch(() => undefined); // else it unlocks after FREEZE_TTL_MS
+    throw err;
+  }
+}
+
+// The buyer cancels the open card payment: their own cart (read with their token) is unfrozen, so it can change again.
+export async function cancelCardPayment(auth: CartAuth, ctx: PricingContext, cartId: string): Promise<void> {
+  const cart = await getActiveCart(auth, cartId, ctx);
+  if (cart?.cartState === "Frozen") await setCartFrozen(ctx, cart, false);
 }
 
 // While card payments are switched off (B2C_CARD_PAYMENTS): the B2C order is placed straight away with the caller's

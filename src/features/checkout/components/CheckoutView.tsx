@@ -4,7 +4,7 @@ import { getActiveCart } from "@/features/cart/service";
 import { getMe, withMyAddresses } from "@/features/account/service";
 import { ResendVerificationButton } from "@/features/auth/components/AccountForms";
 import { getShippingOptions, orderFromCart, quoteOnlyLines } from "@/features/checkout/service";
-import { addressLabel, methodOptions } from "@/features/checkout/utils";
+import { addressLabel, methodOptions, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { DeliveryForm } from "@/features/checkout/components/CheckoutForm";
 import { CheckoutItems } from "@/features/checkout/components/CheckoutItems";
@@ -41,15 +41,9 @@ export async function CheckoutView({
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");
 
   // The cart's address is a copy; match it back to the saved address by its fields.
-  const selected =
-    context.addresses.find(
-      (a) =>
-        a.country === cart.shippingAddress?.country &&
-        a.city === cart.shippingAddress?.city &&
-        a.streetName === cart.shippingAddress?.streetName,
-    ) ?? context.defaultShippingAddress;
+  const selected = context.addresses.find((a) => sameAddress(a, cart.shippingAddress)) ?? context.defaultShippingAddress;
   const options = selected ? await getShippingOptions(context, selected) : [];
-  const methodKey = options.find((o) => o.name === cart.shippingInfo?.shippingMethodName)?.key;
+  const methodKey = selectedMethodKey(options, cart);
   const shippingMethodSet = Boolean(cart.shippingInfo);
   const emailOk = !context.consumer || Boolean(me?.isEmailVerified);
   const ready = shippingMethodSet && Boolean(cart.taxedPrice) && emailOk;
@@ -104,6 +98,7 @@ export async function CheckoutView({
               kind={context.consumer ? (cardPaymentsEnabled() ? "card" : "bank-transfer") : "invoice"}
               billing={billing}
               cartVersion={cart.version}
+              paymentOpen={cart.cartState === "Frozen"}
               purchaseOrderNumber={cart.purchaseOrderNumber}
               ready={ready}
               waitingFor={shippingMethodSet ? undefined : "Choose a shipping method first."}

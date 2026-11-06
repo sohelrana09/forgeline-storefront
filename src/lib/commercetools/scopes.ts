@@ -25,6 +25,8 @@ export const RUNTIME_SCOPES = [
   "manage_key_value_documents",
   // Card payments: commercetools Checkout sessions (checkout-session.ts narrows its own token further).
   "manage_sessions",
+  // Payments for invoice and bank-transfer orders (features/order-processing), and reading how an order was paid.
+  "manage_payments",
 ] as const;
 
 export const runtimeScopes = (projectKey: string) => RUNTIME_SCOPES.map((s) => `${s}:${projectKey}`).join(" ");

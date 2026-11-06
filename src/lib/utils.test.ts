@@ -8,6 +8,11 @@ describe("formatMoney", () => {
     expect(formatMoney({ centAmount: 1500, currencyCode: "JPY", fractionDigits: 0 })).toBe("¥1,500");
     expect(formatMoney({ centAmount: 22500000, currencyCode: "GBP", fractionDigits: 2 })).toBe("£225,000.00");
   });
+  it("shows high-precision money from its precise amount, up to 4 decimals", () => {
+    expect(formatMoney({ centAmount: 39, preciseAmount: 386559, currencyCode: "NZD", fractionDigits: 6 })).toBe("NZ$0.3866");
+    expect(formatMoney({ centAmount: 14954, preciseAmount: 1495395, currencyCode: "NZD", fractionDigits: 4 })).toBe("NZ$149.5395");
+    expect(formatMoney({ centAmount: 1291, preciseAmount: 129100, currencyCode: "NZD", fractionDigits: 4 })).toBe("NZ$12.91");
+  });
 });
 
 describe("firstParam", () => {

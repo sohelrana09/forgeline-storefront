@@ -10,6 +10,9 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { cartCookie } from "@/features/auth/session";
 import { requireBusinessContext } from "@/features/business-units/context";
 import { notifyApproversIfPending } from "@/features/approvals/service";
+import { numberNewOrder, processOrder } from "@/features/order-processing/service";
+import { tooManyAttempts } from "@/lib/rate-limit";
+import { outOfStockSkus } from "@/features/cart/stock";
 import {
   QuoteError,
   cancelQuoteRequest,
@@ -26,6 +29,9 @@ const str = (formData: FormData, name: string) => String(formData.get(name) ?? "
 function failed(err: unknown, fallback: string): QuoteActionState {
   unstable_rethrow(err);
   if (err instanceof QuoteError) return { error: err.message };
+  const skus = outOfStockSkus(err); // G6: the quote's lines can't be filled from stock right now
+  if (skus)
+    return { error: `Not enough stock${skus.length ? ` for ${skus.join(", ")}` : ""} to order this quote right now. Please contact us.` };
   const body = (err as { body?: { statusCode?: number } })?.body;
   console.error(fallback, body ?? err);
   if (body?.statusCode === 409) return { error: "This changed in the meantime. Please review it and try again." };
@@ -87,6 +93,13 @@ export async function renegotiate(_prev: QuoteActionState, formData: FormData): 
 export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData): Promise<QuoteActionState> {
   const { session, context } = await requireBusinessContext();
   if (!context.canOrder) return { error: "Only buyers can accept quotes." };
+  // G8: per quote and per buyer (shared with placing orders from the cart), like the other order actions.
+  if (
+    (await tooManyAttempts(`quote-order:${str(formData, "id").slice(0, 64)}`, 10)) ||
+    (await tooManyAttempts(`order-customer:${session.customerId}`, 30))
+  ) {
+    return { error: "Too many attempts. Please wait a few minutes and try again." };
+  }
   let target: string;
   try {
     const { order, poSaved } = await orderFromQuote(
@@ -97,7 +110,11 @@ export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData
       str(formData, "purchaseOrderNumber"),
     );
     target = `/account/orders/${order.id}${poSaved ? "" : "?po=failed"}`;
-    after(() => notifyApproversIfPending(context, session.customerId, order));
+    const placed = await numberNewOrder(order);
+    after(async () => {
+      await processOrder(placed.id); // never throws
+      await notifyApproversIfPending(context, session.customerId, placed);
+    });
   } catch (err) {
     return failed(err, "The order could not be placed.");
   }

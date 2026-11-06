@@ -1,5 +1,66 @@
 # Changelog
 
+## v2.1.0 (2026-11-06)
+
+Checkout you can run a business on: every order is numbered, has a payment record and sends one confirmation email, even when the buyer closes the tab right after paying. Card payments charge exactly the total the buyer reviewed, stock is reserved when an order is placed, and buyers can enter discount codes. Plus a proof of concept for company prices that come from an external price service.
+
+**Live demo:** https://forgeline-storefront-gamma.vercel.app
+
+### Highlights
+
+- **Order numbers:** every order gets a readable number (`ORD-2026-000123`) the moment it is placed, on every path: invoice + PO, bank transfer, card payment and order from a quote.
+- **Processing that doesn't depend on the browser:** numbering, the payment record and the confirmation email run on the server, from the order itself, from a commercetools Subscription and from a sweep, so nothing is lost when a buyer closes the tab.
+- **One confirmation email per order:** items, totals, delivery address, how to pay, and a link to the order for signed-in buyers.
+- **The charged total is the reviewed total:** paying by card locks the cart until the payment ends.
+- **Stock reserved on order:** an order that can't be filled is refused with the SKUs named, instead of being oversold.
+- **Discount codes** on the cart page.
+
+### Checkout and orders
+
+- Invoice and bank-transfer orders get a commercetools Payment (method `invoice` or `bank-transfer`, planned amount = the order total) and the payment state Pending, so finance can reconcile them alongside card payments.
+- A rejected order no longer waits for payment: when the approver rejects it, the order is cancelled, its payment state becomes Failed and its Payment is marked cancelled.
+- Paying by card locks the cart (a commercetools Frozen cart). Changes from another tab are refused with a message; "Cancel payment and change my cart" unlocks it, and an abandoned payment unlocks after 30 minutes.
+- When commercetools Checkout's script can't load (blocked or offline), the buyer sees "Card payment is unavailable" with Try again instead of an empty payment area; the message goes away if the script arrives late.
+- Checkout preselects the right saved address when two share a street, and the right delivery method when two have the same name.
+- Placing a business order and ordering from a quote are rate limited, like the consumer order actions.
+- Orders placed before this release keep showing the first 8 characters of their id.
+
+### Cart
+
+- Discount codes: apply and remove on the cart page, with a clear message when a code doesn't apply (expired, not valid for these items, can't be combined). A discount on the cart total shows as its own row in the summary, the order page and the PDFs.
+- Cart lines come from the store's warehouse (supply channel) and new carts reserve stock on order (`ReserveOnOrder`). Out-of-stock messages name the SKUs, on checkout, bank transfer and order from a quote.
+
+### Company prices from an external price service (proof of concept)
+
+- For suppliers whose company prices are calculated in an ERP and can't be stored as commercetools price lists: units of a store marked `externalPricing` see their company's price ladders, read from a price service and laid over the cached web prices. Carts get the same prices from an API Extension (`POST /api/price-extension`, `PRICE_EXTENSION_SECRET`), which refuses the cart change when the price service fails rather than charging the web price.
+- Money with more than 2 decimals (ERP unit prices) is shown precisely.
+- `npm run ct:nz-trade` loads the demo slice, units, prices and the extension (dry run by default). Design and setup: `docs/nz-trade-pricing.md`. Not yet run against the demo project.
+
+### Under the hood
+
+- `src/features/order-processing`: order numbers from a per-year counter, per-order step markers so each step runs once (also when the order action and the Subscription handle the same order at the same moment), Payments keyed `order-<order id>`, the confirmation email built from the order document. The sweep pages through every order of the last 24 hours (up to 2,000 per run). Pure parts unit-tested.
+- New endpoints: `POST /api/order-events` (the Subscription's queue, `ORDER_EVENTS_SECRET`) and `GET /api/cron/order-sweep` (`CRON_SECRET`). Both refuse every caller while their secret is unset.
+- New scripts: `npm run ct:order-subscription` (order and payment messages to EventBridge or Pub/Sub) and `npm run ct:nz-trade`.
+- Opt-in browser tests that place real orders (`E2E_ORDERS=1`, `e2e/orders`): guest and consumer bank transfer, invoice with a PO, an order above the approval rule that the approver rejects, and the card lock with Checkout stubbed out. They order from their own test cart, cancel their orders and put the stock back.
+- `npm run setup -- --check` now says that missing or extra scopes need a new API client (commercetools can't change an existing client's scopes).
+- CMS blocks with start and end dates no longer break the prerendered pages.
+- 285 unit tests.
+
+### Upgrading from 2.0
+
+- **Runtime API client:** the shop now needs `manage_payments`. Create a new API client with the 16 runtime scopes (`RUNTIME_SCOPES` in `src/lib/commercetools/scopes.ts`), put it in `CTP_CLIENT_ID` / `CTP_CLIENT_SECRET`, and delete the old one. `npm run setup -- --check` confirms it.
+- **New settings** (see `.env.example`): `ORDER_EVENTS_SECRET` and `CRON_SECRET` (at least 32 random characters each), optional `ORDER_NUMBER_PREFIX` (default `ORD`), and `PRICE_EXTENSION_SECRET` only for the price service POC.
+- **Email:** set `RESEND_API_KEY` and `MAIL_FROM` in production, or confirmation emails are only printed to the log.
+- **Order events:** turn on Messages in the project settings, then run `npm run ct:order-subscription -- --eventbridge <aws-account-id> --yes` and point the queue at `/api/order-events`. Steps: `docs/checkout-setup.md`.
+- **Sweep:** schedule `GET /api/cron/order-sweep` every 15 minutes. Vercel's Hobby plan allows only daily crons, so use a paid plan or an external scheduler; `vercel.json` has no cron entry yet.
+- Carts created before the upgrade don't reserve stock; new carts do.
+
+### Known limitations
+
+- A real card payment hasn't been tested end to end: the demo project's Checkout Application has no payment methods. The card lock and cancel are tested with Checkout stubbed out.
+- Order numbers can have gaps (a number is used up when two orders race for it, and test orders use them too).
+- The 30-minute card lock counts from when the cart was locked, not from the Checkout session; a buyer still typing card details after 30 minutes can have the cart unlocked from another tab (the order is then flagged if its total differs).
+
 ## v2.0.0 (2026-10-30)
 
 Fast pages for every visitor, content in Sanity, CSV ordering and a one-command setup. The storefront now serves cached pages to signed-in buyers too, with their own prices streamed in.

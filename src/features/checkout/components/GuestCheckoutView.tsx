@@ -8,7 +8,7 @@ import { CartSummary } from "@/features/cart/components/CartSummary";
 import { CheckoutItems } from "@/features/checkout/components/CheckoutItems";
 import { PaymentStep } from "@/features/checkout/components/PaymentStep";
 import { CheckoutStatusProvider } from "@/features/checkout/components/CheckoutStatus";
-import { addressLabel, methodOptions } from "@/features/checkout/utils";
+import { addressLabel, methodOptions, selectedMethodKey } from "@/features/checkout/utils";
 import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import { GuestDetailsForm } from "@/features/checkout/components/GuestDetailsForm";
 import type { GuestSession } from "@/features/auth/session";
@@ -52,7 +52,7 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
               address={cart.shippingAddress}
               countries={countries}
               methods={methodOptions(options, cart)}
-              methodKey={options.find((o) => o.name === cart.shippingInfo?.shippingMethodName)?.key}
+              methodKey={selectedMethodKey(options, cart)}
             />
             <PaymentStep
               kind={cardPaymentsEnabled() ? "card" : "bank-transfer"}
@@ -62,6 +62,7 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
                   : "Same as the shipping address"
               }
               cartVersion={cart.version}
+              paymentOpen={cart.cartState === "Frozen"}
               ready={ready}
               waitingFor={ready ? undefined : "Save your shipping address and method first."}
             />

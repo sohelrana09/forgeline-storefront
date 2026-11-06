@@ -7,6 +7,7 @@ import { requestAnonymousToken } from "@/lib/commercetools/customer-token";
 import { cartCookie, cookieOptions, guestScopes, saveGuest } from "@/features/auth/session";
 import { currentBrowseContext } from "@/features/business-units/context";
 import { addLinesToCart, lookupSkus } from "@/features/cart/service";
+import { CartLockedError } from "@/features/cart/freeze";
 import { parseQuickOrder } from "@/features/quick-order/parser";
 import type { QuickOrderState } from "@/features/quick-order/types";
 
@@ -72,11 +73,12 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
   } catch (err) {
     // signOutOnAuthError's redirect must not be swallowed here (a revoked token would loop "try again").
     unstable_rethrow(err);
+    const locked = err instanceof CartLockedError;
     // Log the details server-side; the browser only gets a generic reason.
-    console.error("quick order failed", (err as { body?: unknown })?.body ?? err);
+    if (!locked) console.error("quick order failed", (err as { body?: unknown })?.body ?? err);
     return {
       added: [],
-      errors: [...errors, { line: 0, text: "", reason: "The cart could not be updated. Please try again." }],
+      errors: [...errors, { line: 0, text: "", reason: locked ? err.message : "The cart could not be updated. Please try again." }],
       submitted: input,
     };
   }

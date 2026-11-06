@@ -1,5 +1,6 @@
 import { requireShopContext } from "@/features/business-units/context";
 import { getOrderForViewer } from "@/features/orders/service";
+import { orderPaymentKind } from "@/features/order-processing/service";
 import { DOCUMENT_KINDS, documentFilename, invoiceAvailable, orderDocument, type DocumentKind } from "@/features/orders/documents";
 import { renderOrderPdf } from "@/features/orders/pdf";
 import { approvalsForOrders } from "@/features/approvals/service";
@@ -19,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const approval = (await approvalsForOrders(context, session.customerId, [order.id]))[order.id];
     if (!invoiceAvailable(order, approval?.status)) return new Response("No invoice for this order yet", { status: 404 });
   }
-  const payment = order.paymentInfo?.payments.length ? "card" : order.businessUnit ? "invoice" : "bank-transfer";
+  const payment = await orderPaymentKind(order);
   const pdf = await renderOrderPdf(
     orderDocument(order, kind as DocumentKind, { buyer: order.businessUnit ? context.businessUnitName : undefined, payment }),
   );

@@ -7,7 +7,9 @@ import type { QuickOrderLine } from "@/features/quick-order/types";
 import { signOutOnAuthError } from "@/features/auth/session";
 import { isQuoteOnly } from "@/features/catalog/utils";
 import { priceSelection, pricingKey } from "@/features/catalog/pricing";
+import { companyBasePrices } from "@/features/company-pricing/service";
 import { str } from "@/lib/predicate";
+import { CartLockedError, freezeState } from "@/features/cart/freeze";
 
 // The token for "my carts": a signed-in buyer's session or a guest's anonymous token.
 export type CartAuth = { accessToken: string };
@@ -58,6 +60,12 @@ export async function lookupSkus(context: PricingContext, skus: string[]): Promi
       }
     }
   }
+  // A unit with company prices (price service) sees those; the cart gets the same from the API Extension.
+  const company = await companyBasePrices(context, [...found.keys()]);
+  for (const [sku, price] of company) {
+    const info = found.get(sku)!;
+    found.set(sku, { ...info, priced: true, quoteOnly: isQuoteOnly(price), price: price.value });
+  }
   return found;
 }
 
@@ -84,7 +92,7 @@ export const getActiveCart = cache(async (session: CartAuth, cartId: string | un
 async function latestCart(session: CartAuth, context: PricingContext): Promise<Cart | undefined> {
   const unit = context.businessUnitKey ? `businessUnit(key=${str(context.businessUnitKey)})` : "businessUnit is not defined";
   const { body } = await myCarts(session, context)
-    .get({ queryArgs: { where: `cartState="Active" and ${unit}`, sort: ["lastModifiedAt desc"], limit: 5 } })
+    .get({ queryArgs: { where: `cartState in ("Active", "Frozen") and ${unit}`, sort: ["lastModifiedAt desc"], limit: 5 } })
     .execute()
     .catch(signOutOnAuthError);
   if (body.results.length === 0) return undefined;
@@ -116,15 +124,19 @@ async function cartById(session: CartAuth, cartId: string, context: PricingConte
       if (statusOf(err) === 404 || (statusOf(err) === 401 && !context.businessUnitKey)) return undefined;
       return signOutOnAuthError(err);
     });
-  // A cart only counts if it is still open and belongs to the currently selected business unit
-  // (the guest context has the empty key, and guest carts have no business unit).
-  return cart?.cartState === "Active" && (cart.businessUnit?.key ?? "") === context.businessUnitKey ? cart : undefined;
+  // A cart only counts if it is still open (Active, or Frozen while a card payment is open: freeze.ts) and belongs to
+  // the currently selected business unit (the guest context has the empty key, and guest carts have no business unit).
+  const open = cart?.cartState === "Active" || cart?.cartState === "Frozen";
+  return open && (cart.businessUnit?.key ?? "") === context.businessUnitKey ? cart : undefined;
 }
 
+// Every line is priced by the store's distribution channel and, when the store has one, stocked from its supply channel
+// (G6, features/cart/stock.ts): all stock in the project belongs to a supply channel, so a line without one would find none.
 const lineDraft = (context: PricingContext, { sku, quantity }: QuickOrderLine) => ({
   sku,
   quantity,
   distributionChannel: { typeId: "channel" as const, id: context.channelId },
+  ...(context.supplyChannelId && { supplyChannel: { typeId: "channel" as const, id: context.supplyChannelId } }),
 });
 
 // Cart addresses are copies: drop the business unit address's own id/key.
@@ -136,6 +148,7 @@ export const cartAddress = (address?: BaseAddress): BaseAddress | undefined => {
 };
 
 export type ShippingOption = {
+  id: string;
   key: string;
   name: string;
   price?: { centAmount: number; currencyCode: string; fractionDigits: number };
@@ -156,8 +169,33 @@ export async function getShippingOptions(ctx: PricingContext, address?: BaseAddr
   return body.results.flatMap((m: ShippingMethod) => {
     const rate = m.zoneRates.flatMap((z) => z.shippingRates).find((r) => r.isMatching ?? r.price.currencyCode === ctx.currency);
     if (!m.key || !rate) return [];
-    return [{ key: m.key, name: m.name, price: rate.price, freeAbove: rate.freeAbove, isDefault: m.isDefault }];
+    return [{ id: m.id, key: m.key, name: m.name, price: rate.price, freeAbove: rate.freeAbove, isDefault: m.isDefault }];
   });
+}
+
+// Freezes or unfreezes the caller's cart (card payments, freeze.ts). The customer token can't (freezeCart isn't a My
+// Cart action), so the admin client does it in the cart's store, only for a cart just read with the caller's own
+// token (getActiveCart), and with that read's version: if the cart changed since, this fails with a 409.
+export async function setCartFrozen(context: PricingContext, cart: Cart, frozen: boolean): Promise<Cart> {
+  const { body } = await apiRoot
+    .inStoreKeyWithStoreKeyValue({ storeKey: context.storeKey })
+    .carts()
+    .withId({ ID: cart.id })
+    .post({
+      body: {
+        version: cart.version,
+        actions: [frozen ? { action: "freezeCart", strategy: "HardFreeze" } : { action: "unfreezeCart" }],
+      },
+    })
+    .execute();
+  return body;
+}
+
+// A cart that may be changed now: refuses one with an open card payment, unfreezes one whose payment was abandoned.
+async function writable(context: PricingContext, cart: Cart): Promise<Cart> {
+  const state = freezeState(cart, Date.now());
+  if (state === "locked") throw new CartLockedError();
+  return state === "stale" ? setCartFrozen(context, cart, false) : cart;
 }
 
 // Applies actions built from the CURRENT cart; on a version conflict re-reads it and rebuilds once.
@@ -167,12 +205,14 @@ export async function updateMyCart(
   cart: Cart,
   buildActions: (cart: Cart) => MyCartUpdateAction[],
 ): Promise<Cart> {
-  const update = (c: Cart) =>
-    myCarts(session, context)
-      .withId({ ID: c.id })
-      .post({ body: { version: c.version, actions: buildActions(c) } })
+  const update = async (c: Cart) => {
+    const current = await writable(context, c);
+    return myCarts(session, context)
+      .withId({ ID: current.id })
+      .post({ body: { version: current.version, actions: buildActions(current) } })
       .execute()
       .then((r) => r.body);
+  };
   try {
     return await update(cart);
   } catch (err) {
@@ -200,6 +240,9 @@ export async function addLinesToCart(
         body: {
           currency: context.currency,
           ...(context.country && { country: context.country }),
+          // Stock is checked and reserved when the order is created; stores without a supply channel (no stock kept
+          // in commercetools) don't track it.
+          ...(context.supplyChannelId && { inventoryMode: "ReserveOnOrder" as const }),
           ...(context.businessUnitKey && {
             businessUnit: { typeId: "business-unit" as const, key: context.businessUnitKey },
           }),
@@ -242,6 +285,8 @@ export async function mergeGuestCart(
 ): Promise<MergeResult> {
   const guestCart = await getActiveCart(guest, guest.cartId, guestContext);
   if (!guestCart || guestCart.lineItems.length === 0) return { merged: 0, skipped: [] };
+  // A card payment is open for the guest cart: leave it alone (it is paid as a guest, or unlocks after FREEZE_TTL_MS).
+  if (freezeState(guestCart, Date.now()) === "locked") return { merged: 0, skipped: [] };
 
   const lines = guestCart.lineItems.flatMap((l) => (l.variant.sku ? [{ sku: l.variant.sku, quantity: l.quantity }] : []));
   const skus = await lookupSkus(
@@ -261,4 +306,22 @@ export async function mergeGuestCart(
     .execute()
     .catch((err) => console.error("guest cart delete failed", (err as { body?: unknown })?.body ?? err));
   return { cart, merged: addable.length, skipped };
+}
+
+// ---------- Discount codes (G7, features/cart/discount.ts) ----------
+
+// Adds a code to the caller's own cart (their token: addDiscountCode is a My Cart action) and returns how it applies.
+export async function applyDiscountCode(session: CartAuth, context: PricingContext, cart: Cart, code: string) {
+  const before = new Set(cart.discountCodes.map((d) => d.discountCode.id));
+  const updated = await updateMyCart(session, context, cart, () => [{ action: "addDiscountCode", code }]);
+  return updated.discountCodes.find((d) => !before.has(d.discountCode.id))?.state;
+}
+
+// Removes a code from the caller's own cart; ids from the form only ever address that cart's own codes.
+export async function removeDiscountCode(session: CartAuth, context: PricingContext, cart: Cart, discountCodeId: string) {
+  return updateMyCart(session, context, cart, (c) =>
+    c.discountCodes.some((d) => d.discountCode.id === discountCodeId)
+      ? [{ action: "removeDiscountCode", discountCode: { typeId: "discount-code", id: discountCodeId } }]
+      : [],
+  );
 }

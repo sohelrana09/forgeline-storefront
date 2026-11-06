@@ -8,6 +8,8 @@ import type { PricingContext } from "@/features/business-units/types";
 import { orderReference } from "@/features/orders/service";
 import { UUID } from "@/features/orders/utils";
 import type { ApprovalItem, OrderApproval } from "@/features/approvals/types";
+import { cancelOrderActions } from "@/features/order-processing/payment";
+import { markPaymentCancelled } from "@/features/order-processing/service";
 
 // Order approvals, on commercetools Approval Flows. A flow is created by
 // commercetools when an order matches an Active approval rule of the unit; the order itself exists (Open) from the
@@ -204,25 +206,25 @@ export async function decideApproval(
   return { ...toApproval(updated), cancelFailed };
 }
 
-// The rejected order must not be processed: cancel it in its store (retry once if it changed meanwhile).
+// The rejected order must not be processed: cancel it in its store (retry once if it changed meanwhile). Its
+// pending payment becomes Failed in the same update, and our Payment of it is marked cancelled, so nobody waits for
+// money that won't come.
 async function cancelOrder(order: Order) {
   const storeKey = order.store?.key;
   if (!storeKey) throw new Error(`order ${order.id} has no store`);
   const orders = apiRoot.inStoreKeyWithStoreKeyValue({ storeKey }).orders().withId({ ID: order.id });
   for (let attempt = 1; ; attempt++) {
     const { body: current } = attempt === 1 ? { body: order } : await orders.get().execute();
-    if (current.orderState === "Cancelled") return;
+    const actions = cancelOrderActions(current);
+    if (actions.length === 0) break;
     try {
-      await orders
-        .post({
-          body: { version: current.version, actions: [{ action: "changeOrderState", orderState: "Cancelled" }] },
-        })
-        .execute();
-      return;
+      await orders.post({ body: { version: current.version, actions } }).execute();
+      break;
     } catch (err) {
       if (statusOf(err) !== 409 || attempt === 2) throw err;
     }
   }
+  await markPaymentCancelled(order.id);
 }
 
 // ---------- Emails (development: printed to the server log; see src/lib/mailer.ts) ----------

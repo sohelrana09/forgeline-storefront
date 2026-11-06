@@ -9,6 +9,8 @@ export type Summary = {
   items: number;
   subtotal: number;
   shipping?: { name?: string; amount?: number };
+  // A discount on the whole cart (a discount code or cart discount with target totalPrice), on the lines' basis.
+  discount?: number;
   taxIncluded: boolean;
   taxes?: { label: string; amount: number }[];
   total: number;
@@ -27,6 +29,7 @@ export function summarize(cart: Cart | Order | Quote | QuoteRequest): Summary {
       name: cart.shippingInfo.shippingMethodName,
       amount: (taxIncluded ? shippingTaxed?.totalGross : shippingTaxed?.totalNet)?.centAmount ?? cart.shippingInfo.price.centAmount,
     },
+    discount: totalDiscount(cart, taxIncluded),
     taxIncluded,
     taxes: taxed?.taxPortions.map((t) => ({
       label: `${taxIncluded ? "incl. " : ""}${t.name ?? "Tax"} ${Math.round(t.rate * 1000) / 10}%`,
@@ -34,4 +37,10 @@ export function summarize(cart: Cart | Order | Quote | QuoteRequest): Summary {
     })),
     total: (taxed?.totalGross ?? cart.totalPrice).centAmount,
   };
+}
+
+function totalDiscount(cart: Cart | Order | Quote | QuoteRequest, taxIncluded: boolean): number | undefined {
+  const d = "discountOnTotalPrice" in cart ? cart.discountOnTotalPrice : undefined;
+  if (!d) return undefined;
+  return ((taxIncluded ? d.discountedGrossAmount : d.discountedNetAmount) ?? d.discountedAmount).centAmount;
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { customerApiRoot } from "@/lib/commercetools/client";
 import { localize } from "@/features/catalog/utils";
 import { orderReference } from "@/features/orders/service";
+import { orderPaymentKind } from "@/features/order-processing/service";
 import { formatMoney } from "@/lib/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { AddressBlock } from "@/features/account/components/AddressBlock";
@@ -34,6 +35,7 @@ export async function GuestOrderConfirmation({
     .then((r) => r.body)
     .catch(() => undefined);
   if (!order) notFound();
+  const payment = await orderPaymentKind(order);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,7 +43,7 @@ export async function GuestOrderConfirmation({
         <h1 className="m-0 text-2xl font-bold text-green-900">Thank you for your order</h1>
         <p className="m-0 mt-1 text-sm text-green-900">
           Order {orderReference(order)}
-          {order.paymentInfo?.payments.length ? " · paid by card" : " · to pay by bank transfer"} · {order.customerEmail}
+          {payment === "card" ? " · paid by card" : " · to pay by bank transfer"} · {order.customerEmail}
         </p>
       </div>
       {totalChanged && (

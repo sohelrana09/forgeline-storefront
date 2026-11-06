@@ -7,6 +7,9 @@ export type PricingKey = {
   currency: string;
   country?: string;
   customerGroupId?: string;
+  // Not part of the key (pricingKey() drops it, so cached reads stay shared): the exported catalog reads lay this
+  // company's prices from the price service over the cached web prices (features/company-pricing).
+  externalPriceCompany?: string;
 };
 
 // Copies only the pricing fields of a buying context (which also carries the unit, addresses and permissions), and

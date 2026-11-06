@@ -9,12 +9,17 @@ import { str } from "@/lib/predicate";
 
 // Sample-data stores have no countries set, so pick the currency/country their prices use.
 // spain and us-* prices are country-restricted (ES / US) and only match when the country is sent.
-const STORE_PRICING: Record<string, { currency: string; country?: string }> = {
+// `externalPricing`: the store's units buy at company prices from the external price service (features/company-pricing:
+// an NZ trade supplier's SAP-calculated prices); the store's channel holds the web price that catalog reads select.
+const STORE_PRICING: Record<string, { currency: string; country?: string; externalPricing?: boolean }> = {
   "de-fr-uk": { currency: "EUR" },
   spain: { currency: "EUR", country: "ES" },
   "us-medium-customers": { currency: "USD", country: "US" },
   "us-large-customers": { currency: "USD", country: "US" },
+  "nz-trade": { currency: "NZD", country: "NZ", externalPricing: true },
 };
+
+export const hasExternalPricing = (storeKey: string | undefined) => !!storeKey && !!STORE_PRICING[storeKey]?.externalPricing;
 
 export type { BuyingContext, PricingContext, BuyerContext } from "@/features/business-units/types";
 import type { BuyerContext, BuyingContext } from "@/features/business-units/types";
@@ -67,7 +72,7 @@ async function loadBuyingContexts(): Promise<BuyingContext[]> {
     const channel = store?.distributionChannels[0];
     if (!store || !channel) continue; // can't price anything without a store channel
 
-    const pricing = STORE_PRICING[store.key] ?? { currency: "EUR" };
+    const { externalPricing, ...pricing } = STORE_PRICING[store.key] ?? { currency: "EUR" };
     const byId = (id?: string) => bu.addresses.find((a) => a.id === id);
     contexts.push({
       businessUnitKey: bu.key,
@@ -80,6 +85,8 @@ async function loadBuyingContexts(): Promise<BuyingContext[]> {
       channelKey: channel.obj?.key,
       supplyChannelId: store.supplyChannels?.[0]?.id,
       ...pricing,
+      // The unit key is the SAP business partner (CardCode) the price service knows.
+      ...(externalPricing && { externalPriceCompany: bu.key }),
       addresses: bu.addresses,
       defaultShippingAddress: byId(bu.defaultShippingAddressId) ?? bu.addresses[0],
       defaultBillingAddress: byId(bu.defaultBillingAddressId) ?? byId(bu.defaultShippingAddressId) ?? bu.addresses[0],

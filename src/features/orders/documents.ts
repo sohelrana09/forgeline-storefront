@@ -99,6 +99,7 @@ export function orderDocument(
       ...(s.shipping
         ? ([[`Shipping · ${s.shipping.name ?? ""}`.trim(), s.shipping.amount ? money(s.shipping.amount) : "Free"]] as [string, string][])
         : []),
+      ...(s.discount ? ([["Discount", `-${money(s.discount)}`]] as [string, string][]) : []),
       ...(s.taxes ?? []).map((t): [string, string] => [t.label, money(t.amount)]),
     ],
     total: ["Total", money(s.total)],

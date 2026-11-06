@@ -3,7 +3,10 @@
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
-import { getActiveCart, setLineQuantity } from "@/features/cart/service";
+import { applyDiscountCode, getActiveCart, removeDiscountCode, setLineQuantity } from "@/features/cart/service";
+import { discountStateMessage, nonApplicableMessage, normalizeCode } from "@/features/cart/discount";
+import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
+import { CartLockedError } from "@/features/cart/freeze";
 import { localize } from "@/features/catalog/utils";
 import { requireBrowseContext } from "@/features/business-units/context";
 import { addParsedLines } from "@/features/quick-order/service";
@@ -58,8 +61,59 @@ export async function updateCartLine(formData: FormData) {
     if (quantity === 0 && line) await flash("success", `You removed ${localize(line.name)} from your shopping cart.`);
   } catch (err) {
     unstable_rethrow(err); // signed out (revoked token)
-    console.error("cart update failed", (err as { body?: unknown })?.body ?? err);
-    await flash("error", "We couldn't update your shopping cart. Please try again.");
+    if (err instanceof CartLockedError) {
+      await flash("error", err.message);
+    } else {
+      console.error("cart update failed", (err as { body?: unknown })?.body ?? err);
+      await flash("error", "We couldn't update your shopping cart. Please try again.");
+    }
+  }
+  refresh();
+}
+
+// Public endpoint: adds a discount code to the caller's own open cart. Limited per cart and per network, so codes
+// can't be guessed by trying many.
+export async function applyDiscountCodeAction(formData: FormData) {
+  const { auth, context, cartId } = await requireBrowseContext();
+  if (!context.canOrder || !auth || !cartId) return;
+  const code = normalizeCode(String(formData.get("code") ?? ""));
+  if (!code) {
+    await flash("error", "Enter a discount code: letters, digits, - or _.");
+    return;
+  }
+  if ((await tooManyAttempts(`discount:${cartId}`, 10)) || (await tooManyAttempts(`discount-ip:${await clientIp()}`, 30))) {
+    await flash("error", "Too many discount codes tried. Please wait a few minutes and try again.");
+    return;
+  }
+  const cart = await getActiveCart(auth, cartId, context);
+  if (!cart) return;
+  try {
+    const result = discountStateMessage(code, await applyDiscountCode(auth, context, cart, code));
+    await flash(result.ok ? "success" : "error", result.text);
+  } catch (err) {
+    unstable_rethrow(err);
+    const known = err instanceof CartLockedError ? err.message : nonApplicableMessage(code, err);
+    if (!known) console.error("discount code failed", (err as { body?: unknown })?.body ?? err);
+    await flash("error", known ?? `Discount code ${code} could not be applied. Please try again.`);
+  }
+  refresh();
+}
+
+// Public endpoint: removes a discount code from the caller's own open cart.
+export async function removeDiscountCodeAction(formData: FormData) {
+  const { auth, context, cartId } = await requireBrowseContext();
+  if (!context.canOrder || !auth || !cartId) return;
+  const id = String(formData.get("discountCodeId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return;
+  const cart = await getActiveCart(auth, cartId, context);
+  if (!cart) return;
+  try {
+    await removeDiscountCode(auth, context, cart, id);
+    await flash("success", "Discount code removed.");
+  } catch (err) {
+    unstable_rethrow(err);
+    if (!(err instanceof CartLockedError)) console.error("discount code removal failed", (err as { body?: unknown })?.body ?? err);
+    await flash("error", err instanceof CartLockedError ? err.message : "The discount code could not be removed. Please try again.");
   }
   refresh();
 }

@@ -65,3 +65,9 @@ docs/*.md
 # Research notes and reports (local only)
 /research_notes/
 /reports/
+
+# NZ trade pricing slice (real client data dumped from the local Magento; never commit)
+data/nz-trade/
+
+# Python bytecode (tools/)
+__pycache__/

@@ -227,6 +227,9 @@ async function sampleData(accessToken: string) {
   return { sample, sellingStores };
 }
 
+// commercetools fixes an API client's scopes when it is created: a different set means a new client.
+const NEW_CLIENT = "scopes can't be changed on an existing client: create a new one with the right scopes in Merchant Center, put it in";
+
 async function storefrontClient(stores: string[]) {
   heading("4. Storefront API client (customer sign-in)");
   const projectKey = filled("CTP_PROJECT_KEY")!;
@@ -262,7 +265,7 @@ async function storefrontClient(stores: string[]) {
   for (const scope of scopes) if (!(await token(id, secret, scope)).ok) missing.push(scope);
   if (missing.length === scopes.length)
     throw new SetupError("the storefront client was refused: check CTP_STOREFRONT_CLIENT_ID and its secret");
-  say("todo", `the storefront client lacks: ${missing.join(" ")} (edit it in Merchant Center)`);
+  say("todo", `the storefront client lacks: ${missing.join(" ")} (${NEW_CLIENT} CTP_STOREFRONT_CLIENT_*)`);
 }
 
 // The client the running shop uses (CTP_CLIENT_*). Fine to start with the admin client; for production it should
@@ -282,8 +285,8 @@ async function runtimeClient() {
   const all = await token(id, secret, "");
   if (!all.ok) throw new SetupError(`the runtime client was refused (${all.error}): check CTP_CLIENT_ID and CTP_CLIENT_SECRET`);
   const { missing, extra } = compareScopes(all.scope.split(" ").map((s) => s.split(":")[0]));
-  if (missing.length) say("todo", `the runtime client (CTP_CLIENT_*) lacks: ${missing.join(" ")} (edit it in Merchant Center)`);
-  if (extra.length) say("todo", `the runtime client has rights the shop doesn't need: ${extra.join(" ")} (untick them in Merchant Center)`);
+  if (missing.length) say("todo", `the runtime client (CTP_CLIENT_*) lacks: ${missing.join(" ")} (${NEW_CLIENT} CTP_CLIENT_*)`);
+  if (extra.length) say("todo", `the runtime client has rights the shop doesn't need: ${extra.join(" ")} (${NEW_CLIENT} CTP_CLIENT_*)`);
   if (!missing.length && !extra.length) say("ok", `narrowed client: the ${RUNTIME_SCOPES.length} scopes the shop needs, nothing more`);
 }
 
