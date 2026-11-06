@@ -56,6 +56,9 @@ const nextConfig: NextConfig = {
     // Resized pictures stay cached for 30 days (default 60 s). Merchant Center and Sanity uploads get a new URL when a
     // picture changes; the sample data's bucket reuses names, so a replaced sample picture shows within a month.
     minimumCacheTTL: 30 * 24 * 60 * 60,
+    // Browsers load the original files instead of /_next/image: for a host whose optimizer is out of quota (Vercel
+    // answers 402 and images break). Pages get heavier. Read at build time, so changing it needs a redeploy.
+    unoptimized: process.env.IMAGES_UNOPTIMIZED === "true",
     // Only the widths the storefront asks for (sizes props: 48 to 80 px thumbnails, card grids, the full-width
     // banner): fewer variants per picture, so more of them come from the cache. Default minus 32, 750, 2048 and 3840.
     imageSizes: [48, 64, 96, 128, 256, 384],
