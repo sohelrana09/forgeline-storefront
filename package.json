@@ -1,6 +1,6 @@
 {
   "name": "forgeline-storefront",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "An open-source B2B and B2C storefront for commercetools, built with Next.js 16.",
   "license": "MIT",
