@@ -27,6 +27,9 @@ export const RUNTIME_SCOPES = [
   "manage_sessions",
   // Payments for invoice and bank-transfer orders (features/order-processing), and reading how an order was paid.
   "manage_payments",
+  // Giving stock back after a cancelled order (features/order-processing): commercetools has no narrower scope for
+  // inventory, and this one also covers products. Leave it out, with RESTOCK_ON_CANCEL=false, when an ERP owns stock.
+  "manage_products",
 ] as const;
 
 export const runtimeScopes = (projectKey: string) => RUNTIME_SCOPES.map((s) => `${s}:${projectKey}`).join(" ");

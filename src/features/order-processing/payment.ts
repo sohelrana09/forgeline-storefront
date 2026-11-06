@@ -1,4 +1,4 @@
-import type { Order, OrderUpdateAction, Payment, PaymentDraft, PaymentUpdateAction } from "@commercetools/platform-sdk";
+import type { Order, OrderUpdateAction, Payment, PaymentDraft, PaymentState, PaymentUpdateAction } from "@commercetools/platform-sdk";
 
 // Payments for orders that aren't paid at checkout (G3): business orders on invoice (invoice + PO, order from quote)
 // and B2C bank-transfer orders get a Payment resource, so finance can reconcile them like card payments, and the
@@ -77,3 +77,41 @@ export function cancelledPaymentActions(payment: Pick<Payment, "paymentMethodInf
     { action: "setStatusInterfaceText", interfaceText: CANCELLED_PAYMENT.text },
   ];
 }
+
+// ---------- Card orders: what Checkout's Connector really did ----------
+
+type PaymentMoney = Pick<Payment, "transactions" | "paymentMethodInfo">;
+
+const successful = (payments: PaymentMoney[], type: string) =>
+  payments.flatMap((p) => p.transactions).filter((t) => t.type === type && t.state === "Success");
+const sum = (ts: { amount: { centAmount: number } }[]) => ts.reduce((total, t) => total + t.amount.centAmount, 0);
+
+export type Reconciliation = { expected: number; settled: number; authorized: number; paymentState: PaymentState; mismatch: boolean };
+
+// The money on an order's card Payments against its total. Pending until money was charged. `mismatch`: an amount
+// that doesn't fit the order (authorised or charged), so a person has to look. Our own Payments (invoice, bank
+// transfer) are not card money and are left out.
+export function reconcile(order: Pick<Order, "taxedPrice" | "totalPrice">, payments: PaymentMoney[]): Reconciliation {
+  const card = payments.filter((p) => p.paymentMethodInfo.paymentInterface !== PAYMENT_INTERFACE);
+  const expected = (order.taxedPrice?.totalGross ?? order.totalPrice).centAmount;
+  const charged = sum(successful(card, "Charge"));
+  const settled = charged - sum(successful(card, "Refund")) - sum(successful(card, "Chargeback"));
+  const authorized = sum(successful(card, "Authorization"));
+  const paymentState: PaymentState =
+    charged === 0 ? "Pending" : settled === expected ? "Paid" : settled < expected ? "BalanceDue" : "CreditOwed";
+  return {
+    expected,
+    settled,
+    authorized,
+    paymentState,
+    mismatch: settled !== expected && (charged > 0 || (authorized > 0 && authorized !== expected)),
+  };
+}
+
+// A card payment that is running or went through: the cart under it must stay frozen. Not Initial: a Connector may
+// write that when the form opens, and an abandoned form must not lock the cart for good.
+export const hasLiveTransaction = (payment: Pick<Payment, "transactions">) =>
+  payment.transactions.some((t) => t.state === "Pending" || (t.state === "Success" && t.type !== "Refund"));
+
+export const hasMoney = (payment: Pick<Payment, "transactions">) =>
+  payment.transactions.some((t) => t.state === "Success" && (t.type === "Charge" || t.type === "Authorization"));

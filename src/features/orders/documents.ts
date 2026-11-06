@@ -75,7 +75,9 @@ export function orderDocument(
 
   const paymentNote =
     payment === "card"
-      ? "Paid by card."
+      ? order.paymentState && order.paymentState !== "Paid"
+        ? "Card payment in progress."
+        : "Paid by card."
       : payment === "invoice"
         ? `Payment within ${SELLER.paymentTermsDays} days to ${SELLER.bank.name}, IBAN ${SELLER.bank.iban}, BIC ${SELLER.bank.bic}. Please quote ${invoice ? `INV-${ref}` : `order ${ref}`}.`
         : `Please pay by bank transfer to ${SELLER.bank.name}, IBAN ${SELLER.bank.iban}, BIC ${SELLER.bank.bic}, quoting order ${ref}.`;

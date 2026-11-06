@@ -1,9 +1,15 @@
 import "server-only";
+import { errorBody as errorOf, hasCode, statusOf } from "@/lib/commercetools/errors";
 import type { CustomObject, Order } from "@commercetools/platform-sdk";
+import { after } from "next/server";
 import { apiRoot } from "@/lib/commercetools/client";
+import { str } from "@/lib/predicate";
 import { sendMail, siteUrl } from "@/lib/mailer";
+import { reportEvent } from "@/lib/error-report";
+import { orderReference } from "@/features/orders/utils";
 import { orderDocument } from "@/features/orders/documents";
 import { confirmationEmail } from "@/features/order-processing/email";
+import { holdForApproval } from "@/features/approvals/service";
 import {
   counterKey,
   counterNext,
@@ -12,21 +18,27 @@ import {
   orderNumberPrefix,
 } from "@/features/order-processing/order-number";
 import {
+  failureCount,
   MARKER_CONTAINER,
   parseMarker,
   pendingSteps,
   releaseStep,
   stepDecision,
+  STUCK_AFTER,
   withStep,
   type Marker,
 } from "@/features/order-processing/steps";
 import {
   cancelledPaymentActions,
+  cancelOrderActions,
+  hasMoney,
   linkPaymentActions,
+  PAYMENT_INTERFACE,
   paymentDraft,
   paymentKey,
   paymentKind,
   pendingPaymentKind,
+  reconcile,
   type PaymentKind,
 } from "@/features/order-processing/payment";
 
@@ -46,14 +58,11 @@ type StepRun = (order: Order) => Promise<void>;
 // a crash (it may run again once its claim expires).
 const STEPS: { name: string; run: StepRun }[] = [
   { name: "payment", run: ensurePayment },
+  { name: "reconcile", run: reconcileCard },
   { name: "confirmation", run: sendConfirmation },
+  { name: "approval", run: (order) => holdForApproval(order) },
 ];
 export const STEP_NAMES = STEPS.map((s) => s.name);
-
-const errorOf = (err: unknown) =>
-  (err as { body?: { statusCode?: number; errors?: { code?: string }[] } })?.body ?? { statusCode: undefined, errors: undefined };
-const statusOf = (err: unknown) => errorOf(err).statusCode;
-const hasCode = (err: unknown, code: string) => Boolean(errorOf(err).errors?.some((e) => e.code === code));
 
 const readOrder = (id: string) =>
   apiRoot
@@ -142,7 +151,7 @@ export async function numberNewOrder(order: Order): Promise<Order> {
   try {
     return await assignOrderNumber(order.id);
   } catch (err) {
-    console.error(`order ${order.id}: numbering failed`, errorOf(err));
+    reportEvent("order_numbering_failed", err, { orderId: order.id });
     return order;
   }
 }
@@ -183,7 +192,7 @@ async function updateMarker(
 // Runs one step if this worker wins the claim. Returns false when the step failed (the caller reports a retry).
 async function runStep(order: Order, step: { name: string; run: StepRun }): Promise<boolean> {
   const marker = await markerFor(order);
-  if (!marker) return true; // too fresh: the numbering worker is still on it, or the sweep will be
+  if (!marker) return false; // too fresh: the numbering worker is still on it. Not done, so the queue or sweep retries.
   const now = Date.now();
   const claimedAt = new Date(now).toISOString();
   let claimed = false;
@@ -196,9 +205,11 @@ async function runStep(order: Order, step: { name: string; run: StepRun }): Prom
   try {
     await step.run(order);
   } catch (err) {
-    console.error(`order ${order.id}: step ${step.name} failed`, errorOf(err));
+    reportEvent("step_failed", err, { orderId: order.id, step: step.name });
     // Release the claim so the next event or sweep retries; if this write fails too, the claim expires on its own.
-    await updateMarker(order.id, afterClaim, (m) => releaseStep(m, step.name, claimedAt)).catch(() => undefined);
+    const released = await updateMarker(order.id, afterClaim, (m) => releaseStep(m, step.name, claimedAt)).catch(() => undefined);
+    const failures = released ? failureCount(parseMarker(released.value), step.name) : 0;
+    if (failures >= STUCK_AFTER) reportEvent("step_stuck", err, { orderId: order.id, step: step.name, failures });
     return false;
   }
   // The work is done: failing here would only make it run again once the claim expires, so log instead of throwing.
@@ -216,10 +227,14 @@ export async function processOrder(orderId: string): Promise<boolean> {
     for (const step of STEPS) ok = (await runStep(order, step)) && ok;
     return ok;
   } catch (err) {
-    console.error(`order ${orderId}: processing failed`, errorOf(err));
+    reportEvent("order_processing_failed", err, { orderId });
     return false;
   }
 }
+
+// Called for an order that was found again after the callback got lost (a closed tab), from a page render: the steps
+// run after the response.
+export const recoverOrder = (orderId: string) => after(() => processOrder(orderId).then(() => undefined));
 
 // The order a Payment belongs to (payment messages from the Subscription).
 export async function orderIdForPayment(paymentId: string): Promise<string | undefined> {
@@ -231,23 +246,28 @@ export async function orderIdForPayment(paymentId: string): Promise<string | und
 }
 
 // The sweep: orders created in the last `hours` that have no number or still have steps to run. Pages through the
-// whole window, oldest first, `pageSize` orders and one marker read per page, up to `maxOrders` (commercetools caps
-// offset at 10,000); a window that is still bigger is reported as `more`, and the next run continues from the
-// oldest unfinished ones.
+// whole window by id (no offset limit), `pageSize` orders and one marker read per page, within `budgetMs`; a window
+// that doesn't fit is reported as `more`. Every run starts from a different place only in the sense that finished
+// orders cost one read: the unfinished ones are what takes time, so each run shrinks what the next one has to do.
+// An order that leaves the window unfinished is reported as order_abandoned: nothing retries it after that.
 export async function sweepRecentOrders(
-  hours = 24,
+  hours = 72,
   pageSize = 100,
-  maxOrders = 2_000,
+  budgetMs = 100_000,
 ): Promise<{ checked: number; processed: number; failed: number; more: boolean }> {
-  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+  const started = Date.now();
+  const since = new Date(started - hours * 3_600_000).toISOString();
+  const lastCall = started - (hours - 1) * 3_600_000;
   let checked = 0;
   let processed = 0;
   let failed = 0;
-  let more = false;
-  for (let offset = 0; offset < maxOrders; offset += pageSize) {
+  let lastId: string | undefined;
+  for (;;) {
+    if (Date.now() - started > budgetMs) return { checked, processed, failed, more: true };
+    const next = lastId ? ` and id > "${lastId}"` : "";
     const { body } = await apiRoot
       .orders()
-      .get({ queryArgs: { where: `createdAt > "${since}"`, sort: ["createdAt asc", "id asc"], limit: pageSize, offset } })
+      .get({ queryArgs: { where: `createdAt > "${since}"${next}`, sort: ["id asc"], limit: pageSize, withTotal: false } })
       .execute();
     const orders = body.results;
     const markers = new Map<string, Marker>();
@@ -264,13 +284,208 @@ export async function sweepRecentOrders(
     for (const order of orders) {
       if (order.orderNumber && pendingSteps(markers.get(order.id), STEP_NAMES, now).length === 0) continue;
       processed++;
-      if (!(await processOrder(order.id))) failed++;
+      if (await processOrder(order.id)) continue;
+      failed++;
+      if (Date.parse(order.createdAt) < lastCall) reportEvent("order_abandoned", undefined, { orderId: order.id });
     }
     checked += orders.length;
+    lastId = orders.at(-1)?.id;
     if (orders.length < pageSize) return { checked, processed, failed, more: false };
-    more = true;
   }
-  return { checked, processed, failed, more };
+}
+
+// ---------- Cancelling: unpaid orders and their stock ----------
+
+// Our own cancellation of an order nobody paid (a rejected approval, an expired bank transfer): the order (retry once
+// if it changed meanwhile), its pending payment becomes Failed in the same update, our Payment says so, and the stock
+// goes back. The marker's "cancelled" record lets the sweep finish a restock that failed here.
+export async function cancelUnpaidOrder(order: Order): Promise<void> {
+  const storeKey = order.store?.key;
+  if (!storeKey) throw new Error(`order ${order.id} has no store`);
+  const orders = apiRoot.inStoreKeyWithStoreKeyValue({ storeKey }).orders().withId({ ID: order.id });
+  let current = order;
+  for (let attempt = 1; ; attempt++) {
+    if (attempt > 1) current = (await orders.get().execute()).body;
+    const actions = cancelOrderActions(current);
+    if (actions.length === 0) break;
+    try {
+      await orders.post({ body: { version: current.version, actions } }).execute();
+      break;
+    } catch (err) {
+      if (statusOf(err) !== 409 || attempt === 2) throw err;
+    }
+  }
+  await markPaymentCancelled(order.id);
+  const marker = await markerFor(order);
+  if (marker) await updateMarker(order.id, marker, (m) => (m.steps.cancelled ? undefined : withStep(m, "cancelled", "done", Date.now())));
+  await restockOrder(order);
+}
+
+const restockStep = (lineId: string) => `restock:${lineId}`;
+
+// commercetools doesn't release what an order took with ReserveOnOrder when it is cancelled. One step per line, so a
+// retry never adds a line back twice. RESTOCK_ON_CANCEL=false when an ERP owns the stock.
+export async function restockOrder(order: Order): Promise<boolean> {
+  if (process.env.RESTOCK_ON_CANCEL === "false" || order.inventoryMode !== "ReserveOnOrder") return true;
+  let ok = true;
+  for (const line of order.lineItems) {
+    const sku = line.variant.sku;
+    const channel = line.supplyChannel?.id;
+    if (!sku || !channel) continue;
+    const quantity = line.quantity;
+    ok = (await runStep(order, { name: restockStep(line.id), run: () => addStock(sku, channel, quantity) })) && ok;
+  }
+  return ok;
+}
+
+async function addStock(sku: string, channelId: string, quantity: number): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    const { body } = await apiRoot
+      .inventory()
+      .get({ queryArgs: { where: `sku=${str(sku)} and supplyChannel(id=${str(channelId)})`, limit: 1 } })
+      .execute();
+    const entry = body.results[0];
+    if (!entry) return; // no stock is kept for this SKU any more
+    try {
+      await apiRoot
+        .inventory()
+        .withId({ ID: entry.id })
+        .post({ body: { version: entry.version, actions: [{ action: "addQuantity", quantity }] } })
+        .execute();
+      return;
+    } catch (err) {
+      if (statusOf(err) !== 409 || attempt === 3) throw err;
+    }
+  }
+}
+
+// Orders we cancelled lately whose stock didn't all go back.
+export async function sweepCancelledOrders(hours = 72): Promise<number> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+  const { body } = await apiRoot
+    .orders()
+    .get({ queryArgs: { where: `orderState="Cancelled" and lastModifiedAt > "${since}"`, sort: ["lastModifiedAt desc"], limit: 100 } })
+    .execute();
+  let failed = 0;
+  for (const order of body.results) {
+    const marker = await readObject(MARKER_CONTAINER, order.id);
+    if (marker && parseMarker(marker.value).steps.cancelled && !(await restockOrder(order))) failed++;
+  }
+  return failed;
+}
+
+const expiryDays = () => Number(process.env.BANK_TRANSFER_EXPIRY_DAYS) || 0;
+
+// Bank-transfer orders nobody paid in time (BANK_TRANSFER_EXPIRY_DAYS; unset keeps them forever): cancelled, so their
+// stock goes back, and the buyer is told. Finance marks paid orders Paid, which takes them out of this query.
+export async function expireUnpaidOrders(): Promise<number> {
+  const days = expiryDays();
+  if (days <= 0) return 0;
+  const before = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { body } = await apiRoot
+    .orders()
+    .get({
+      queryArgs: {
+        where: `orderState="Open" and paymentState="Pending" and businessUnit is not defined and createdAt < "${before}"`,
+        sort: ["createdAt asc"],
+        limit: 100,
+      },
+    })
+    .execute();
+  let expired = 0;
+  for (const order of body.results) {
+    if ((await orderPaymentKind(order)) !== "bank-transfer") continue;
+    try {
+      await cancelUnpaidOrder(order);
+      await sendExpiryNotice(order);
+      expired++;
+    } catch (err) {
+      reportEvent("order_expiry_failed", err, { orderId: order.id });
+    }
+  }
+  return expired;
+}
+
+async function sendExpiryNotice(order: Order) {
+  if (!order.customerEmail) return;
+  const ref = orderReference(order);
+  await sendMail({
+    to: order.customerEmail,
+    subject: `Order ${ref} cancelled`,
+    text: `We didn't receive the bank transfer for your order ${ref} within ${expiryDays()} days, so it was cancelled. If you have already paid, please contact us.`,
+  });
+}
+
+// ---------- Card payments: what really happened to the money ----------
+
+const paymentsOf = async (order: Order) => {
+  const ids = (order.paymentInfo?.payments ?? []).map((p) => `"${p.id}"`);
+  if (ids.length === 0) return [];
+  const { body } = await apiRoot
+    .payments()
+    .get({ queryArgs: { where: `id in (${ids.join(", ")})`, limit: ids.length } })
+    .execute();
+  return body.results;
+};
+
+// The order's payment state from its card Payments, and an alert when the amount doesn't fit the order. Safe to repeat,
+// and repeated on every payment message (a capture, refund or chargeback can come long after the order). Orders with
+// only our own Payment (invoice, bank transfer) are left alone: finance marks those.
+export async function reconcileOrder(orderId: string): Promise<void> {
+  await reconcileCard(await readOrder(orderId));
+}
+
+async function reconcileCard(order: Order): Promise<void> {
+  if (order.orderState === "Cancelled" || pendingPaymentKind(order)) return;
+  const payments = await paymentsOf(order);
+  if (!payments.some((p) => p.paymentMethodInfo.paymentInterface !== PAYMENT_INTERFACE)) return;
+  const result = reconcile(order, payments);
+  if (result.mismatch) {
+    reportEvent("payment_mismatch", undefined, {
+      orderId: order.id,
+      expected: result.expected,
+      settled: result.settled,
+      authorized: result.authorized,
+    });
+  }
+  if (order.paymentState === result.paymentState) return;
+  await apiRoot
+    .orders()
+    .withId({ ID: order.id })
+    .post({ body: { version: order.version, actions: [{ action: "changePaymentState", paymentState: result.paymentState }] } })
+    .execute();
+}
+
+const ORPHAN_CONTAINER = "orphan-payment";
+const ORPHAN_GRACE_MS = 15 * 60_000;
+
+// A payment message with no order yet. Usually Checkout simply hasn't created the order; a Payment with money on it
+// that still has none at the next sweep means someone paid and got nothing.
+export async function recordOrphanPayment(paymentId: string): Promise<void> {
+  const { body: payment } = await apiRoot.payments().withId({ ID: paymentId }).get().execute();
+  if (hasMoney(payment)) await writeObject(ORPHAN_CONTAINER, paymentId, { at: Date.now() });
+}
+
+export async function sweepOrphanPayments(): Promise<number> {
+  const { body } = await apiRoot
+    .customObjects()
+    .withContainer({ container: ORPHAN_CONTAINER })
+    .get({ queryArgs: { limit: 100 } })
+    .execute();
+  let orphans = 0;
+  for (const object of body.results) {
+    if (await orderIdForPayment(object.key)) {
+      await apiRoot
+        .customObjects()
+        .withContainerAndKey({ container: ORPHAN_CONTAINER, key: object.key })
+        .delete({ queryArgs: { version: object.version } })
+        .execute();
+    } else if (Date.now() - Number((object.value as { at?: number })?.at) > ORPHAN_GRACE_MS) {
+      orphans++;
+      reportEvent("orphan_payment", undefined, { paymentId: object.key });
+    }
+  }
+  return orphans;
 }
 
 // ---------- G3: Payments for invoice and bank-transfer orders ----------

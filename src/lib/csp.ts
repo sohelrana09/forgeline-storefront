@@ -7,7 +7,10 @@
 // that got in anyway can't send what it reads to another site.
 // BASE repeats next.config.ts, which covers the responses the proxy doesn't see. Framing: this site, plus the Studio's
 // own domain when it runs outside the storefront (its Presentation tool previews the pages in an iframe).
-export type PolicyOptions = { dev: boolean; sanityProjectId?: string; studioOrigin?: string };
+// `reportUri`: where browsers send violations (CSP_REPORT_URI), so a broken or attacked page is seen.
+export type PolicyOptions = { dev: boolean; sanityProjectId?: string; studioOrigin?: string; reportUri?: string };
+
+const reporting = (reportUri?: string) => (reportUri ? [`report-uri ${reportUri}`] : []);
 
 export const basePolicy = (studioOrigin?: string) => [
   `frame-ancestors ${["'self'", ...(studioOrigin ? [studioOrigin] : [])].join(" ")}`,
@@ -22,7 +25,14 @@ const devSocket = (dev: boolean) => (dev ? ["ws:"] : []);
 
 // Pictures come through /_next/image, except the purchase-list thumbnails (product images: the sample data's bucket
 // and the commercetools CDN) and Sanity's CDN.
-const IMAGES = ["'self'", "data:", "blob:", "https://storage.googleapis.com", "https://*.commercetools.com", "https://cdn.sanity.io"];
+const IMAGES = [
+  "'self'",
+  "data:",
+  "blob:",
+  "https://storage.googleapis.com/merchant-center-europe/",
+  "https://*.commercetools.com",
+  "https://cdn.sanity.io",
+];
 // commercetools Checkout (card payments): its SDK, its iframes and the payment connector's service.
 const CHECKOUT = ["https://*.commercetools.com", "https://*.commercetools.app"];
 
@@ -42,14 +52,24 @@ function pagePolicy(connect: string[], frames: string[], dev: boolean) {
   ];
 }
 
-export function noncePolicy(nonce: string, { dev, studioOrigin }: PolicyOptions): string {
+export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri }: PolicyOptions): string {
   const scripts = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:", "'unsafe-inline'", ...devEval(dev)];
-  return [...basePolicy(studioOrigin), `script-src ${scripts.join(" ")}`, ...pagePolicy(CHECKOUT, CHECKOUT, dev)].join("; ");
+  return [
+    ...basePolicy(studioOrigin),
+    `script-src ${scripts.join(" ")}`,
+    ...pagePolicy(CHECKOUT, CHECKOUT, dev),
+    ...reporting(reportUri),
+  ].join("; ");
 }
 
-export function shellPolicy({ dev, sanityProjectId, studioOrigin }: PolicyOptions): string {
+export function shellPolicy({ dev, sanityProjectId, studioOrigin, reportUri }: PolicyOptions): string {
   const scripts = ["'self'", "'unsafe-inline'", ...devEval(dev)];
-  return [...basePolicy(studioOrigin), `script-src ${scripts.join(" ")}`, ...pagePolicy(sanityApi(sanityProjectId), [], dev)].join("; ");
+  return [
+    ...basePolicy(studioOrigin),
+    `script-src ${scripts.join(" ")}`,
+    ...pagePolicy(sanityApi(sanityProjectId), [], dev),
+    ...reporting(reportUri),
+  ].join("; ");
 }
 
 // The Studio talks to many Sanity hosts (API, live updates, image uploads, sign-in) and is kept apart from the

@@ -8,7 +8,7 @@ import { discountStateMessage, nonApplicableMessage, normalizeCode } from "@/fea
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { CartLockedError } from "@/features/cart/freeze";
 import { localize } from "@/features/catalog/utils";
-import { requireBrowseContext } from "@/features/business-units/context";
+import { actorKey, requireBrowseContext } from "@/features/business-units/context";
 import { addParsedLines } from "@/features/quick-order/service";
 import { flash } from "@/lib/flash";
 import { cartCookie, cookieOptions } from "@/features/auth/session";
@@ -74,14 +74,15 @@ export async function updateCartLine(formData: FormData) {
 // Public endpoint: adds a discount code to the caller's own open cart. Limited per cart and per network, so codes
 // can't be guessed by trying many.
 export async function applyDiscountCodeAction(formData: FormData) {
-  const { auth, context, cartId } = await requireBrowseContext();
+  const browse = await requireBrowseContext();
+  const { auth, context, cartId } = browse;
   if (!context.canOrder || !auth || !cartId) return;
   const code = normalizeCode(String(formData.get("code") ?? ""));
   if (!code) {
     await flash("error", "Enter a discount code: letters, digits, - or _.");
     return;
   }
-  if ((await tooManyAttempts(`discount:${cartId}`, 10)) || (await tooManyAttempts(`discount-ip:${await clientIp()}`, 30))) {
+  if ((await tooManyAttempts(`discount:${actorKey(browse)}`, 10)) || (await tooManyAttempts(`discount-ip:${await clientIp()}`, 30))) {
     await flash("error", "Too many discount codes tried. Please wait a few minutes and try again.");
     return;
   }

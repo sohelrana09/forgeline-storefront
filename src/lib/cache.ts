@@ -18,11 +18,15 @@ export type CacheTag = (typeof TAGS)[keyof typeof TAGS];
 
 // Price-selected reads: product discounts start and end by date, so they refresh within 15 minutes even without a
 // message. Rarely changing structure (categories, units): an hour. Published Sanity content: a minute, because the
-// publish webhook isn't set up on every deployment.
+// publish webhook isn't set up on every deployment; SANITY_WEBHOOK_CONFIGURED=true (at build and at run time) says it
+// is, and content then lives like structure.
 const LIFETIMES = {
   prices: { stale: 300, revalidate: 900, expire: 86_400 },
   structure: { stale: 300, revalidate: 3_600, expire: 86_400 },
-  content: { stale: 60, revalidate: 60, expire: 86_400 },
+  content:
+    process.env.SANITY_WEBHOOK_CONFIGURED === "true"
+      ? { stale: 300, revalidate: 3_600, expire: 86_400 }
+      : { stale: 60, revalidate: 60, expire: 86_400 },
 } as const;
 
 // Call first thing inside a "use cache" function. Outside Next (tsx scripts) the directive is a plain string and

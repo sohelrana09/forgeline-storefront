@@ -5,6 +5,13 @@ export async function register() {
   // commercetools and Sanity, and calls made together open extra ones. Keep them open for a minute instead.
   const { Agent, setGlobalDispatcher } = await import("undici");
   setGlobalDispatcher(new Agent({ keepAliveTimeout: 60_000, keepAliveMaxTimeout: 600_000 }));
+  // A production deployment must not look healthy while it is misconfigured.
+  if (process.env.NODE_ENV === "production") {
+    const { checkEnv } = await import("@/lib/env");
+    const { missing, degraded } = checkEnv(process.env);
+    for (const warning of degraded) console.error(JSON.stringify({ level: "error", event: "config_degraded", warning }));
+    if (missing.length) throw new Error(`Missing configuration: ${missing.join(", ")} (see .env.example)`);
+  }
 }
 
 // Every server error (pages, Server Actions, Route Handlers, the proxy) as one JSON line, for a log drain or search.

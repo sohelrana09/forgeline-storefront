@@ -56,3 +56,25 @@ describe("staleWhileRevalidate", () => {
     expect(await memo("b", async () => "unused")).toBe("b2");
   });
 });
+
+describe("staleWhileRevalidate with maxStaleMs", () => {
+  it("waits for a reload instead of serving a value that is too old", async () => {
+    vi.useFakeTimers();
+    const memo = staleWhileRevalidate<number>(1_000, { maxStaleMs: 0 });
+    await memo("k", async () => 1);
+    vi.advanceTimersByTime(1_001);
+    await expect(memo("k", async () => 2)).resolves.toBe(2);
+    vi.useRealTimers();
+  });
+
+  it("still serves the old value when that reload fails", async () => {
+    vi.useFakeTimers();
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const memo = staleWhileRevalidate<number>(1_000, { maxStaleMs: 0 });
+    await memo("k", async () => 1);
+    vi.advanceTimersByTime(1_001);
+    await expect(memo("k", () => Promise.reject(new Error("down")))).resolves.toBe(1);
+    error.mockRestore();
+    vi.useRealTimers();
+  });
+});

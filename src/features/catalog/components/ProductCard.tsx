@@ -24,7 +24,7 @@ export function ProductCard({
   const href = productHref(product.slug);
   return (
     <article className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-4">
-      <Link href={href} className="block">
+      <Link href={href} prefetch={false} className="block">
         {image ? (
           <Image
             src={image.url}
@@ -40,7 +40,7 @@ export function ProductCard({
       </Link>
       <div className="flex flex-col gap-1">
         <h3 className="m-0 text-sm font-semibold">
-          <Link href={href} className="text-gray-900 no-underline hover:text-orange-800">
+          <Link href={href} prefetch={false} className="text-gray-900 no-underline hover:text-orange-800">
             {name}
           </Link>
         </h3>

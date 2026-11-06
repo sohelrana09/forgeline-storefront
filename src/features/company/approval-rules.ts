@@ -1,4 +1,5 @@
 import "server-only";
+import { statusOf } from "@/lib/commercetools/errors";
 import type { Permission } from "@commercetools/platform-sdk";
 import { apiRoot, asAssociate } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";
@@ -14,7 +15,6 @@ import { isFormEditable, ruleDraft, ruleUpdateActions, sameSet, summarize } from
 // CreateApprovalRules / UpdateApprovalRules itself too. The condition is built here from a validated amount in the
 // unit's currency: users never type predicate syntax. Rules can't be deleted, only switched off (Inactive).
 
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 const rules = (ctx: PricingContext, actorId: string) => asAssociate(actorId, ctx.businessUnitKey).approvalRules();
 
 async function requirePermission(ctx: PricingContext, actorId: string, permissions: Permission[]) {

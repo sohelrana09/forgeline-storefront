@@ -64,7 +64,14 @@ export function distance(a: string, b: string, max: number): number {
 }
 
 // Score of one query word against one entry: 0 = no match.
-function wordScore(entry: SearchEntry, w: string, fuzzy: boolean): number {
+// `near`: whether a word is within typing distance, remembered for one search: entries share most of their words, and
+// the distance is by far the slowest part.
+function wordScore(entry: SearchEntry, w: string, fuzzy: boolean, near: Map<string, boolean>): number {
+  const close = (t: string) => {
+    let hit = near.get(t);
+    if (hit === undefined) near.set(t, (hit = distance(w, t, editLimit(w)) <= editLimit(w)));
+    return hit;
+  };
   let best = 0;
   for (const [field, weight] of FIELDS) {
     for (const t of entry[field]) {
@@ -75,7 +82,7 @@ function wordScore(entry: SearchEntry, w: string, fuzzy: boolean): number {
             ? weight * 2
             : w.length >= 3 && t.includes(w)
               ? weight
-              : fuzzy && t.length >= 4 && distance(w, t, editLimit(w)) <= editLimit(w)
+              : fuzzy && t.length >= 4 && close(t)
                 ? weight / 2
                 : 0;
       if (s > best) best = s;
@@ -88,13 +95,14 @@ function wordScore(entry: SearchEntry, w: string, fuzzy: boolean): number {
 export function rank(index: SearchEntry[], query: string): { matches: SearchEntry[]; corrected?: string } {
   const qs = words(query).slice(0, 10);
   if (qs.length === 0) return { matches: [] };
-  const exact = (w: string) => index.some((e) => wordScore(e, w, false) > 0);
+  const near = new Map(qs.map((w) => [w, new Map<string, boolean>()]));
+  const exact = (w: string) => index.some((e) => wordScore(e, w, false, near.get(w)!) > 0);
   const fuzzyWords = new Set(qs.filter((w) => editLimit(w) > 0 && !exact(w)));
   const scored = index
     .map((e) => {
       let total = 0;
       for (const w of qs) {
-        const s = wordScore(e, w, fuzzyWords.has(w));
+        const s = wordScore(e, w, fuzzyWords.has(w), near.get(w)!);
         if (s === 0) return undefined;
         total += s;
       }

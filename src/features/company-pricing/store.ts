@@ -9,7 +9,10 @@ import type { LadderFields } from "@/features/company-pricing/types";
 // vars as src/lib/rate-limit.ts), else the git-ignored JSON file the sync writes (local development only).
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
-const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : undefined;
+// commercetools waits 2 seconds for the extension, so a slow store must fail well before that.
+const TIMEOUT_MS = 1_000;
+const redis =
+  redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken, signal: () => AbortSignal.timeout(TIMEOUT_MS) }) : undefined;
 
 export const PRICE_FILE = path.join(process.cwd(), "data", "nz-trade", "customer-prices.json");
 

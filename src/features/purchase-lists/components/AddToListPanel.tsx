@@ -1,27 +1,12 @@
-import { unstable_rethrow } from "next/navigation";
 import { getSession } from "@/features/auth/session";
-import { listNames } from "@/features/purchase-lists/service";
-import { AddToListForm } from "@/features/purchase-lists/components/AddToListForm";
+import { ListPanelDetails } from "@/features/purchase-lists/components/ListPanelDetails";
 import type { BuyerContext } from "@/features/business-units/types";
 
 // "Add to purchase list" under Add to cart (product page) or the cart summary. Signed-in customers only: guests
-// return before any cookie is read.
+// return before any cookie is read. The buyer's lists load when the panel opens: most product views never open it.
 export async function AddToListPanel({ context, kind, sku }: { context: BuyerContext; kind: "product" | "cart"; sku?: string }) {
   if (context.guest) return null;
   const session = await getSession();
   if (!session) return null;
-  const lists = await listNames(session, context).catch((err) => {
-    unstable_rethrow(err);
-    return [];
-  });
-  return (
-    <details className="rounded-md border border-gray-200 bg-white p-4">
-      <summary className="cursor-pointer text-sm font-semibold">
-        {kind === "product" ? "Add to purchase list" : "Save cart to purchase list"}
-      </summary>
-      <div className="mt-3">
-        <AddToListForm lists={lists} sku={sku} kind={kind} />
-      </div>
-    </details>
-  );
+  return <ListPanelDetails sku={sku} kind={kind} />;
 }

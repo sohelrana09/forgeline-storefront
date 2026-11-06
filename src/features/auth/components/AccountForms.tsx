@@ -7,12 +7,15 @@ import type { ForgotPasswordState, RegisterState, ResetPasswordState } from "@/f
 import { FormGuardFields } from "@/components/ui/FormGuardFields";
 import { FormMessage } from "@/components/ui/PageMessages";
 import { pagePath } from "@/lib/urls";
+import { PASSWORD_MIN } from "@/features/auth/utils";
 
 const input = "min-h-11 rounded border border-gray-300 px-3 text-base font-normal";
 const label = "flex flex-col gap-1 text-sm font-semibold";
 const button = "min-h-11 rounded bg-orange-700 px-4 text-sm font-semibold text-white disabled:opacity-60";
 
-const passwordHint = <span className="text-xs font-normal text-gray-600">8 to 128 characters, with a letter and a number.</span>;
+const passwordHint = (
+  <span className="text-xs font-normal text-gray-600">{PASSWORD_MIN} to 128 characters, with a letter and a number.</span>
+);
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState(register, {} as RegisterState);
@@ -72,7 +75,15 @@ export function RegisterForm() {
           </label>
           <label className={label}>
             Password
-            <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={input} />
+            <input
+              name="password"
+              type="password"
+              required
+              minLength={PASSWORD_MIN}
+              maxLength={128}
+              autoComplete="new-password"
+              className={input}
+            />
             {passwordHint}
           </label>
           <label className={label}>
@@ -81,7 +92,7 @@ export function RegisterForm() {
               name="confirmPassword"
               type="password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN}
               maxLength={128}
               autoComplete="new-password"
               className={input}
@@ -136,7 +147,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <input type="hidden" name="token" value={token} />
       <label className={label}>
         New password
-        <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={input} />
+        <input
+          name="password"
+          type="password"
+          required
+          minLength={PASSWORD_MIN}
+          maxLength={128}
+          autoComplete="new-password"
+          className={input}
+        />
         {passwordHint}
       </label>
       <label className={label}>
@@ -145,7 +164,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           name="confirmPassword"
           type="password"
           required
-          minLength={8}
+          minLength={PASSWORD_MIN}
           maxLength={128}
           autoComplete="new-password"
           className={input}

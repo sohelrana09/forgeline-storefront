@@ -20,5 +20,10 @@ export function priceActions(cart: Cart, ladders: Map<string, Ladder>): CartUpda
   return actions;
 }
 
+// A cart that had company prices and now finds none at all: the store was wiped or half synced, and answering would
+// reset every line to the web price. A cart that never had one (a SKU the company has no price for) is fine.
+export const lostCompanyPrices = (cart: Cart, ladders: Map<string, Ladder>) =>
+  ladders.size === 0 && cart.lineItems.some((line) => line.priceMode === "ExternalPrice");
+
 // The SKUs whose prices the extension needs.
 export const cartSkus = (cart: Cart) => [...new Set(cart.lineItems.flatMap((l) => (l.variant.sku ? [l.variant.sku] : [])))];

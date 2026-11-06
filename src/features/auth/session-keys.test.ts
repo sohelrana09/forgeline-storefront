@@ -18,8 +18,8 @@ vi.mock("@/lib/commercetools/customer-token", () => ({
   refreshAnonymousToken: vi.fn(),
   revokeToken: vi.fn(),
 }));
-vi.mock("@/features/business-units/service", () => ({ GUEST_STORE_KEY: "default-store", getBuyingContexts: vi.fn() }));
-vi.mock("@/features/auth/revocation", () => ({ sessionsValidAfter: async () => 0 }));
+vi.mock("@/features/business-units/service", () => ({ GUEST_STORE_KEY: "default-store" }));
+vi.mock("@/features/auth/revocation", () => ({ sessionRevocation: async () => ({ after: 0, ended: [] }), endSession: vi.fn() }));
 
 const API = "api-client-secret";
 const ONE = "a".repeat(32);
@@ -27,9 +27,14 @@ const TWO = "b".repeat(32);
 const session = { accessToken: "t", customerId: "c1", email: "a@b.c", issuedAt: Date.now(), expiresAt: Date.now() + 3_600_000 };
 
 // A deployment with these settings: seals a cookie, or reads the one in the jar.
-async function deployment(env: { SESSION_SECRET?: string; SESSION_SECRET_PREVIOUS?: string; CTP_CLIENT_SECRET?: string }) {
+async function deployment(env: {
+  SESSION_SECRET?: string;
+  SESSION_SECRET_PREVIOUS?: string;
+  CTP_CLIENT_SECRET?: string;
+  SESSION_ALLOW_LEGACY?: string;
+}) {
   vi.resetModules();
-  for (const k of ["SESSION_SECRET", "SESSION_SECRET_PREVIOUS", "CTP_CLIENT_SECRET"] as const) {
+  for (const k of ["SESSION_SECRET", "SESSION_SECRET_PREVIOUS", "CTP_CLIENT_SECRET", "SESSION_ALLOW_LEGACY"] as const) {
     if (env[k] === undefined) delete process.env[k];
     else process.env[k] = env[k];
   }
@@ -43,9 +48,14 @@ async function deployment(env: { SESSION_SECRET?: string; SESSION_SECRET_PREVIOU
 beforeEach(() => jar.clear());
 
 describe("session cookie keys", () => {
-  it("keeps cookies from before SESSION_SECRET open after it is set", async () => {
+  it("stops trusting the API secret once SESSION_SECRET is set", async () => {
     (await deployment({ CTP_CLIENT_SECRET: API })).seal();
-    expect(await (await deployment({ SESSION_SECRET: ONE, CTP_CLIENT_SECRET: API })).opens()).toBe(true);
+    expect(await (await deployment({ SESSION_SECRET: ONE, CTP_CLIENT_SECRET: API })).opens()).toBe(false);
+  });
+
+  it("keeps older cookies open during a migration with SESSION_ALLOW_LEGACY", async () => {
+    (await deployment({ CTP_CLIENT_SECRET: API })).seal();
+    expect(await (await deployment({ SESSION_SECRET: ONE, CTP_CLIENT_SECRET: API, SESSION_ALLOW_LEGACY: "true" })).opens()).toBe(true);
   });
 
   it("seals with SESSION_SECRET, independent of the API secret", async () => {

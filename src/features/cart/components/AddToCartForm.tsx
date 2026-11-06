@@ -1,9 +1,9 @@
 "use client";
 
+import { CART_CHANGED } from "@/features/cart/minicart";
 import { addSku } from "@/features/cart/actions";
 import { QuantityInput } from "@/components/ui/QuantityInput";
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { CART_CHANGED } from "@/features/cart/minicart";
 import { checkMessages } from "@/components/ui/PageMessages";
 
 // Quantity + Add. Machines above the quote threshold go into the same cart "for quote": the cart then offers a

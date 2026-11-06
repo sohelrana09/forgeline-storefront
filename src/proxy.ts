@@ -1,4 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { PRIVATE_SEGMENTS } from "@/lib/private-segments";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { RESERVED_SEGMENTS, isLocalPath } from "@/lib/urls";
 import { siteUrl } from "@/lib/site-url";
 import { newNonce, noncePolicy, shellPolicy, studioOrigin, studioPolicy, type PolicyOptions } from "@/lib/csp";
@@ -16,23 +18,15 @@ import { resolvePath, type UrlIndex, type UrlTarget } from "@/features/urls/url-
 // Redirects are decided here too, before any page renders: pages stream, and a redirect() after the first byte becomes
 // a client-side redirect with status 200. Catalog redirects (old URLs, other spellings, merchants' redirects) come from
 // the URL index; the account pages send visitors without a session to /login. The pages keep their own checks.
-const PRIVATE_SEGMENTS = new Set([
-  "account",
-  "cart",
-  "checkout",
-  "order-confirmation",
-  "login",
-  "logout",
-  "register",
-  "forgot-password",
-  "reset-password",
-  "verify-email",
-  "no-access",
-]);
 const DEV = process.env.NODE_ENV !== "production";
 // A Studio on its own domain (STUDIO_URL, docs/sanity-studio.md): /studio leads there, and its preview may frame pages.
 const STUDIO_URL = process.env.STUDIO_URL;
-const POLICY: PolicyOptions = { dev: DEV, sanityProjectId: process.env.NEXT_SANITY_PROJECT_ID, studioOrigin: studioOrigin(STUDIO_URL) };
+const POLICY: PolicyOptions = {
+  dev: DEV,
+  sanityProjectId: process.env.NEXT_SANITY_PROJECT_ID,
+  studioOrigin: studioOrigin(STUDIO_URL),
+  reportUri: process.env.CSP_REPORT_URI,
+};
 
 // Catalog URLs: not the app's own routes, not files (catalog URL keys never contain a dot). Old /c/, /p/ and /pages/
 // URLs count: they redirect from the catalog route.
@@ -43,9 +37,8 @@ const isCatalogPath = (pathname: string) => {
 
 // Matches SESSION_COOKIE in src/features/auth/session.ts (the proxy can't import it: that module reads server-only
 // secrets).
-const SESSION_COOKIE = "ct_session";
 
-export async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
   // Redirects are for page loads only; the router's own requests (prefetches and client navigations, sent with the RSC
   // header) go on to the page. The router re-fetches a prefetched link that answers with an HTTP redirect, again and
@@ -66,7 +59,7 @@ export async function proxy(request: NextRequest) {
   if (pageLoad && first === "account" && !request.cookies.has(SESSION_COOKIE))
     return NextResponse.redirect(new URL("/login", request.url), 307);
   if (pageLoad && isCatalogPath(pathname)) {
-    const redirect = await catalogRedirect(request);
+    const redirect = await catalogRedirect(request, event);
     if (redirect) return redirect;
   }
   if (PRIVATE_SEGMENTS.has(first) || (request.method !== "GET" && request.method !== "HEAD")) return withNonce(request);
@@ -81,13 +74,15 @@ export async function proxy(request: NextRequest) {
 // visitor for a minute. Preview deployments therefore use the production index. In development, the dev server itself.
 const INDEX_TTL_MS = 60_000;
 const INDEX_RETRY_MS = 10_000;
+// The first request after a start waits for the index: bounded, the pages resolve redirects themselves without it.
+const INDEX_TIMEOUT_MS = 3_000;
 let urlIndex: UrlIndex | undefined;
 let urlIndexAt = 0;
 let loading: Promise<void> | undefined;
 
 async function loadUrlIndex(origin: string) {
   try {
-    const response = await fetch(new URL("/api/url-index", origin), { cache: "no-store" });
+    const response = await fetch(new URL("/api/url-index", origin), { cache: "no-store", signal: AbortSignal.timeout(INDEX_TIMEOUT_MS) });
     if (!response.ok) throw new Error(`status ${response.status}`);
     urlIndex = { paths: new Map((await response.json()) as [string, UrlTarget][]), conflicts: [] };
     urlIndexAt = Date.now();
@@ -97,9 +92,11 @@ async function loadUrlIndex(origin: string) {
   }
 }
 
-async function catalogRedirect(request: NextRequest) {
-  if (Date.now() - urlIndexAt > INDEX_TTL_MS && !loading)
+async function catalogRedirect(request: NextRequest, event: NextFetchEvent) {
+  if (Date.now() - urlIndexAt > INDEX_TTL_MS && !loading) {
     loading = loadUrlIndex(DEV ? request.nextUrl.origin : siteUrl()).finally(() => (loading = undefined));
+    event.waitUntil(loading); // a background refresh must finish after the response is sent
+  }
   if (!urlIndex && loading) await loading;
   if (!urlIndex) return undefined;
   // Client-side navigation adds _rsc; the redirect target doesn't keep it.

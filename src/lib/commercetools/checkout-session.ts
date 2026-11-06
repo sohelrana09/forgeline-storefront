@@ -1,5 +1,6 @@
 import "server-only";
 import { projectKey, requireEnv } from "@/lib/commercetools/client";
+import { ctFetch } from "@/lib/commercetools/http";
 import { B2C_STORE_KEY } from "@/lib/commercetools/stores";
 
 // commercetools Checkout (Payment Only mode): the server creates a Checkout Session for a cart; the browser SDK
@@ -33,7 +34,7 @@ async function sessionToken(): Promise<string> {
   const basic = Buffer.from(`${requireEnv("CTP_CLIENT_ID")}:${requireEnv("CTP_CLIENT_SECRET")}`).toString("base64");
   let failure = "";
   for (const scope of sessionScopes()) {
-    const res = await fetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token`, {
+    const res = await ctFetch(`${requireEnv("CTP_AUTH_URL")}/oauth/token`, {
       method: "POST",
       headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "client_credentials", scope }),
@@ -54,7 +55,7 @@ export type CheckoutSession = { sessionId: string; projectKey: string; region: s
 // Call only for a cart the caller has just proven to own (read with their own token).
 export async function createCheckoutSession(cartId: string): Promise<CheckoutSession> {
   const region = checkoutRegion();
-  const res = await fetch(`https://session.${region}.commercetools.com/${projectKey}/sessions`, {
+  const res = await ctFetch(`https://session.${region}.commercetools.com/${projectKey}/sessions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${await sessionToken()}`, "Content-Type": "application/json" },
     body: JSON.stringify({ cart: { cartRef: { id: cartId } }, metadata: { applicationKey: checkoutApplicationKey() } }),

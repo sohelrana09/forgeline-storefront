@@ -3,7 +3,7 @@ import type { Cart } from "@commercetools/platform-sdk";
 import { hasPriceExtensionSecret } from "@/lib/revalidate-auth";
 import { hasExternalPricing } from "@/features/business-units/service";
 import { companyLadders } from "@/features/company-pricing/service";
-import { cartSkus, priceActions } from "@/features/company-pricing/extension";
+import { cartSkus, lostCompanyPrices, priceActions } from "@/features/company-pricing/extension";
 
 // The commercetools API Extension for carts (registered by `npm run ct:nz-trade -- --extension`): on every cart create
 // and update in an externalPricing store (condition on the extension), it answers the company price of each line as
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const ladders = await companyLadders(company, cartSkus(cart), { live: true });
+    if (lostCompanyPrices(cart, ladders)) throw new Error("no company prices left for a cart that had them");
     return NextResponse.json({ actions: priceActions(cart, ladders) });
   } catch (err) {
     console.error("price extension: price store failed", company, err);

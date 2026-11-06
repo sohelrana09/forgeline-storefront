@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { customerApiRoot } from "@/lib/commercetools/client";
+import { guestOrder } from "@/features/checkout/service";
 import { localize } from "@/features/catalog/utils";
 import { orderReference } from "@/features/orders/service";
 import { orderPaymentKind } from "@/features/order-processing/service";
@@ -25,15 +25,7 @@ export async function GuestOrderConfirmation({
   totalChanged?: boolean;
 }) {
   if (!guest || !/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const order = await customerApiRoot(guest.accessToken)
-    .inStoreKeyWithStoreKeyValue({ storeKey: context.storeKey })
-    .me()
-    .orders()
-    .withId({ ID: id })
-    .get()
-    .execute()
-    .then((r) => r.body)
-    .catch(() => undefined);
+  const order = await guestOrder(guest, context, id);
   if (!order) notFound();
   const payment = await orderPaymentKind(order);
 

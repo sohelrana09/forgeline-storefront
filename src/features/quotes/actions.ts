@@ -8,8 +8,10 @@ import { cookies } from "next/headers";
 import { revalidatePath, refresh } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { cartCookie } from "@/features/auth/session";
+import type { Permission } from "@commercetools/platform-sdk";
 import { requireBusinessContext } from "@/features/business-units/context";
-import { notifyApproversIfPending } from "@/features/approvals/service";
+import { permissionsNow } from "@/features/business-units/service";
+import type { BuyerContext } from "@/features/business-units/types";
 import { numberNewOrder, processOrder } from "@/features/order-processing/service";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { outOfStockSkus } from "@/features/cart/stock";
@@ -24,6 +26,15 @@ import {
 import type { QuoteActionState } from "@/features/quotes/types";
 
 const str = (formData: FormData, name: string) => String(formData.get(name) ?? "");
+
+// What the buyer holds now, not what the context remembers from up to two minutes ago: these act for the unit.
+const allowed = async (context: BuyerContext, customerId: string, ...needed: Permission[]) => {
+  if (!context.canOrder) return false;
+  const held = await permissionsNow(context.businessUnitKey, customerId);
+  return needed.every((p) => held.has(p));
+};
+const tooMany = (customerId: string) => tooManyAttempts(`quote:${customerId}`, 30);
+const TOO_MANY = "Too many attempts. Please wait a few minutes and try again.";
 
 // Maps service errors to a message; anything unexpected is logged and shown generically.
 function failed(err: unknown, fallback: string): QuoteActionState {
@@ -40,7 +51,10 @@ function failed(err: unknown, fallback: string): QuoteActionState {
 
 export async function requestQuote(_prev: QuoteActionState, formData: FormData): Promise<QuoteActionState> {
   const { session, context, cartId } = await requireBusinessContext();
-  if (!context.canOrder || !cartId) return { error: "Only buyers with an open cart can request quotes." };
+  if (!cartId || !(await allowed(context, session.customerId, "CreateMyQuoteRequestsFromMyCarts"))) {
+    return { error: "Only buyers with an open cart can request quotes." };
+  }
+  if (await tooMany(session.customerId)) return { error: TOO_MANY };
   let requestId: string;
   try {
     const request = await createQuoteRequest(session, context, cartId, Number(str(formData, "cartVersion")), str(formData, "comment"));
@@ -56,7 +70,8 @@ export async function requestQuote(_prev: QuoteActionState, formData: FormData):
 
 export async function cancelRequest(_prev: QuoteActionState, formData: FormData): Promise<QuoteActionState> {
   const { session, context } = await requireBusinessContext();
-  if (!context.canOrder) return { error: "Only buyers can cancel quote requests." };
+  if (!(await allowed(context, session.customerId, "UpdateMyQuoteRequests"))) return { error: "Only buyers can cancel quote requests." };
+  if (await tooMany(session.customerId)) return { error: TOO_MANY };
   try {
     await cancelQuoteRequest(session, context, str(formData, "id"));
   } catch (err) {
@@ -68,7 +83,8 @@ export async function cancelRequest(_prev: QuoteActionState, formData: FormData)
 
 export async function decline(_prev: QuoteActionState, formData: FormData): Promise<QuoteActionState> {
   const { session, context } = await requireBusinessContext();
-  if (!context.canOrder) return { error: "Only buyers can decline quotes." };
+  if (!(await allowed(context, session.customerId, "DeclineMyQuotes"))) return { error: "Only buyers can decline quotes." };
+  if (await tooMany(session.customerId)) return { error: TOO_MANY };
   try {
     await declineQuote(session, context, str(formData, "id"), Number(str(formData, "version")));
   } catch (err) {
@@ -81,6 +97,7 @@ export async function decline(_prev: QuoteActionState, formData: FormData): Prom
 export async function renegotiate(_prev: QuoteActionState, formData: FormData): Promise<QuoteActionState> {
   const { session, context } = await requireBusinessContext();
   if (!context.canOrder) return { error: "Only buyers can renegotiate quotes." };
+  if (await tooMany(session.customerId)) return { error: TOO_MANY };
   try {
     await renegotiateQuote(session, context, str(formData, "id"), Number(str(formData, "version")), str(formData, "comment"));
   } catch (err) {
@@ -92,7 +109,7 @@ export async function renegotiate(_prev: QuoteActionState, formData: FormData): 
 
 export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData): Promise<QuoteActionState> {
   const { session, context } = await requireBusinessContext();
-  if (!context.canOrder) return { error: "Only buyers can accept quotes." };
+  if (!(await allowed(context, session.customerId, "AcceptMyQuotes"))) return { error: "Only buyers can accept quotes." };
   // G8: per quote and per buyer (shared with placing orders from the cart), like the other order actions.
   if (
     (await tooManyAttempts(`quote-order:${str(formData, "id").slice(0, 64)}`, 10)) ||
@@ -111,10 +128,7 @@ export async function acceptAndOrder(_prev: QuoteActionState, formData: FormData
     );
     target = `/account/orders/${order.id}${poSaved ? "" : "?po=failed"}`;
     const placed = await numberNewOrder(order);
-    after(async () => {
-      await processOrder(placed.id); // never throws
-      await notifyApproversIfPending(context, session.customerId, placed);
-    });
+    after(() => processOrder(placed.id));
   } catch (err) {
     return failed(err, "The order could not be placed.");
   }

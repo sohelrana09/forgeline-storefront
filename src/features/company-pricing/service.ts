@@ -15,7 +15,15 @@ export type CompanyPricing = { externalPriceCompany?: string; currency: string }
 // The company's ladders for these SKUs (missing SKUs have none). `live` for the extension; pages read through a
 // 60-second per-process memo (an import is visible within a minute, like the other per-process memos).
 const DISPLAY_TTL_MS = 60 * 1000;
+const DISPLAY_MAX = 50_000;
 const displayCache = new Map<string, { at: number; ladder?: Ladder }>();
+
+// Oldest first (a Map keeps insertion order), so one process can't grow without limit on a big company catalog.
+function remember(key: string, entry: { at: number; ladder?: Ladder }) {
+  displayCache.delete(key);
+  displayCache.set(key, entry);
+  if (displayCache.size > DISPLAY_MAX) displayCache.delete(displayCache.keys().next().value as string);
+}
 
 export async function companyLadders(cardCode: string, skus: string[], { live = false } = {}): Promise<Map<string, Ladder>> {
   const ladders = new Map<string, Ladder>();
@@ -31,7 +39,7 @@ export async function companyLadders(cardCode: string, skus: string[], { live = 
   missing.forEach((sku, i) => {
     const ladder = parseLadder(fields[i]);
     if (ladder) ladders.set(sku, ladder);
-    displayCache.set(priceKey(cardCode, sku), { at: now, ladder });
+    remember(priceKey(cardCode, sku), { at: now, ladder });
   });
   return ladders;
 }

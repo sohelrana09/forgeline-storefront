@@ -2,7 +2,8 @@ import { connection, NextResponse, type NextRequest } from "next/server";
 import { hasOrderEventsSecret } from "@/lib/revalidate-auth";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { orderEventTarget } from "@/features/order-processing/events";
-import { orderIdForPayment, processOrder } from "@/features/order-processing/service";
+import { orderIdForPayment, processOrder, reconcileOrder, recordOrphanPayment } from "@/features/order-processing/service";
+import { reportEvent } from "@/lib/error-report";
 
 // Order and payment messages from the commercetools Subscription `storefront-order-events` (npm run
 // ct:order-subscription), delivered through a queue: an EventBridge API destination or a Pub/Sub push. Runs the
@@ -23,7 +24,28 @@ export async function POST(request: NextRequest) {
   const target = orderEventTarget(await request.json().catch(() => undefined));
   if (!target) return NextResponse.json({ ignored: true });
   const orderId = target.typeId === "order" ? target.id : await orderIdForPayment(target.id).catch(() => undefined);
-  if (!orderId) return NextResponse.json({ ignored: true });
-  const ok = await processOrder(orderId);
+  if (!orderId) {
+    // Money with no order yet: remembered, and the sweep raises it if it stays that way.
+    if (target.typeId === "payment") {
+      try {
+        await recordOrphanPayment(target.id);
+      } catch (err) {
+        reportEvent("orphan_payment_not_recorded", err, { paymentId: target.id });
+        return NextResponse.json({ processed: false }, { status: 500 });
+      }
+    }
+    return NextResponse.json({ ignored: true });
+  }
+  let ok = await processOrder(orderId);
+  // The reconcile step runs once; a capture, refund or chargeback arrives later and must count too.
+  if (target.typeId === "payment") {
+    ok = await reconcileOrder(orderId).then(
+      () => ok,
+      (err) => {
+        reportEvent("reconcile_failed", err, { orderId });
+        return false;
+      },
+    );
+  }
   return NextResponse.json({ processed: ok }, { status: ok ? 200 : 500 });
 }

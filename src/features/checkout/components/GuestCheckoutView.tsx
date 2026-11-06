@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getActiveCart } from "@/features/cart/service";
 import { getShippingOptions, orderFromCart, quoteOnlyLines } from "@/features/checkout/service";
+import { recoverOrder } from "@/features/order-processing/service";
 import { CONSUMER_COUNTRIES } from "@/features/business-units/service";
 import { countryName } from "@/features/account/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
@@ -23,7 +24,10 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
   if (guest && cartId && !cart) {
     // Paid, but the success callback never arrived (closed tab): the cart became an order. Show that order.
     const order = await orderFromCart(guest, context, cartId);
-    if (order) redirect(`/order-confirmation/${order.id}`);
+    if (order) {
+      recoverOrder(order.id);
+      redirect(`/order-confirmation/${order.id}`);
+    }
   }
   // Machines are sold to business customers on quote: the cart page explains that.
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");

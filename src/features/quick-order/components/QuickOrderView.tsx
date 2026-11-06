@@ -1,9 +1,8 @@
 import { unstable_rethrow } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { apiRoot } from "@/lib/commercetools/client";
 import { isQuoteOnly, localize, taxNote } from "@/features/catalog/utils";
-import { priceSelection, pricingKey } from "@/features/catalog/pricing";
+import { getCatalogPage } from "@/features/catalog/service";
 import { QuickOrderForm } from "@/features/quick-order/components/QuickOrderForm";
 import { getSession } from "@/features/auth/session";
 import { listNames } from "@/features/purchase-lists/service";
@@ -27,23 +26,9 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
       return [];
     });
   };
-  const [{ body }, lists] = await Promise.all([
-    apiRoot
-      .productProjections()
-      .get({
-        queryArgs: {
-          limit: PAGE_SIZE,
-          offset: (page - 1) * PAGE_SIZE,
-          sort: ["name.en-US asc"],
-          // The store and the visitor's prices (customer group included), like every catalog read.
-          ...priceSelection(pricingKey(context)),
-        },
-      })
-      .execute(),
-    purchaseLists(),
-  ]);
+  const [body, lists] = await Promise.all([getCatalogPage(context, page, PAGE_SIZE), purchaseLists()]);
   const note = taxNote(context.country);
-  const total = body.total ?? body.count;
+  const total = body.total;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const first = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const last = Math.min(page * PAGE_SIZE, total);

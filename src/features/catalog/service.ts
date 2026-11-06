@@ -5,7 +5,7 @@ import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
 import { cacheFor, TAGS } from "@/lib/cache";
 import { priceSelection, pricingKey, pricingKeyId, type PricingKey } from "@/features/catalog/pricing";
-import { allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
+import { toListProduct, allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
 import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
 import { productSearchEnabled, productSearchRequest } from "@/features/catalog/product-search";
 import { companyBasePrices, withCompanyPrice, withCompanyPrices } from "@/features/company-pricing/service";
@@ -134,7 +134,7 @@ async function allProductsInCategories(key: PricingKey, categoryIds: string[]) {
     .execute();
   if ((body.total ?? 0) > CATEGORY_MAX)
     console.warn(`category has ${body.total} products; layered navigation sees the first ${CATEGORY_MAX}`);
-  return body.results;
+  return body.results.map(toListProduct);
 }
 
 // React cache(): the page's metadata and the page itself share one query per request (same context object).
@@ -274,22 +274,48 @@ function toSearchEntry(p: ProductProjection, tree: CategoryTree): SearchEntry | 
   };
 }
 
+// One page of the whole catalog (quick order). The company's prices go on outside the cache.
+export async function getCatalogPage(ctx: PricingKey, page: number, size: number) {
+  const body = await catalogListPage(pricingKey(ctx), page, size);
+  return { ...body, results: await withCompanyPrices(ctx, body.results) };
+}
+
+async function catalogListPage(key: PricingKey, page: number, size: number) {
+  "use cache: remote";
+  cacheFor("prices", TAGS.catalog);
+  const { body } = await apiRoot
+    .productProjections()
+    .get({ queryArgs: { limit: size, offset: (page - 1) * size, sort: [`name.${LOCALE} asc`], ...priceSelection(key) } })
+    .execute();
+  return { results: body.results, total: body.total ?? body.count };
+}
+
+// The catalog in id order, from after `last`: commercetools refuses offsets above 10,000, so a walk over everything
+// can't use them.
+const PAGE = 500;
+const catalogPage = (key: PricingKey, last: string | undefined) =>
+  apiRoot
+    .productProjections()
+    .get({
+      queryArgs: { limit: PAGE, sort: ["id asc"], withTotal: false, ...(last && { where: `id > "${last}"` }), ...priceSelection(key) },
+    })
+    .execute()
+    .then((r) => r.body);
+
 // One index per store (and customer group), built with the same price selection as the result cards: a product without a price in the
 // store is left out, so the total always matches the cards shown.
 const searchIndex = (key: PricingKey) =>
   searchMemo(pricingKeyId(key), async () => {
     const tree = await getCategoryTree();
     const entries: SearchEntry[] = [];
-    for (let offset = 0; ; offset += 500) {
-      const { body } = await apiRoot
-        .productProjections()
-        .get({ queryArgs: { limit: 500, offset, withTotal: false, ...priceSelection(key) } })
-        .execute();
-      for (const p of body.results) {
+    for (let last: string | undefined; ;) {
+      const { results } = await catalogPage(key, last);
+      for (const p of results) {
         const entry = toSearchEntry(p, tree);
         if (entry) entries.push(entry);
       }
-      if (body.results.length < 500) break;
+      if (results.length < PAGE) break;
+      last = results.at(-1)?.id;
     }
     return entries.sort((a, b) => a.name.localeCompare(b.name));
   });
@@ -388,12 +414,10 @@ async function productSlugs(key: PricingKey): Promise<{ slug: string; lastModifi
   "use cache: remote";
   cacheFor("prices", TAGS.catalog);
   const out: { slug: string; lastModified: string }[] = [];
-  for (let offset = 0; ; offset += 500) {
-    const { body } = await apiRoot
-      .productProjections()
-      .get({ queryArgs: { limit: 500, offset, withTotal: false, sort: ["id asc"], ...priceSelection(key) } })
-      .execute();
-    out.push(...body.results.map((p) => ({ slug: localize(p.slug), lastModified: p.lastModifiedAt })));
-    if (body.results.length < 500) return out;
+  for (let last: string | undefined; ;) {
+    const { results } = await catalogPage(key, last);
+    out.push(...results.map((p) => ({ slug: localize(p.slug), lastModified: p.lastModifiedAt })));
+    if (results.length < PAGE) return out;
+    last = results.at(-1)?.id;
   }
 }

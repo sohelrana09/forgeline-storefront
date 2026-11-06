@@ -1,4 +1,5 @@
 import "server-only";
+import { statusOf } from "@/lib/commercetools/errors";
 import type { Order, Quote, QuoteRequest } from "@commercetools/platform-sdk";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";
@@ -13,7 +14,6 @@ import { COMMENT_MAX, PO_PATTERN, UUID, canCancelRequest, isActionable } from "@
 
 export class QuoteError extends Error {}
 
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 const me = (session: Session) => customerApiRoot(session.accessToken).me();
 
 const belongs = (item: { businessUnit?: { key?: string }; store?: { key?: string } }, ctx: PricingContext) =>

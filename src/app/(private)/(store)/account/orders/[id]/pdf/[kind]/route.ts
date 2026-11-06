@@ -17,8 +17,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const order = await getOrderForViewer(session, context, id);
   if (!order) return new Response("Not found", { status: 404 });
   if (kind === "invoice") {
-    const approval = (await approvalsForOrders(context, session.customerId, [order.id]))[order.id];
-    if (!invoiceAvailable(order, approval?.status)) return new Response("No invoice for this order yet", { status: 404 });
+    // Fails closed: without the answer, an order still waiting for approval could get an invoice.
+    const approvals = await approvalsForOrders(context, session.customerId, [order.id], { strict: true }).catch(() => undefined);
+    if (!approvals) return new Response("Please try again in a moment.", { status: 503 });
+    if (!invoiceAvailable(order, approvals[order.id]?.status)) return new Response("No invoice for this order yet", { status: 404 });
   }
   const payment = await orderPaymentKind(order);
   const pdf = await renderOrderPdf(

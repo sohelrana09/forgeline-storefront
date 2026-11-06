@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { cancelCardPayment, finishCardPayment, startCardPayment, type CardPaymentState } from "@/features/checkout/actions";
 import { useCheckoutBusy } from "@/features/checkout/components/CheckoutStatus";
@@ -20,6 +21,7 @@ const CHECKOUT_UNAVAILABLE = "Card payment is unavailable right now. Please try 
 export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartVersion: number; ready: boolean; paymentOpen?: boolean }) {
   const [state, start, starting] = useActionState(startCardPayment, {} as CardPaymentState);
   const busy = useCheckoutBusy();
+  const router = useRouter();
   const [problem, setProblem] = useState<string>();
   const [finishing, startFinishing] = useTransition();
   const mounted = useRef<string | undefined>(undefined);
@@ -54,6 +56,7 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
             if (message.code === "checkout_completed") {
               const order = (message.payload as { order?: { id?: string } } | undefined)?.order;
               if (order?.id) startFinishing(() => finishCardPayment(order.id!, state.reviewedCentAmount ?? NaN));
+              else router.push("/checkout?payment=unconfirmed"); // paid, and the order id didn't reach us
             }
           },
           onError: (message) => {
@@ -69,7 +72,7 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
       )
       // Setup problems (no active Application for this origin, connector down) reject here as well.
       .catch(() => setProblem(CHECKOUT_UNAVAILABLE));
-  }, [state.session, state.reviewedCentAmount, attempt]);
+  }, [state.session, state.reviewedCentAmount, attempt, router]);
 
   // The SDK only logs when Checkout's own script fails to load (blocked, offline): no callback, no rejection. That
   // script defines window.commercetoolsCheckout.render, so without it after a while, say so and offer a retry. It keeps

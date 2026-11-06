@@ -14,8 +14,8 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           # Node 24 ships npm 11, the npm that writes package-lock.json locally: npm 10 reads optional peer
           # dependencies differently and rejects the lock file ("Missing: typescript@7 from lock file").
@@ -26,3 +26,26 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+
+  # next build is where Cache Components mistakes surface. It prerenders from commercetools, so it needs read access:
+  # set the repository variable CI_BUILD=true and the secrets below (a read-only client is enough).
+  build:
+    if: vars.CI_BUILD == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: https://ci.invalid
+      SESSION_SECRET: ci-only-session-secret-not-used-anywhere
+      CTP_PROJECT_KEY: ${{ secrets.CTP_PROJECT_KEY }}
+      CTP_CLIENT_ID: ${{ secrets.CTP_CLIENT_ID }}
+      CTP_CLIENT_SECRET: ${{ secrets.CTP_CLIENT_SECRET }}
+      CTP_AUTH_URL: ${{ secrets.CTP_AUTH_URL }}
+      CTP_API_URL: ${{ secrets.CTP_API_URL }}
+      CTP_SCOPES: ${{ secrets.CTP_SCOPES }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build

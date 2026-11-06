@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Hardening before production: stock, payments, sessions, access checks, speed and resilience.
+
+- **Stock comes back:** orders we cancel add their stock back, line by line and only once. Unpaid bank transfers can expire (`BANK_TRANSFER_EXPIRY_DAYS`), and guests' unpaid orders are capped.
+- **Money is reconciled:** an order's payment state follows what the card payments really did; a wrong amount, or money without an order, raises an alert.
+- **Orders use today's prices:** a total that changed since the buyer reviewed it goes back to them instead of being ordered.
+- **Card payments:** stock is checked before paying, two tabs share one session, and a cart with a running payment can't be reopened.
+- **Sessions:** signing out ends that session even if a cookie was copied, sessions end 90 days after sign-in at the latest, buyers can change their password, and new passwords are checked against known breaches. Production needs `SESSION_SECRET`; the cookie is renamed `__Host-ct_session`, which signs everyone out once.
+- **Least privilege:** customer tokens only carry the stores of the customer's own units; quote actions check permissions live; who may order follows the permission, not the role's name.
+- **Performance:** a customer's units come from one query instead of loading every unit, price messages expire only prices and are debounced, catalog walks no longer stop at 10,000 products, category lists cache less, search typo checks are remembered per search, purchase lists load when the panel opens.
+- **Resilience:** every commercetools call has a timeout, reads are retried, the proxy can't hang on the URL index, and production refuses to start with missing configuration.
+
 ## v2.1.0 (2026-11-06)
 
 Checkout you can run a business on: every order is numbered, has a payment record and sends one confirmation email, even when the buyer closes the tab right after paying. Card payments charge exactly the total the buyer reviewed, stock is reserved when an order is placed, and buyers can enter discount codes. Plus a proof of concept for company prices that come from an external price service.

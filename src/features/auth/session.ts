@@ -5,13 +5,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { customerApiRoot, projectKey } from "@/lib/commercetools/client";
 import { refreshAnonymousToken, refreshCustomerToken, revokeToken, type AnonymousToken } from "@/lib/commercetools/customer-token";
-import { GUEST_STORE_KEY, getBuyingContexts } from "@/features/business-units/service";
-import { rememberAccount } from "@/features/auth/utils";
-import { sessionsValidAfter } from "@/features/auth/revocation";
+import { GUEST_STORE_KEY } from "@/features/business-units/service";
+import { rememberAccount, sessionRefused } from "@/features/auth/utils";
+import { endSession, sessionRevocation } from "@/features/auth/revocation";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 // The browser never sees the customer token: the session cookie is AES-256-GCM encrypted with a key derived
 // from the (server-only) admin client secret. The token itself only carries customerScopes() below.
-export const SESSION_COOKIE = "ct_session";
+export { SESSION_COOKIE };
 export const BU_COOKIE = "ct_bu";
 export const cartCookie = (businessUnitKey: string) => `ct_cart_${businessUnitKey}`;
 export const cookieOptions = {
@@ -33,12 +34,19 @@ export type Session = {
   name?: string;
   issuedAt?: number;
   refreshToken?: string;
+  // Identifies this sign-in, so signing out ends exactly this session (./revocation).
+  sid?: string;
 };
 const TOKEN_LIFETIME_MS = 48 * 60 * 60 * 1000;
+// However often it is renewed, a session ends this long after the sign-in.
+const SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+export const newSessionId = () => randomBytes(16).toString("base64url");
 
 // Cookie keys. SESSION_SECRET seals new cookies; SESSION_SECRET_PREVIOUS (during a rotation) still opens the ones it
-// sealed, so rotating signs nobody out. Without SESSION_SECRET the key comes from CTP_CLIENT_SECRET, as before it
-// existed; that key keeps opening older cookies after SESSION_SECRET is set, until the API secret itself is rotated.
+// sealed, so rotating signs nobody out. Without SESSION_SECRET (local development only: production refuses to start)
+// the key comes from CTP_CLIENT_SECRET, as before it existed. Once SESSION_SECRET is set that key opens nothing, or
+// whoever holds the API secret could forge sessions; SESSION_ALLOW_LEGACY=true keeps it for a migration.
 // Sealed cookies use their cookie name as AAD, so a guest cookie can never be replayed as a session (or back).
 const derive = (secret: string, info: string) => Buffer.from(hkdfSync("sha256", secret, "ct-storefront", info, 32));
 
@@ -47,7 +55,8 @@ function keys(): Buffer[] {
   if (cookieKeys) return cookieKeys;
   const own = [process.env.SESSION_SECRET, process.env.SESSION_SECRET_PREVIOUS].filter((s): s is string => !!s);
   if (own.some((s) => s.length < 32)) throw new Error("SESSION_SECRET and SESSION_SECRET_PREVIOUS need at least 32 characters");
-  const legacy = process.env.CTP_CLIENT_SECRET;
+  if (own.length === 0 && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required in production");
+  const legacy = own.length === 0 || process.env.SESSION_ALLOW_LEGACY === "true" ? process.env.CTP_CLIENT_SECRET : undefined;
   if (own.length === 0 && !legacy) throw new Error("SESSION_SECRET (or CTP_CLIENT_SECRET) is required to encrypt sessions");
   cookieKeys = [...own.map((s) => derive(s, "session-cookie-v2")), ...(legacy ? [derive(legacy, "session-cookie-v1")] : [])];
   return cookieKeys;
@@ -94,10 +103,16 @@ export async function saveSession(session: Session) {
 // Server Action saves the new token, every request would otherwise refresh again.
 const renewed = new Map<string, Promise<{ accessToken: string; expiresAt: number } | undefined>>();
 
-function renew(refreshToken: string) {
+async function renew(refreshToken: string) {
   const key = createHash("sha256").update(refreshToken).digest("base64url");
   const hit = renewed.get(key);
-  if (hit) return hit;
+  if (hit) {
+    const token = await hit;
+    // A renewed token runs out too: then this session needs another one, not the expired one from memory.
+    if (token && token.expiresAt > Date.now() + 60_000) return token;
+    if (renewed.get(key) === hit) renewed.delete(key);
+    else return renew(refreshToken);
+  }
   const now = Date.now();
   for (const [k, p] of renewed) void p.then((t) => (!t || t.expiresAt <= now + 60_000) && renewed.delete(k));
   const fresh = refreshCustomerToken(refreshToken).then((t) => {
@@ -111,9 +126,10 @@ function renew(refreshToken: string) {
 export async function getSession(): Promise<Session | undefined> {
   const session = unseal<Session>(SESSION_COOKIE, (await cookies()).get(SESSION_COOKIE)?.value);
   if (!session) return undefined;
-  // Signed in before a password reset: refused before anything is renewed.
   const issuedAt = session.issuedAt ?? session.expiresAt - TOKEN_LIFETIME_MS;
-  if (issuedAt < (await sessionsValidAfter(session.customerId))) return undefined;
+  if (Date.now() - issuedAt > SESSION_MAX_AGE_MS) return undefined;
+  // Signed in before a password reset, or signed out: refused before anything is renewed.
+  if (sessionRefused(await sessionRevocation(session.customerId), issuedAt, session.sid)) return undefined;
   if (session.expiresAt > Date.now() + 60_000) return session;
   if (!session.refreshToken) return undefined;
   const token = await renew(session.refreshToken);
@@ -162,11 +178,12 @@ export async function getGuest(): Promise<GuestSession | undefined> {
 // Guests only see their own carts in the guest store.
 export const guestScopes = (storeKey: string) => [`manage_my_orders:${projectKey}:${storeKey}`];
 
-// Least privilege for the customer token: their own profile, plus "my carts/orders" in the stores the
-// storefront sells from. No project-wide scopes, so admin endpoints answer 403 for this token.
-export async function customerScopes(): Promise<string[]> {
-  // The units' stores, plus the B2C store for customers without a company (consumers).
-  const stores = [...new Set([...(await getBuyingContexts()).map((c) => c.storeKey), GUEST_STORE_KEY])];
+// Least privilege for the customer token: their own profile, plus "my carts/orders" in the stores of their own units.
+// No project-wide scopes, so admin endpoints answer 403 for this token. A token only knows the stores of the sign-in:
+// joining a unit in another store answers insufficient_scope, which signs them in again (signOutOnAuthError).
+export function customerScopes(storeKeys: string[] = []): string[] {
+  // Plus the B2C store for customers without a company (consumers).
+  const stores = [...new Set([...storeKeys, GUEST_STORE_KEY])];
   return [
     `manage_my_profile:${projectKey}`,
     ...stores.map((s) => `manage_my_orders:${projectKey}:${s}`),
@@ -197,6 +214,8 @@ export async function signOut() {
   if (session) {
     await revokeToken(session.accessToken);
     if (session.refreshToken) await revokeToken(session.refreshToken, "refresh_token");
+    // A copy of the cookie must not outlive this, whether or not the revocation above worked.
+    if (session.sid) await endSession(session.customerId, session.sid, (session.issuedAt ?? Date.now()) + SESSION_MAX_AGE_MS);
   }
   const jar = await cookies();
   for (const c of jar.getAll()) {

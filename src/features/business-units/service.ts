@@ -1,17 +1,19 @@
 import "server-only";
-import type { BusinessUnit, Permission } from "@commercetools/platform-sdk";
+import type { BusinessUnit, Permission, Store } from "@commercetools/platform-sdk";
 import { cache } from "react";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
 import { cacheFor, TAGS } from "@/lib/cache";
 import { B2C_STORE_KEY } from "@/lib/commercetools/stores";
 import { str } from "@/lib/predicate";
+import { contextsFor } from "@/features/business-units/utils";
 
 // Sample-data stores have no countries set, so pick the currency/country their prices use.
 // spain and us-* prices are country-restricted (ES / US) and only match when the country is sent.
 // `externalPricing`: the store's units buy at company prices from the external price service (features/company-pricing:
 // an NZ trade supplier's SAP-calculated prices); the store's channel holds the web price that catalog reads select.
 const STORE_PRICING: Record<string, { currency: string; country?: string; externalPricing?: boolean }> = {
+  [B2C_STORE_KEY]: { currency: "EUR" },
   "de-fr-uk": { currency: "EUR" },
   spain: { currency: "EUR", country: "ES" },
   "us-medium-customers": { currency: "USD", country: "US" },
@@ -30,77 +32,125 @@ function effectiveStoreKey(bu: BusinessUnit): string | undefined {
   return stores?.[0]?.key;
 }
 
-// Every business unit, page by page (the sample data has 6; a real B2B project has thousands).
-async function allBusinessUnits(): Promise<{ results: BusinessUnit[] }> {
+type Shared = { stores: Store[]; rolePermissions: Map<string, Permission[]> };
+
+// Company first, then its divisions, grouped by top-level company.
+const unitOrder = (a: BusinessUnit, b: BusinessUnit) =>
+  a.topLevelUnit.key.localeCompare(b.topLevelUnit.key) ||
+  Number(a.unitType === "Division") - Number(b.unitType === "Division") ||
+  a.name.localeCompare(b.name);
+
+function toContext(bu: BusinessUnit, { stores, rolePermissions }: Shared): BuyingContext | undefined {
+  const storeKey = effectiveStoreKey(bu);
+  const store = stores.find((s) => s.key === storeKey);
+  const channel = store?.distributionChannels[0];
+  if (!store || !channel) return undefined; // can't price anything without a store channel
+  // A store nobody configured must not sell at a guessed currency.
+  const configured = STORE_PRICING[store.key];
+  if (!configured) {
+    console.error(`store ${store.key} is not in STORE_PRICING: its units can't be shopped`);
+    return undefined;
+  }
+  const { externalPricing, ...pricing } = configured;
+  const byId = (id?: string) => bu.addresses.find((a) => a.id === id);
+  return {
+    businessUnitKey: bu.key,
+    businessUnitName: bu.name,
+    unitType: bu.unitType,
+    parentKey: bu.parentUnit?.key,
+    storeKey: store.key,
+    storeName: store.name?.["en-US"] ?? store.key,
+    channelId: channel.id,
+    channelKey: channel.obj?.key,
+    supplyChannelId: store.supplyChannels?.[0]?.id,
+    ...pricing,
+    // The unit key is the SAP business partner (CardCode) the price service knows.
+    ...(externalPricing && { externalPriceCompany: bu.key }),
+    addresses: bu.addresses,
+    defaultShippingAddress: byId(bu.defaultShippingAddressId) ?? bu.addresses[0],
+    defaultBillingAddress: byId(bu.defaultBillingAddressId) ?? byId(bu.defaultShippingAddressId) ?? bu.addresses[0],
+    members: [...bu.associates, ...(bu.inheritedAssociates ?? [])].map((a) => {
+      const roleKeys = a.associateRoleAssignments.map((r) => r.associateRole.key);
+      return {
+        customerId: a.customer.id,
+        roles: roleKeys,
+        permissions: [...new Set(roleKeys.flatMap((k) => rolePermissions.get(k) ?? []))],
+      };
+    }),
+  };
+}
+
+const buildContexts = (units: BusinessUnit[], shared: Shared) => [...units].sort(unitOrder).flatMap((bu) => toContext(bu, shared) ?? []);
+
+// Stores and roles change rarely and are the same for everyone.
+const sharedMemo = staleWhileRevalidate<Shared>(5 * 60 * 1000);
+const sharedData = () =>
+  sharedMemo("shared", async () => {
+    const [{ body: stores }, { body: roles }] = await Promise.all([
+      apiRoot
+        .stores()
+        .get({ queryArgs: { limit: 100, expand: ["distributionChannels[*]"] } })
+        .execute(),
+      apiRoot
+        .associateRoles()
+        .get({ queryArgs: { limit: 100 } })
+        .execute(),
+    ]);
+    return { stores: stores.results, rolePermissions: new Map(roles.results.map((r) => [r.key, r.permissions])) };
+  });
+
+async function unitsOf(customerId: string): Promise<BusinessUnit[]> {
+  const id = str(customerId);
+  const { body } = await apiRoot
+    .businessUnits()
+    .get({
+      queryArgs: {
+        where: `associates(customer(id=${id})) or inheritedAssociates(customer(id=${id}))`,
+        sort: ["key asc"],
+        limit: 200,
+        withTotal: false,
+      },
+    })
+    .execute();
+  return body.results;
+}
+
+// The customer's own units, one query per customer: a project with thousands of units must not load them all to find
+// a buyer's two. `associate` tells a business buyer whose units can't be shopped from a consumer. Cached for 60 seconds
+// per process, and a value older than two minutes is reloaded rather than served (see maxStaleMs in src/lib/memo.ts).
+// Order-critical paths re-check live (hasPermissionNow). Cart writes are enforced by commercetools on the customer token.
+export type CustomerContexts = { contexts: BuyerContext[]; associate: boolean };
+const customerMemo = staleWhileRevalidate<CustomerContexts>(60 * 1000, { maxStaleMs: 60 * 1000 });
+
+export const getCustomerContexts = (customerId: string) =>
+  customerMemo(customerId, async () => {
+    const [units, shared] = await Promise.all([unitsOf(customerId), sharedData()]);
+    return { contexts: contextsFor(buildContexts(units, shared), customerId), associate: units.length > 0 };
+  });
+
+// Call after changing associates or unit details, so the change shows on the next request in this process.
+export const forgetBuyingContexts = () => {
+  customerMemo.clear();
+  sharedMemo.clear();
+};
+
+// Every unit, page by page, for scripts (`npm run ct:contexts`). The storefront never needs them all.
+async function allBusinessUnits(): Promise<BusinessUnit[]> {
   const results: BusinessUnit[] = [];
-  for (let offset = 0; ; offset += 500) {
+  for (;;) {
+    const last = results.at(-1)?.id;
     const { body } = await apiRoot
       .businessUnits()
-      .get({ queryArgs: { limit: 500, offset, sort: ["key asc"], withTotal: false } })
+      .get({ queryArgs: { limit: 500, sort: ["id asc"], withTotal: false, ...(last && { where: `id > ${str(last)}` }) } })
       .execute();
     results.push(...body.results);
-    if (body.results.length < 500) return { results };
+    if (body.results.length < 500) return results;
   }
 }
 
-async function loadBuyingContexts(): Promise<BuyingContext[]> {
-  const [units, { body: stores }, { body: roles }] = await Promise.all([
-    allBusinessUnits(),
-    apiRoot
-      .stores()
-      .get({ queryArgs: { limit: 100, expand: ["distributionChannels[*]"] } })
-      .execute(),
-    apiRoot
-      .associateRoles()
-      .get({ queryArgs: { limit: 100 } })
-      .execute(),
-  ]);
-  const rolePermissions = new Map(roles.results.map((r) => [r.key, r.permissions]));
-
-  // Company first, then its divisions, grouped by top-level company.
-  const ordered = [...units.results].sort(
-    (a, b) =>
-      a.topLevelUnit.key.localeCompare(b.topLevelUnit.key) ||
-      Number(a.unitType === "Division") - Number(b.unitType === "Division") ||
-      a.name.localeCompare(b.name),
-  );
-
-  const contexts: BuyingContext[] = [];
-  for (const bu of ordered) {
-    const storeKey = effectiveStoreKey(bu);
-    const store = stores.results.find((s) => s.key === storeKey);
-    const channel = store?.distributionChannels[0];
-    if (!store || !channel) continue; // can't price anything without a store channel
-
-    const { externalPricing, ...pricing } = STORE_PRICING[store.key] ?? { currency: "EUR" };
-    const byId = (id?: string) => bu.addresses.find((a) => a.id === id);
-    contexts.push({
-      businessUnitKey: bu.key,
-      businessUnitName: bu.name,
-      unitType: bu.unitType,
-      parentKey: bu.parentUnit?.key,
-      storeKey: store.key,
-      storeName: store.name?.["en-US"] ?? store.key,
-      channelId: channel.id,
-      channelKey: channel.obj?.key,
-      supplyChannelId: store.supplyChannels?.[0]?.id,
-      ...pricing,
-      // The unit key is the SAP business partner (CardCode) the price service knows.
-      ...(externalPricing && { externalPriceCompany: bu.key }),
-      addresses: bu.addresses,
-      defaultShippingAddress: byId(bu.defaultShippingAddressId) ?? bu.addresses[0],
-      defaultBillingAddress: byId(bu.defaultBillingAddressId) ?? byId(bu.defaultShippingAddressId) ?? bu.addresses[0],
-      members: [...bu.associates, ...(bu.inheritedAssociates ?? [])].map((a) => {
-        const roleKeys = a.associateRoleAssignments.map((r) => r.associateRole.key);
-        return {
-          customerId: a.customer.id,
-          roles: roleKeys,
-          permissions: [...new Set(roleKeys.flatMap((k) => rolePermissions.get(k) ?? []))],
-        };
-      }),
-    });
-  }
-  return contexts;
+export async function getBuyingContexts(): Promise<BuyingContext[]> {
+  const [units, shared] = await Promise.all([allBusinessUnits(), sharedData()]);
+  return buildContexts(units, shared);
 }
 
 // Guests and consumers (customers without a company) shop the default store at its list prices (EUR, VAT
@@ -131,30 +181,9 @@ async function loadGuestContext(): Promise<BuyerContext> {
     channelId: channel.id,
     channelKey: channel.obj?.key,
     supplyChannelId: store.supplyChannels?.[0]?.id,
-    ...(STORE_PRICING[store.key] ?? { currency: "EUR" }),
+    ...STORE_PRICING[store.key],
     addresses: [],
   };
-}
-
-// Is this customer an associate of any unit (directly or inherited)? Asked before treating someone as a consumer,
-// so a new associate or a unit missing from the 5-minute memo never turns a business buyer into a consumer.
-// Cached for 60 seconds per customer, since every consumer page asks.
-const associateMemo = staleWhileRevalidate<boolean>(60 * 1000);
-export const isAssociateNow = (customerId: string) => associateMemo(customerId, () => queryIsAssociate(customerId));
-
-async function queryIsAssociate(customerId: string): Promise<boolean> {
-  const id = str(customerId);
-  const { body } = await apiRoot
-    .businessUnits()
-    .get({
-      queryArgs: {
-        where: `associates(customer(id=${id})) or inheritedAssociates(customer(id=${id}))`,
-        limit: 1,
-        withTotal: false,
-      },
-    })
-    .execute();
-  return body.results.length > 0;
 }
 
 // The unit and the project's associate roles as they are now: read once per page render (React cache), so a page
@@ -170,15 +199,6 @@ export const associateRolesNow = cache(
         .execute()
     ).body.results,
 );
-
-// Order-critical paths (delivery, place order) must not trust the 5-minute memo: a revoked buyer role
-// or removed associate takes effect immediately here.
-export async function hasBuyerRoleNow(businessUnitKey: string, customerId: string): Promise<boolean> {
-  const bu = await businessUnitNow(businessUnitKey);
-  return [...bu.associates, ...(bu.inheritedAssociates ?? [])].some(
-    (a) => a.customer.id === customerId && a.associateRoleAssignments.some((r) => r.associateRole.key === "buyer"),
-  );
-}
 
 // Live check of one associate-role permission (e.g. "RenegotiateMyQuotes"). Required wherever the admin client
 // acts for the buyer, because then commercetools doesn't check the associate's permissions itself.
@@ -197,15 +217,6 @@ export async function permissionsNow(businessUnitKey: string, customerId: string
   return new Set(roles.filter((role) => roleKeys.has(role.key)).flatMap((role) => role.permissions));
 }
 
-// Business units, stores and channels change rarely: refresh them every 5 minutes in the background, so no
-// request waits for the reload. Order-critical paths re-check membership live (hasBuyerRoleNow, hasPermissionNow);
-// elsewhere a membership change (new associate, removed buyer) can take up to ~5 minutes to show. Cart writes
-// are still enforced by commercetools on the customer token.
-const memo = staleWhileRevalidate<BuyingContext[]>(5 * 60 * 1000);
-
-export const getBuyingContexts = () => memo("contexts", loadBuyingContexts);
-// Call after changing associates or unit details, so the change shows on the next request (not in 5 minutes).
-export const forgetBuyingContexts = () => memo.forget("contexts");
 // The guest context is the same for every visitor: cached and shared, refreshed hourly or when units change.
 export const getGuestContext = () => loadGuestContext();
 // A signed-in consumer: the B2C store's prices (their customer group's where it has its own), a cart and orders of
@@ -216,7 +227,7 @@ export const getConsumerContext = async (customerId: string): Promise<BuyerConte
 };
 
 // The customer's group, set by the seller (Merchant Center or an ERP sync). Cached for 60 seconds per customer, like
-// isAssociateNow, so a change shows within a minute without a /me call on every page.
+// the units, so a change shows within a minute without a /me call on every page.
 const groupMemo = staleWhileRevalidate<string | undefined>(60 * 1000);
 const customerGroupNow = (customerId: string) =>
   groupMemo(customerId, async () => {

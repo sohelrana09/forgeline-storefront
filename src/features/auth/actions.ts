@@ -17,6 +17,7 @@ import {
   cookieOptions,
   customerScopes,
   getGuest,
+  newSessionId,
   getSession,
   isKnownDevice,
   rememberDevice,
@@ -24,13 +25,15 @@ import {
   saveSession,
   type Session,
 } from "@/features/auth/session";
-import { getBuyingContexts, getConsumerContext, getGuestContext } from "@/features/business-units/service";
-import { contextsFor, pickContext } from "@/features/business-units/context";
+import { GUEST_STORE_KEY, getConsumerContext, getCustomerContexts, getGuestContext } from "@/features/business-units/service";
+import { pickContext } from "@/features/business-units/utils";
+import { reportEvent } from "@/lib/error-report";
 import { mergeGuestCart } from "@/features/cart/service";
 import type { ForgotPasswordState, LoginState, RegisterState, ResetPasswordState } from "@/features/auth/types";
 import { notifyExistingAccount, resetPassword, sendEmailVerification, startPasswordReset, verifyEmail } from "@/features/auth/service";
 import { NAME_PATTERN } from "@/features/account/utils";
-import { loginLimits } from "@/features/auth/utils";
+import { loginLimits, PASSWORD_RULE, strongEnough } from "@/features/auth/utils";
+import { BREACHED_MESSAGE, isBreached } from "@/features/auth/password";
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") ?? "")
@@ -51,27 +54,42 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 const ipKey = async () => `ip:${await clientIp()}`;
 
 // Password flow with the narrowed scope list, then the encrypted session cookie. Consumers need a confirmed email;
-// business accounts are set up by our sales team and aren't held back.
+// business accounts are set up by our sales team and aren't held back. The stores a token may use are only known
+// after signing in, so the first token has the B2C store only, and a business buyer's is swapped for one with theirs.
 async function signIn(email: string, password: string): Promise<Session | { error: string }> {
-  const token = await requestCustomerToken(email, password, await customerScopes());
-  if (!token.ok) {
+  const first = await requestCustomerToken(email, password, customerScopes());
+  if (!first.ok) {
     await new Promise((r) => setTimeout(r, 500)); // slow down guessing
     return {
       error:
-        token.reason === "credentials" ? "Email or password is incorrect." : "Sign-in is unavailable right now. Please try again later.",
+        first.reason === "credentials" ? "Email or password is incorrect." : "Sign-in is unavailable right now. Please try again later.",
     };
   }
   try {
-    const { body: me } = await customerApiRoot(token.accessToken).me().get().execute();
-    if (!me.isEmailVerified && contextsFor(await getBuyingContexts(), me.id).length === 0) {
-      void revokeToken(token.accessToken);
+    const { body: me } = await customerApiRoot(first.accessToken).me().get().execute();
+    const { contexts } = await getCustomerContexts(me.id);
+    if (!me.isEmailVerified && contexts.length === 0) {
+      void revokeToken(first.accessToken);
       // Same bucket as "resend" in the account.
       if (!(await tooManyAttempts(`verify:${me.id}`, 3))) {
         after(() => sendEmailVerification(me.id, me.email).catch((err) => console.error("verification email failed", err?.body ?? err)));
       }
       return { error: "Please confirm your email address first: we sent you a link. Then sign in again." };
     }
+    const stores = contexts.map((c) => c.storeKey);
+    let token = first;
+    if (stores.some((s) => s !== GUEST_STORE_KEY)) {
+      const full = await requestCustomerToken(email, password, customerScopes(stores));
+      void revokeToken(first.accessToken);
+      if (first.refreshToken) void revokeToken(first.refreshToken, "refresh_token");
+      if (!full.ok) {
+        reportEvent("login_scopes_failed", undefined, { customerId: me.id, reason: full.reason });
+        return { error: "Sign-in is unavailable right now. Please try again later." };
+      }
+      token = full;
+    }
     const session = {
+      sid: newSessionId(),
       accessToken: token.accessToken,
       expiresAt: token.expiresAt,
       customerId: me.id,
@@ -89,8 +107,6 @@ async function signIn(email: string, password: string): Promise<Session | { erro
   }
 }
 
-const PASSWORD_RULE = "Use 8 to 128 characters with at least one letter and one number.";
-const strongEnough = (password: string) => password.length >= 8 && password.length <= 128 && /\p{L}/u.test(password) && /\d/.test(password);
 const EMAIL = /^[^\s@"\\]{1,64}@[^\s@"\\]{1,190}\.[A-Za-z]{2,}$/;
 
 // Public endpoint: consumer sign-up (B2C). Business accounts are set up by our sales team (company + roles).
@@ -112,6 +128,7 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
   if (formData.get("terms") !== "on") return { error: "Please accept the terms of sale.", values };
   if (await tooManyAttempts(`signup:${await ipKey()}`, 5))
     return { error: "Too many sign-ups from your network. Please try again later.", values };
+  if (await isBreached(password)) return { error: BREACHED_MESSAGE, values };
 
   const created = await signUpCustomer({ email, password, firstName, lastName });
   if (!created.ok && created.reason !== "exists") return { error: "Sign-up is unavailable right now. Please try again later.", values };
@@ -152,6 +169,7 @@ export async function resetPasswordAction(_prev: ResetPasswordState, formData: F
   if (password !== String(formData.get("confirmPassword") ?? "")) return { error: "The passwords don't match." };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
   if (await tooManyAttempts(`resetpw-${await ipKey()}`)) return { error: "Too many attempts. Please wait a few minutes and try again." };
+  if (await isBreached(password)) return { error: BREACHED_MESSAGE };
   const result = await resetPassword(token, password).catch((err) => {
     console.error("password reset failed", (err as { body?: unknown })?.body ?? err);
     return "error" as const;
@@ -167,7 +185,7 @@ async function mergeGuestCartOnLogin(session: Session): Promise<string> {
   const guest = await getGuest().catch(() => undefined);
   if (!guest?.cartId) return "/";
   const jar = await cookies();
-  const contexts = contextsFor(await getBuyingContexts(), session.customerId);
+  const { contexts } = await getCustomerContexts(session.customerId);
   // Business buyers merge into their selected unit's cart; consumers into their personal cart (same B2C store).
   const context = contexts.length > 0 ? pickContext(contexts, jar.get(BU_COOKIE)?.value) : await getConsumerContext(session.customerId);
   if (!context.canOrder) return "/"; // nowhere to put the lines: keep the guest cart for a later guest visit

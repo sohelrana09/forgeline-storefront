@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cart, TypedMoney } from "@commercetools/platform-sdk";
-import { addressLabel, methodOptions, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
+import { orderErrorMessage, addressLabel, methodOptions, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
 import type { ShippingOption } from "@/features/cart/service";
 
 const eur = (centAmount: number): TypedMoney => ({ type: "centPrecision", currencyCode: "EUR", centAmount, fractionDigits: 2 });
@@ -88,4 +88,16 @@ describe("selectedMethodKey", () => {
     const other = { shippingInfo: { shippingMethod: { typeId: "shipping-method", id: "zz" } } } as Pick<Cart, "shippingInfo">;
     expect(selectedMethodKey(options, other)).toBeUndefined();
   });
+});
+
+describe("orderErrorMessage", () => {
+  const err = (code: string, statusCode = 400) => ({ body: { statusCode, errors: [{ code }] } });
+  it("names what changed", () => {
+    expect(orderErrorMessage(err("PriceChanged"))).toMatch(/Prices changed/);
+    expect(orderErrorMessage(err("ShippingMethodDoesNotMatchCart"))).toMatch(/delivery method/);
+    expect(orderErrorMessage(err("MissingTaxRateForCountry"))).toMatch(/tax/);
+    expect(orderErrorMessage(err("OutOfStock"))).toMatch(/stock/);
+    expect(orderErrorMessage(err("ConcurrentModification", 409))).toMatch(/cart changed/);
+  });
+  it("leaves unexpected errors to the caller", () => expect(orderErrorMessage(err("General", 500))).toBeUndefined());
 });

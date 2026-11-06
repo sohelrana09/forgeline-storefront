@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { outOfStockMessage, outOfStockSkus, stockErrorMessage } from "@/features/cart/stock";
+import { outOfStockMessage, outOfStockSkus, stockErrorMessage, shortfalls } from "@/features/cart/stock";
 
 const err = (errors: unknown[]) => ({ body: { statusCode: 400, errors } });
 
@@ -45,5 +45,26 @@ describe("stockErrorMessage", () => {
   it("gives a message only for out-of-stock errors", () => {
     expect(stockErrorMessage(err([{ code: "OutOfStock", skus: ["x"] }]))).toContain("Not enough stock for x.");
     expect(stockErrorMessage(err([{ code: "InvalidOperation" }]))).toBeUndefined();
+  });
+});
+
+describe("shortfalls", () => {
+  const entry = (sku: string, availableQuantity: number, channel = "c1") => ({ sku, availableQuantity, supplyChannel: { id: channel } });
+  it("finds SKUs the channel can't fill", () => {
+    expect(shortfalls([{ sku: "A", channel: "c1", quantity: 3 }], [entry("A", 2)])).toEqual(["A"]);
+    expect(shortfalls([{ sku: "A", channel: "c1", quantity: 2 }], [entry("A", 2)])).toEqual([]);
+  });
+  it("counts lines of one SKU together", () => {
+    const lines = [
+      { sku: "A", channel: "c1", quantity: 2 },
+      { sku: "A", channel: "c1", quantity: 2 },
+    ];
+    expect(shortfalls(lines, [entry("A", 3)])).toEqual(["A"]);
+  });
+  it("reads the line's own channel", () => {
+    expect(shortfalls([{ sku: "A", channel: "c2", quantity: 1 }], [entry("A", 0), entry("A", 5, "c2")])).toEqual([]);
+  });
+  it("leaves a SKU without a stock entry to commercetools", () => {
+    expect(shortfalls([{ sku: "A", channel: "c1", quantity: 1 }], [])).toEqual([]);
   });
 });

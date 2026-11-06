@@ -1,7 +1,7 @@
 import "server-only";
 import { ClientBuilder } from "@commercetools/ts-client";
 import { createApiBuilderFromCtpClient } from "@commercetools/platform-sdk";
-import { traceFetch } from "@/lib/commercetools/trace";
+import { ctFetch } from "@/lib/commercetools/http";
 
 export function requireEnv(name: string): string {
   const value = process.env[name];
@@ -31,11 +31,11 @@ const client = new ClientBuilder()
       ? { clientId: requireEnv("CTP_ADMIN_CLIENT_ID"), clientSecret: requireEnv("CTP_ADMIN_CLIENT_SECRET") }
       : { clientId: requireEnv("CTP_CLIENT_ID"), clientSecret: requireEnv("CTP_CLIENT_SECRET") },
     scopes: adminScript ? scopesFrom(process.env.CTP_ADMIN_SCOPES) : inScript ? undefined : scopesFrom(process.env.CTP_SCOPES),
-    httpClient: traceFetch,
+    httpClient: ctFetch,
   })
   .withHttpMiddleware({
     host: requireEnv("CTP_API_URL"),
-    httpClient: traceFetch,
+    httpClient: ctFetch,
   })
   .build();
 
@@ -47,7 +47,7 @@ export function customerApiRoot(accessToken: string) {
   const customerClient = new ClientBuilder()
     .withProjectKey(projectKey)
     .withExistingTokenFlow(`Bearer ${accessToken}`, { force: true })
-    .withHttpMiddleware({ host: requireEnv("CTP_API_URL"), httpClient: traceFetch })
+    .withHttpMiddleware({ host: requireEnv("CTP_API_URL"), httpClient: ctFetch })
     .build();
   return createApiBuilderFromCtpClient(customerClient).withProjectKey({ projectKey });
 }

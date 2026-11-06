@@ -1,3 +1,5 @@
+import { hasCode, statusOf } from "@/lib/commercetools/errors";
+import { stockErrorMessage } from "@/features/cart/stock";
 import type { BaseAddress, Cart } from "@commercetools/platform-sdk";
 import { formatMoney } from "@/lib/utils";
 import type { ShippingOption } from "@/features/cart/service";
@@ -56,4 +58,19 @@ export function methodOptions(options: ShippingOption[], cart: Cart): MethodOpti
       note: o.freeAbove && !free ? `Free above ${formatMoney(o.freeAbove)}` : undefined,
     };
   });
+}
+
+const CODE_MESSAGES: [string, string][] = [
+  ["PriceChanged", "Prices changed. Please review your order."],
+  ["ShippingMethodDoesNotMatchCart", "Your delivery method is no longer available. Please choose another."],
+  ["MissingTaxRateForCountry", "We can't calculate tax for this address. Please check it or contact us."],
+];
+
+// What the buyer sees when commercetools refuses an order, or undefined for an unexpected error.
+export function orderErrorMessage(err: unknown): string | undefined {
+  const stock = stockErrorMessage(err);
+  if (stock) return stock;
+  const known = CODE_MESSAGES.find(([code]) => hasCode(err, code));
+  if (known) return known[1];
+  return statusOf(err) === 409 ? "Your cart changed. Please review it and place the order again." : undefined;
 }

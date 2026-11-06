@@ -1,4 +1,5 @@
 import "server-only";
+import { statusOf } from "@/lib/commercetools/errors";
 import type {
   AssociateRoleAssignment,
   AssociateRoleAssignmentDraft,
@@ -33,7 +34,6 @@ export { CompanyError };
 // So reads and writes use the admin client, always for the SELECTED unit only, and every write first checks the
 // acting associate's permission live (hasPermissionNow), like quote renegotiation.
 
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 const unitByKey = (key: string) => apiRoot.businessUnits().withKey({ key });
 
 // Associate roles are project-wide and change rarely.

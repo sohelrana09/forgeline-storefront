@@ -82,6 +82,22 @@ export function galleryImages(p: ProductProjection, axis: string | undefined): G
   return [...byUrl.values()];
 }
 
+// What a category list needs of a product. A category's whole product list is cached, so long descriptions and every
+// gallery image of every variant would be paid for on each read of the cache.
+export function toListProduct(p: ProductProjection): ProductProjection {
+  const variant = (v: ProductVariant): ProductVariant => ({ ...v, images: v.images?.slice(0, 1), assets: [] });
+  return {
+    ...p,
+    description: undefined,
+    metaTitle: undefined,
+    metaDescription: undefined,
+    metaKeywords: undefined,
+    searchKeywords: undefined,
+    masterVariant: variant(p.masterVariant),
+    variants: p.variants.map(variant),
+  };
+}
+
 export function relatedProductIds(p: ProductProjection): string[] {
   const attr = p.masterVariant.attributes?.find((a) => a.name === "relatedProducts");
   const refs = Array.isArray(attr?.value) ? (attr.value as { id?: string }[]) : [];

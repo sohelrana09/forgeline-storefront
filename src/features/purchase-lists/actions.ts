@@ -13,7 +13,16 @@ import { getActiveCart, lookupSkus } from "@/features/cart/service";
 import { MAX_LINES as CART_BATCH, parseQuickOrder } from "@/features/quick-order/parser";
 import { addParsedLines } from "@/features/quick-order/service";
 import { UUID } from "@/features/orders/utils";
-import { addToList, createList, deleteList, getList, PurchaseListError, renameList, updateLines } from "@/features/purchase-lists/service";
+import {
+  addToList,
+  createList,
+  deleteList,
+  getList,
+  PurchaseListError,
+  renameList,
+  updateLines,
+  listNames,
+} from "@/features/purchase-lists/service";
 import { LIST_NAME, MAX_QUANTITY, listHref, parseListRef, type ListScope } from "@/features/purchase-lists/utils";
 import type { ListActionState } from "@/features/purchase-lists/types";
 import type { QuickOrderState } from "@/features/quick-order/types";
@@ -76,6 +85,12 @@ async function addTo(shop: Shop, formData: FormData, lines: { sku: string; quant
   }
   const count = known.length === 1 ? "1 product" : `${known.length} products`;
   return `Added ${count} to "${name}".${unknown.length ? ` Not found: ${unknown.join(", ")}.` : ""}`;
+}
+
+// Public endpoint: the names of the caller's own lists, for the picker when the panel opens.
+export async function listNamesAction(): Promise<{ id: string; name: string }[]> {
+  const { session, context } = await requireShopContext();
+  return listNames(session, context);
 }
 
 export async function createListAction(_prev: ListActionState, formData: FormData): Promise<ListActionState> {

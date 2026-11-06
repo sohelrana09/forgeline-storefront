@@ -1,9 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { hasRevalidateSecret } from "@/lib/revalidate-auth";
-import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
+import { acquireLock, clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { forgetCatalogCache } from "@/features/catalog/service";
-import { TAGS, type CacheTag } from "@/lib/cache";
+import { planFor } from "@/lib/revalidate-plan";
+import { SIGNATURE_HEADER, validSanitySignature } from "@/lib/sanity/webhook-signature";
 
 // Refreshes the cached reads behind every page ("use cache" tags, src/lib/cache.ts) after content or catalog changes
 // made outside the app:
@@ -12,55 +13,52 @@ import { TAGS, type CacheTag } from "@/lib/cache";
 //
 // Body (all optional): { "scope": "content" | "catalog" | "all" }, or a commercetools message as delivered by a
 // Subscription (directly, wrapped in EventBridge's { detail }, or in a Pub/Sub push { message: { data } }).
-// The tags of the changed data expire at once, so the next visit reads it fresh, and pages built from it (the static
-// shells) are rebuilt; the in-process search index is cleared too.
-type Scope = "content" | "catalog" | "all";
+// The tags of the changed data expire (src/lib/revalidate-plan.ts decides which, and when), so the next visit reads it
+// fresh, and pages built from it (the static shells) are rebuilt; the in-process search index is cleared too.
+const DEBOUNCE_MS = 30_000;
+export const maxDuration = 45;
 
-// An import sends one event per changed price or product, and every call is applied: expiring tags is cheap (the reads
-// reload once, on their next use), while skipping a call left its change stale for the read's whole lifetime.
+function parseBody(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
 
 export async function POST(request: NextRequest) {
-  if (!hasRevalidateSecret(request.headers.get("authorization"))) {
+  const raw = await request.text();
+  // Sanity's signature when it sent one and a secret is set; a bearer token for everyone else.
+  const signature = request.headers.get(SIGNATURE_HEADER);
+  const secret = process.env.SANITY_WEBHOOK_SECRET;
+  const authorized =
+    signature && secret
+      ? validSanitySignature(signature, raw, secret, Date.now())
+      : hasRevalidateSecret(request.headers.get("authorization"));
+  if (!authorized) {
     // Throttle guessing; authorized callers aren't counted.
     if (await tooManyAttempts(`revalidate:${await clientIp()}`, 20))
       return NextResponse.json({ error: "too many attempts" }, { status: 429 });
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const scope = scopeOf(await request.json().catch(() => undefined));
-  if (scope !== "content") forgetCatalogCache();
-  for (const tag of tagsFor(scope)) revalidateTag(tag, { expire: 0 });
-  console.info("revalidated cached reads", { scope, tags: tagsFor(scope) });
-  return NextResponse.json({ revalidated: true, scope });
-}
-
-// Products, categories and content pages are all in the URL index (new, renamed or removed URLs). Custom Objects are
-// merchants' redirects, which only the URL index uses.
-function tagsFor(scope: Scope): CacheTag[] {
-  const catalog: CacheTag[] = [TAGS.catalog, TAGS.categories, TAGS.units];
-  if (scope === "content") return [TAGS.content, TAGS.urls];
-  if (scope === "catalog") return [...catalog, TAGS.urls];
-  return [...catalog, TAGS.content, TAGS.urls];
-}
-
-function scopeOf(body: unknown): Scope {
-  if (!body || typeof body !== "object") return "all";
-  const b = body as {
-    scope?: unknown;
-    detail?: unknown;
-    message?: { data?: unknown };
-    resource?: { typeId?: unknown };
+  const plan = planFor(parseBody(raw));
+  if (plan.tags.length === 0) return NextResponse.json({ ignored: true });
+  const expire = () => {
+    if (plan.catalog) forgetCatalogCache();
+    for (const tag of plan.tags) revalidateTag(tag, { expire: 0 });
+    console.info("revalidated cached reads", plan);
   };
-  if (b.scope === "content" || b.scope === "catalog" || b.scope === "all") return b.scope;
-  if (b.detail) return scopeOf(b.detail);
-  if (typeof b.message?.data === "string") {
-    try {
-      return scopeOf(JSON.parse(Buffer.from(b.message.data, "base64").toString("utf8")));
-    } catch {
-      return "all";
-    }
+  if (!plan.debounced) {
+    expire();
+    return NextResponse.json({ revalidated: true, tags: plan.tags });
   }
-  // Custom Objects are "key-value-document"s; everything else we subscribe to is catalog data.
-  if (typeof b.resource?.typeId === "string") return b.resource.typeId === "key-value-document" ? "content" : "catalog";
-  return "all";
+  // The first message of a burst waits for the rest, then expires once; the others stop here. A message after the wait
+  // starts the next round, so the last change of an import is always covered.
+  if (!(await acquireLock(`revalidate:${plan.tags.join(",")}`, DEBOUNCE_MS))) return NextResponse.json({ debounced: true });
+  after(async () => {
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS));
+    expire();
+  });
+  return NextResponse.json({ scheduled: true, tags: plan.tags });
 }

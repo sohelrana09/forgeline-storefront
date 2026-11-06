@@ -67,3 +67,13 @@ export async function removeMyAddress(session: Session, id: string) {
   if (!me.addresses.some((a) => a.id === id)) return me;
   return updateMe(session, [{ action: "removeAddress", addressId: id }]);
 }
+
+// The customer's own password, with their token: commercetools checks the current one.
+export async function changeMyPassword(session: Session, currentPassword: string, newPassword: string) {
+  const me = await getMe(session);
+  await customerApiRoot(session.accessToken)
+    .me()
+    .password()
+    .post({ body: { version: me.version, currentPassword, newPassword } })
+    .execute();
+}

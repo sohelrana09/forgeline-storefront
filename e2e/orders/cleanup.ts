@@ -69,7 +69,7 @@ type Order = {
   paymentState?: string;
   inventoryMode?: string;
   paymentInfo?: { payments: { id: string; obj?: { paymentStatus?: { interfaceCode?: string } } }[] };
-  lineItems: { quantity: number; variant: { sku?: string }; supplyChannel?: { id: string } }[];
+  lineItems: { id: string; quantity: number; variant: { sku?: string }; supplyChannel?: { id: string } }[];
 };
 type InventoryEntry = { id: string; version: number };
 
@@ -103,9 +103,15 @@ export async function cancelTestOrder(id: string) {
     });
   }
   if (order.inventoryMode !== "ReserveOnOrder") return;
+  // A rejected order: the storefront gave the stock back itself, line by line, and says so on the order's marker.
+  // A cleanup client without Custom Object rights reads no marker, which only happens on orders not cancelled by us.
+  const marker = await ct<{ value?: { steps?: Record<string, { state?: string }> } }>(`/custom-objects/order-processing/${id}`).catch(
+    () => undefined,
+  );
   for (const line of order.lineItems) {
     const sku = line.variant.sku;
     if (!sku || !line.supplyChannel) continue;
+    if (marker?.value?.steps?.[`restock:${line.id}`]?.state === "done") continue;
     const where = `sku="${sku.replace(/"/g, "")}" and supplyChannel(id="${line.supplyChannel.id}")`;
     const { results } = await ct<{ results: InventoryEntry[] }>(`/inventory?where=${encodeURIComponent(where)}&limit=1`);
     const entry = results[0];

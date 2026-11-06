@@ -30,18 +30,31 @@ export function Carousel({
     const pages = Math.max(1, Math.ceil(el.children.length / perView));
     const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
     const page = atEnd ? pages - 1 : Math.min(pages - 1, Math.round(el.scrollLeft / (perView * slot)));
-    setState({ page, pages, perView, step: perView * slot });
+    const step = perView * slot;
+    // Same values: no re-render for a scroll that stays on the page.
+    setState((s) =>
+      s.page === page && s.pages === pages && s.perView === perView && s.step === step ? s : { page, pages, perView, step },
+    );
   }, []);
 
   useEffect(() => {
     const el = track.current;
     if (!el) return;
     update();
-    el.addEventListener("scroll", update, { passive: true });
+    // Layout is read at most once per frame: scroll events fire far more often while swiping.
+    let frame = 0;
+    const onScroll = () => {
+      frame ||= requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
     const resize = new ResizeObserver(update);
     resize.observe(el);
     return () => {
-      el.removeEventListener("scroll", update);
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", onScroll);
       resize.disconnect();
     };
   }, [update]);

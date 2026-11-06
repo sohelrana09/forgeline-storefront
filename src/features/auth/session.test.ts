@@ -19,8 +19,11 @@ vi.mock("@/lib/commercetools/customer-token", () => ({
   refreshAnonymousToken: vi.fn(),
   revokeToken: vi.fn(),
 }));
-vi.mock("@/features/business-units/service", () => ({ GUEST_STORE_KEY: "default-store", getBuyingContexts: vi.fn() }));
-vi.mock("@/features/auth/revocation", () => ({ sessionsValidAfter: (id: string) => sessionsValidAfter(id) }));
+vi.mock("@/features/business-units/service", () => ({ GUEST_STORE_KEY: "default-store" }));
+vi.mock("@/features/auth/revocation", () => ({
+  sessionRevocation: async (id: string) => ({ after: await sessionsValidAfter(id), ended: [] }),
+  endSession: vi.fn(),
+}));
 
 process.env.CTP_CLIENT_SECRET = "test-secret-for-the-session-cookie";
 const { getSession, sealSession, SESSION_COOKIE } = await import("@/features/auth/session");

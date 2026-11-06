@@ -9,7 +9,11 @@ export const MARKER_CONTAINER = "order-processing";
 export const CLAIM_TTL_MS = 10 * 60_000;
 
 export type StepRecord = { state: "claimed" | "done"; at: string };
-export type Marker = { steps: Record<string, StepRecord> };
+// `failures`: how often each step has failed so far, so a step that keeps failing raises an alert.
+export type Marker = { steps: Record<string, StepRecord>; failures?: Record<string, number> };
+
+// After this many failures a step counts as stuck: someone has to look at it.
+export const STUCK_AFTER = 3;
 
 // A stored marker value, defensively: unknown or broken records are dropped (and so run again).
 export function parseMarker(value: unknown): Marker {
@@ -23,7 +27,8 @@ export function parseMarker(value: unknown): Marker {
       }
     }
   }
-  return { steps };
+  const failures = (value as { failures?: unknown } | undefined)?.failures;
+  return failures && typeof failures === "object" ? { steps, failures: failures as Record<string, number> } : { steps };
 }
 
 // "run": nobody has done or is doing this step. "skip": done, or claimed by a worker that is still within its time.
@@ -35,10 +40,12 @@ export function stepDecision(marker: Marker, step: string, now: number): "run" |
 }
 
 export const withStep = (marker: Marker, step: string, state: StepRecord["state"], now: number): Marker => ({
+  ...marker,
   steps: { ...marker.steps, [step]: { state, at: new Date(now).toISOString() } },
 });
 
 export const withoutStep = (marker: Marker, step: string): Marker => ({
+  ...marker,
   steps: Object.fromEntries(Object.entries(marker.steps).filter(([name]) => name !== step)),
 });
 
@@ -50,5 +57,9 @@ export const pendingSteps = (marker: Marker | undefined, steps: readonly string[
 // time it claimed at): undefined when the record changed meanwhile (done, or taken over after expiring).
 export function releaseStep(marker: Marker, step: string, claimedAt: string): Marker | undefined {
   const record = marker.steps[step];
-  return record?.state === "claimed" && record.at === claimedAt ? withoutStep(marker, step) : undefined;
+  if (record?.state !== "claimed" || record.at !== claimedAt) return undefined;
+  const released = withoutStep(marker, step);
+  return { ...released, failures: { ...released.failures, [step]: failureCount(marker, step) + 1 } };
 }
+
+export const failureCount = (marker: Marker, step: string) => Number(marker.failures?.[step]) || 0;

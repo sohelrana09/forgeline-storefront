@@ -6,6 +6,7 @@ import {
   stepDecision,
   withoutStep,
   withStep,
+  failureCount,
   releaseStep,
 } from "@/features/order-processing/steps";
 
@@ -65,7 +66,13 @@ describe("releaseStep", () => {
   const claimed = { steps: { payment: { state: "claimed" as const, at }, number: { state: "done" as const, at } } };
 
   it("removes this worker's own claim and keeps the other steps", () => {
-    expect(releaseStep(claimed, "payment", at)).toEqual({ steps: { number: { state: "done", at } } });
+    expect(releaseStep(claimed, "payment", at)).toEqual({ steps: { number: { state: "done", at } }, failures: { payment: 1 } });
+  });
+
+  it("counts every failure of a step", () => {
+    const again = { ...claimed, failures: { payment: 2 } };
+    expect(failureCount(releaseStep(again, "payment", at)!, "payment")).toBe(3);
+    expect(parseMarker(releaseStep(again, "payment", at)).failures).toEqual({ payment: 3 });
   });
 
   it("leaves a step that was finished or taken over meanwhile", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cart, LineItem } from "@commercetools/platform-sdk";
-import { cartSkus, priceActions } from "@/features/company-pricing/extension";
+import { cartSkus, lostCompanyPrices, priceActions } from "@/features/company-pricing/extension";
 import { toTypedMoney } from "@/features/company-pricing/ladder";
 import { diffLadders } from "@/features/company-pricing/sync";
 
@@ -59,4 +59,10 @@ describe("diffLadders", () => {
     expect(diff).toMatchObject({ added: 1, changed: 1, unchanged: 1, remove: ["C|OLD"] });
     expect(Object.keys(diff.set)).toEqual(["C|B", "C|NEW"]);
   });
+});
+
+describe("lostCompanyPrices", () => {
+  const cart = (priceMode: string) => ({ lineItems: [{ priceMode }] }) as unknown as Cart;
+  it("refuses when a cart with company prices finds none", () => expect(lostCompanyPrices(cart("ExternalPrice"), new Map())).toBe(true));
+  it("accepts a cart that never had any", () => expect(lostCompanyPrices(cart("Platform"), new Map())).toBe(false));
 });

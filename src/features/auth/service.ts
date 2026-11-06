@@ -1,4 +1,5 @@
 import "server-only";
+import { statusOf } from "@/lib/commercetools/errors";
 import { apiRoot } from "@/lib/commercetools/client";
 import { str } from "@/lib/predicate";
 import { sendMail, siteUrl } from "@/lib/mailer";
@@ -10,8 +11,6 @@ import { endSessions } from "@/features/auth/revocation";
 
 const RESET_TTL_MINUTES = 30;
 const VERIFY_TTL_MINUTES = 24 * 60;
-
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 
 // Always "succeeds" from the caller's view, so the form never reveals whether an email has an account.
 export async function startPasswordReset(email: string) {

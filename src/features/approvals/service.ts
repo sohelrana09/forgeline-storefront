@@ -1,5 +1,6 @@
 import "server-only";
-import type { ApprovalFlow, ApprovalFlowUpdateAction, Order } from "@commercetools/platform-sdk";
+import { firstCode, statusOf } from "@/lib/commercetools/errors";
+import type { ApprovalFlow, ApprovalFlowUpdateAction, Order, OrderUpdateAction } from "@commercetools/platform-sdk";
 import { apiRoot, asAssociate } from "@/lib/commercetools/client";
 import { sendMail, siteUrl } from "@/lib/mailer";
 import { formatMoney } from "@/lib/utils";
@@ -8,8 +9,8 @@ import type { PricingContext } from "@/features/business-units/types";
 import { orderReference } from "@/features/orders/service";
 import { UUID } from "@/features/orders/utils";
 import type { ApprovalItem, OrderApproval } from "@/features/approvals/types";
-import { cancelOrderActions } from "@/features/order-processing/payment";
-import { markPaymentCancelled } from "@/features/order-processing/service";
+import { cancelUnpaidOrder } from "@/features/order-processing/service";
+import { reportEvent } from "@/lib/error-report";
 
 // Order approvals, on commercetools Approval Flows. A flow is created by
 // commercetools when an order matches an Active approval rule of the unit; the order itself exists (Open) from the
@@ -19,8 +20,6 @@ import { markPaymentCancelled } from "@/features/order-processing/service";
 
 export class ApprovalError extends Error {}
 
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
-const errorCode = (err: unknown) => (err as { body?: { errors?: { code?: string }[] } })?.body?.errors?.[0]?.code;
 const flows = (ctx: PricingContext, associateId: string) => asAssociate(associateId, ctx.businessUnitKey).approvalFlows();
 
 export function toApproval(flow: ApprovalFlow): OrderApproval {
@@ -45,12 +44,13 @@ export function toApproval(flow: ApprovalFlow): OrderApproval {
 
 // The approvals of orders the viewer may already see: order id → approval. Callers must pass only ids they have
 // just read with the viewer's own token, or after a live ViewOthersOrders check (the flows show rejection reasons
-// and approvers). Any member may read the unit's flows. Display only, so a failure shows orders without a status
-// instead of breaking the page.
+// and approvers). Any member may read the unit's flows. For display a failure shows orders without a status instead
+// of breaking the page; `strict` is for decisions that rest on the answer (an invoice), where it throws.
 export async function approvalsForOrders(
   ctx: PricingContext,
   viewerId: string,
   orderIds: string[],
+  { strict = false }: { strict?: boolean } = {},
 ): Promise<Record<string, OrderApproval>> {
   const ids = orderIds.filter((id) => UUID.test(id));
   if (!ctx.businessUnitKey || ids.length === 0) return {};
@@ -61,6 +61,7 @@ export async function approvalsForOrders(
     return Object.fromEntries(body.results.map((f) => [f.order.id, toApproval(f)]));
   } catch (err) {
     console.error("approval status lookup failed", (err as { body?: unknown })?.body ?? err);
+    if (strict) throw err;
     return {};
   }
 }
@@ -168,7 +169,7 @@ export async function decideApproval(
   if (!flow || !order) throw new ApprovalError("Unknown approval.");
   if (decision === "retry-cancel") {
     if (flow.status !== "Rejected") throw new ApprovalError("Only a rejected order is cancelled.");
-    await cancelOrder(order);
+    await cancelUnpaidOrder(order);
     return toApproval(flow);
   }
   if (flow.status !== "Pending") throw new ApprovalError(`This order was already ${flow.status.toLowerCase()}.`);
@@ -188,15 +189,16 @@ export async function decideApproval(
     ).body;
   } catch (err) {
     if (statusOf(err) === 409) throw new ApprovalError("Someone else handled this order at the same time. Please review it again.");
-    if (errorCode(err) === "AssociateMissingPermission" || statusOf(err) === 403) {
+    if (firstCode(err) === "AssociateMissingPermission" || statusOf(err) === 403) {
       throw new ApprovalError("Your role can't decide this step of the approval.");
     }
     throw err;
   }
+  if (updated.status !== "Pending") await setOrderApproval(order.id, updated.status);
   let cancelFailed = false;
   if (updated.status === "Rejected") {
     try {
-      await cancelOrder(order);
+      await cancelUnpaidOrder(order);
     } catch (err) {
       cancelFailed = true;
       console.error("cancelling a rejected order failed", order.id, (err as { body?: unknown })?.body ?? err);
@@ -206,25 +208,45 @@ export async function decideApproval(
   return { ...toApproval(updated), cancelFailed };
 }
 
-// The rejected order must not be processed: cancel it in its store (retry once if it changed meanwhile). Its
-// pending payment becomes Failed in the same update, and our Payment of it is marked cancelled, so nobody waits for
-// money that won't come.
-async function cancelOrder(order: Order) {
-  const storeKey = order.store?.key;
-  if (!storeKey) throw new Error(`order ${order.id} has no store`);
-  const orders = apiRoot.inStoreKeyWithStoreKeyValue({ storeKey }).orders().withId({ ID: order.id });
-  for (let attempt = 1; ; attempt++) {
-    const { body: current } = attempt === 1 ? { body: order } : await orders.get().execute();
-    const actions = cancelOrderActions(current);
-    if (actions.length === 0) break;
-    try {
-      await orders.post({ body: { version: current.version, actions } }).execute();
-      break;
-    } catch (err) {
-      if (statusOf(err) !== 409 || attempt === 2) throw err;
+// The approval's state on the order itself, for whoever reads orders rather than flows (an ERP, a warehouse, Merchant
+// Center): a custom field of the Type from `npm run ct:order-approval-type`. Best effort: the flow stays the truth for
+// the storefront, and a project without the Type just logs it.
+const APPROVAL_TYPE = "order-approval";
+const APPROVAL_FIELD = "approvalStatus";
+
+export async function setOrderApproval(orderId: string, status: string) {
+  const orders = apiRoot.orders().withId({ ID: orderId });
+  try {
+    for (let attempt = 1; ; attempt++) {
+      const { body: order } = await orders.get().execute();
+      const action: OrderUpdateAction = order.custom
+        ? { action: "setCustomField", name: APPROVAL_FIELD, value: status }
+        : { action: "setCustomType", type: { typeId: "type", key: APPROVAL_TYPE }, fields: { [APPROVAL_FIELD]: status } };
+      try {
+        await orders.post({ body: { version: order.version, actions: [action] } }).execute();
+        return;
+      } catch (err) {
+        if (statusOf(err) !== 409 || attempt === 2) throw err;
+      }
     }
+  } catch (err) {
+    reportEvent("approval_field_failed", err, { orderId, status });
   }
-  await markPaymentCancelled(order.id);
+}
+
+// After-order step for every order path: an order that matched an approval rule is marked as held and its approvers
+// are told. Read as the buyer, the one associate of the unit the order itself names. Any member may read the flows.
+export async function holdForApproval(order: Order): Promise<void> {
+  const unit = order.businessUnit?.key;
+  if (!unit || !order.customerId) return;
+  const { body } = await asAssociate(order.customerId, unit)
+    .approvalFlows()
+    .get({ queryArgs: { where: `order(id="${order.id}")`, limit: 1 } })
+    .execute();
+  const flow = body.results[0];
+  if (flow?.status !== "Pending") return;
+  await setOrderApproval(order.id, "Pending");
+  await notifyApprovers(unit, order, toApproval(flow));
 }
 
 // ---------- Emails (development: printed to the server log; see src/lib/mailer.ts) ----------
@@ -239,9 +261,10 @@ const customerEmail = async (id: string) =>
     .catch(() => undefined);
 
 // A new order waiting for approval: tell the unit's members who can approve the current step.
-export async function notifyApprovers(ctx: PricingContext, order: Order, approval: OrderApproval) {
-  try {
-    const { body: bu } = await apiRoot.businessUnits().withKey({ key: ctx.businessUnitKey }).get().execute();
+// Throws when an email can't go out, so the step that calls this runs again.
+async function notifyApprovers(unitKey: string, order: Order, approval: OrderApproval) {
+  const { body: bu } = await apiRoot.businessUnits().withKey({ key: unitKey }).get().execute();
+  {
     const ids = [...bu.associates, ...(bu.inheritedAssociates ?? [])]
       .filter(
         (a) =>
@@ -258,24 +281,17 @@ export async function notifyApprovers(ctx: PricingContext, order: Order, approva
         ).body.results.map((c) => c.email)
       : [];
     const ref = orderReference(order);
-    await Promise.all(
+    const sent = await Promise.all(
       emails.map((to) =>
         sendMail({
           to,
           subject: `Order ${ref} is waiting for your approval`,
-          text: `Order ${ref} (${formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}) for ${ctx.businessUnitName} needs approval: ${approval.rules.join(", ")}.\n\nReview it: ${siteUrl()}/account/approvals/${approval.flowId}`,
+          text: `Order ${ref} (${formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}) for ${bu.name} needs approval: ${approval.rules.join(", ")}.\n\nReview it: ${siteUrl()}/account/approvals/${approval.flowId}`,
         }),
       ),
     );
-  } catch (err) {
-    console.error("approval notification failed", (err as { body?: unknown })?.body ?? err);
+    if (sent.includes(false)) throw new Error("approval notification not sent");
   }
-}
-
-// For every order path (checkout, reorder, order from a quote); call it in after() so it never fails the response.
-export async function notifyApproversIfPending(ctx: PricingContext, customerId: string, order: Order) {
-  const approval = (await approvalsForOrders(ctx, customerId, [order.id]))[order.id];
-  if (approval?.status === "Pending") await notifyApprovers(ctx, order, approval);
 }
 
 async function notifyBuyer(order: Order, flow: ApprovalFlow) {

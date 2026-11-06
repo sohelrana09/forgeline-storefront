@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { revalidatePath, refresh } from "next/cache";
 import { after } from "next/server";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { hasBuyerRoleNow } from "@/features/business-units/service";
+import { hasPermissionNow } from "@/features/business-units/service";
+import { ORDER_PERMISSION } from "@/features/business-units/utils";
 import { getActiveCart } from "@/features/cart/service";
 import {
   applyCheckoutDetails,
@@ -16,7 +17,6 @@ import {
   placeOrder,
   prepareCardPayment,
 } from "@/features/checkout/service";
-import { notifyApproversIfPending } from "@/features/approvals/service";
 import { numberNewOrder, processOrder } from "@/features/order-processing/service";
 import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { CheckoutSession } from "@/lib/commercetools/checkout-session";
@@ -24,13 +24,15 @@ import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { parseAddress } from "@/features/account/utils";
 import { CONSUMER_COUNTRIES } from "@/features/business-units/service";
 import { cartCookie, saveGuest } from "@/features/auth/session";
-import { requireBrowseContext, requireShopContext } from "@/features/business-units/context";
+import { actorKey, requireBrowseContext, requireShopContext } from "@/features/business-units/context";
 import { getMe, withMyAddresses } from "@/features/account/service";
 import type { BuyerContext } from "@/features/business-units/types";
 import type { Order } from "@commercetools/platform-sdk";
 import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
 import { CartLockedError } from "@/features/cart/freeze";
-import { stockErrorMessage } from "@/features/cart/stock";
+import { orderErrorMessage } from "@/features/checkout/utils";
+import { reportEvent } from "@/lib/error-report";
+import { flash } from "@/lib/flash";
 
 // Checkout has its own layout (route group "(checkout)"): refresh it as well as the shop pages (header cart, totals).
 function refreshPages() {
@@ -40,13 +42,16 @@ function refreshPages() {
 // Public endpoints: both act only on the signed-in customer's own open cart. In a business unit only buyers may
 // use them (checked live); consumers always may, for their personal cart.
 const mayOrder = async (context: BuyerContext, customerId: string) =>
-  context.canOrder && (context.consumer || (await hasBuyerRoleNow(context.businessUnitKey, customerId)));
+  context.canOrder && (context.consumer || (await hasPermissionNow(context.businessUnitKey, customerId, ORDER_PERMISSION)));
 
 export type DeliveryState = { error?: string };
 
 export async function chooseDelivery(_prev: DeliveryState, formData: FormData): Promise<DeliveryState> {
   const { session, context: selected, cartId } = await requireShopContext();
   if (!(await mayOrder(selected, session.customerId))) return { error: "Only buyers can place orders." };
+  if (await tooManyAttempts(`delivery:${session.customerId}`, 60)) {
+    return { error: "Too many changes. Please wait a few minutes and try again." };
+  }
   const cart = await getActiveCart(session, cartId, selected);
   if (!cart) return { error: "Your cart is no longer open." };
   try {
@@ -79,7 +84,8 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
   if (context.consumer) return { error: "Please pay by card." };
   // G8: the same limits as the B2C order actions, but per buyer instead of per IP: a company's buyers often share
   // one office address. The bucket is shared with ordering from quotes.
-  if ((await tooManyAttempts(`order:${cartId}`, 10)) || (await tooManyAttempts(`order-customer:${session.customerId}`, 30))) {
+  // Per buyer, not per cart: the cart id is a cookie the caller picks.
+  if (await tooManyAttempts(`order-customer:${session.customerId}`, 30)) {
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
 
@@ -90,31 +96,23 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
       context,
       cartId,
       Number(formData.get("cartVersion")),
-      // PO numbers are for business orders only.
-      context.consumer ? "" : String(formData.get("purchaseOrderNumber") ?? "").trim(),
+      String(formData.get("purchaseOrderNumber") ?? "").trim(),
     );
   } catch (err) {
     unstable_rethrow(err); // signed out (revoked token)
     // Re-render the page so the form carries the cart's current version (setting the PO may have bumped it).
     revalidatePath("/checkout");
     if (err instanceof CheckoutError) return { error: err.message };
-    const stock = stockErrorMessage(err); // G6: a line's supply channel can't fill it
-    if (stock) return { error: stock };
-    const body = (err as { body?: { statusCode?: number } })?.body;
-    console.error("place order failed", body ?? err);
-    if (body?.statusCode === 409) return { error: "Your cart changed. Please review it and place the order again." };
-    return { error: "The order could not be placed. Please try again." };
+    console.error("place order failed", (err as { body?: unknown })?.body ?? err);
+    return { error: orderErrorMessage(err) ?? "The order could not be placed. Please try again." };
   }
 
   (await cookies()).delete(cartCookie(context.businessUnitKey));
   refreshPages();
   const placed = await numberNewOrder(order);
-  // An order that matched an approval rule waits for an approver: tell them, after the response is sent. The other
-  // after-order steps run there too (and again from the Subscription and the sweep, which skip what is done).
-  after(async () => {
-    await processOrder(placed.id); // never throws
-    await notifyApproversIfPending(context, session.customerId, placed);
-  });
+  // After the response: the Payment, the confirmation and telling approvers (and again from the Subscription and the
+  // sweep, which skip what is done).
+  after(() => processOrder(placed.id));
   redirect(`/account/orders/${order.id}`);
 }
 
@@ -127,9 +125,10 @@ export type CardPaymentState = { error?: string; session?: CheckoutSession; revi
 export async function startCardPayment(_prev: CardPaymentState, formData: FormData): Promise<CardPaymentState> {
   if (!cardPaymentsEnabled()) return { error: "Card payments are not available right now." };
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
-  const { session, auth, context, cartId } = await requireBrowseContext();
+  const browse = await requireBrowseContext();
+  const { session, auth, context, cartId } = browse;
   if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
-  if ((await tooManyAttempts(`pay:${cartId}`, 20)) || (await tooManyAttempts(`pay-ip:${await clientIp()}`, 40))) {
+  if ((await tooManyAttempts(`pay:${actorKey(browse)}`, 20)) || (await tooManyAttempts(`pay-ip:${await clientIp()}`, 40))) {
     return { error: "Too many payment attempts. Please wait a few minutes and try again." };
   }
   if (context.consumer && session && !(await getMe(session)).isEmailVerified) {
@@ -149,26 +148,33 @@ export async function startCardPayment(_prev: CardPaymentState, formData: FormDa
 // Public endpoint: the buyer cancels the card payment they opened, so their cart can change again. Only ever unfreezes
 // the caller's own cart, read with their own token.
 export async function cancelCardPayment(): Promise<void> {
-  const { auth, context, cartId } = await requireBrowseContext();
+  const browse = await requireBrowseContext();
+  const { auth, context, cartId } = browse;
   if (!auth || !cartId || !(context.consumer || context.guest)) return;
-  if (await tooManyAttempts(`pay-cancel:${cartId}`, 20)) return;
+  if (await tooManyAttempts(`pay-cancel:${actorKey(browse)}`, 20)) return;
   try {
     await releaseCardPayment(auth, context, cartId);
   } catch (err) {
     unstable_rethrow(err);
-    console.error("card payment cancel failed", (err as { body?: unknown })?.body ?? err);
+    if (err instanceof CheckoutError) await flash("error", err.message);
+    else console.error("card payment cancel failed", (err as { body?: unknown })?.body ?? err);
   }
   refreshPages();
 }
 
 // Public endpoint: called by the payment component once Checkout reports the order. Trusts nothing from the
 // browser but the id: the order must be the caller's own and come from their current cart.
-// `reviewedCentAmount`: the total the buyer saw when they clicked "Pay by card". The cart stays open while the
-// payment form is shown (another tab could change it), so a different order total is flagged on the order page.
+// `reviewedCentAmount`: the total the buyer saw when they clicked "Pay by card". The cart is frozen while the payment
+// form is shown, so this only differs when a freeze lapsed; a different order total is flagged on the order page.
 export async function finishCardPayment(orderId: string, reviewedCentAmount: number) {
   const { guest, auth, context, cartId } = await requireBrowseContext();
   if (!auth || !cartId) redirect("/cart");
-  const order = await paidOrder(auth, context, orderId, cartId);
+  // The buyer has paid: an outage here must not look like "no order". The page tells them to wait, the Subscription
+  // and the sweep do the rest.
+  const order = await paidOrder(auth, context, orderId, cartId).catch((err) => {
+    reportEvent("paid_order_unverified", err, { orderId });
+    return undefined;
+  });
   if (!order) redirect("/checkout?payment=unconfirmed");
   if (guest) await saveGuest({ ...guest, cartId: undefined });
   else (await cookies()).delete(cartCookie(context.businessUnitKey));
@@ -185,10 +191,14 @@ const EMAIL = /^[^\s@"\\]{1,64}@[^\s@"\\]{1,190}\.[A-Za-z]{2,}$/;
 
 // Public endpoint: a guest's email, delivery address and method, saved on their own cart (anonymous token).
 export async function saveGuestDetails(_prev: GuestDetailsState, formData: FormData): Promise<GuestDetailsState> {
-  const { guest, context, cartId } = await requireBrowseContext();
+  const browse = await requireBrowseContext();
+  const { guest, context, cartId } = browse;
   if (!guest || !cartId) return { error: "Your cart is no longer open." };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
-  if ((await tooManyAttempts(`guest-details:${cartId}`, 20)) || (await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60))) {
+  if (
+    (await tooManyAttempts(`guest-details:${actorKey(browse)}`, 20)) ||
+    (await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60))
+  ) {
     return { error: "Too many changes. Please wait a few minutes and try again." };
   }
   const email = String(formData.get("email") ?? "")
@@ -225,9 +235,10 @@ export type BankTransferState = { error?: string };
 export async function placeBankTransferOrderAction(_prev: BankTransferState, formData: FormData): Promise<BankTransferState> {
   if (cardPaymentsEnabled()) return { error: "Please pay by card." };
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
-  const { session, guest, auth, context, cartId } = await requireBrowseContext();
+  const browse = await requireBrowseContext();
+  const { session, guest, auth, context, cartId } = browse;
   if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
-  if ((await tooManyAttempts(`order:${cartId}`, 10)) || (await tooManyAttempts(`order-ip:${await clientIp()}`, 30))) {
+  if ((await tooManyAttempts(`order:${actorKey(browse)}`, 10)) || (await tooManyAttempts(`order-ip:${await clientIp()}`, 30))) {
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
   if (context.consumer && session && !(await getMe(session)).isEmailVerified) {
@@ -241,12 +252,8 @@ export async function placeBankTransferOrderAction(_prev: BankTransferState, for
     unstable_rethrow(err);
     revalidatePath("/checkout");
     if (err instanceof CheckoutError) return { error: err.message };
-    const stock = stockErrorMessage(err); // G6: a line's supply channel can't fill it
-    if (stock) return { error: stock };
-    const body = (err as { body?: { statusCode?: number } })?.body;
-    console.error("bank transfer order failed", body ?? err);
-    if (body?.statusCode === 409) return { error: "Your cart changed. Please review it and place the order again." };
-    return { error: "The order could not be placed. Please try again." };
+    console.error("bank transfer order failed", (err as { body?: unknown })?.body ?? err);
+    return { error: orderErrorMessage(err) ?? "The order could not be placed. Please try again." };
   }
 
   if (guest) await saveGuest({ ...guest, cartId: undefined });

@@ -32,14 +32,7 @@ describe("compareScopes", () => {
     ];
     expect(compareScopes(granted)).toEqual({
       missing: ["manage_business_units", "manage_sessions", "manage_payments"],
-      extra: [
-        "manage_associate_roles",
-        "manage_categories",
-        "manage_products",
-        "manage_shipping_methods",
-        "manage_standalone_prices",
-        "manage_stores",
-      ],
+      extra: ["manage_associate_roles", "manage_categories", "manage_shipping_methods", "manage_standalone_prices", "manage_stores"],
     });
   });
 });

@@ -4,6 +4,7 @@ import { getActiveCart } from "@/features/cart/service";
 import { getMe, withMyAddresses } from "@/features/account/service";
 import { ResendVerificationButton } from "@/features/auth/components/AccountForms";
 import { getShippingOptions, orderFromCart, quoteOnlyLines } from "@/features/checkout/service";
+import { recoverOrder } from "@/features/order-processing/service";
 import { addressLabel, methodOptions, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { DeliveryForm } from "@/features/checkout/components/CheckoutForm";
@@ -36,7 +37,10 @@ export async function CheckoutView({
   if (!cart && cartId) {
     // Paid, but the success callback never arrived (closed tab): the cart became an order. Show that order.
     const order = await orderFromCart(session, shopContext, cartId);
-    if (order) redirect(`/account/orders/${order.id}`);
+    if (order) {
+      recoverOrder(order.id);
+      redirect(`/account/orders/${order.id}`);
+    }
   }
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");
 

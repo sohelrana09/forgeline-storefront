@@ -17,7 +17,10 @@ async function body(download: Download) {
 // The quantity of a product in the cart, 0 when it isn't there.
 async function cartQuantity(page: Page, name: string) {
   await page.goto("/cart");
-  const input = page.getByRole("region", { name: "Cart lines" }).getByLabel(`quantity for ${name}`, { exact: true });
+  // The page streams in: wait for the lines or the empty cart before counting.
+  const lines = page.getByRole("region", { name: "Cart lines" });
+  await expect(lines.or(page.getByRole("heading", { name: "Your cart is empty" }))).toBeVisible();
+  const input = lines.getByLabel(`quantity for ${name}`, { exact: true });
   return (await input.count()) ? Number(await input.inputValue()) : 0;
 }
 
@@ -45,8 +48,12 @@ test("adding to the cart and taking it out again", async ({ page }) => {
     await lines.getByRole("button", { name: `Remove ${PART.name}` }).click();
     await expect(page.getByText(`You removed ${PART.name} from your shopping cart.`)).toBeVisible();
   } else {
-    await lines.getByLabel(`quantity for ${PART.name}`, { exact: true }).fill(String(before));
-    await lines.getByRole("button", { name: "Update" }).first().click();
+    const quantity = lines.getByLabel(`quantity for ${PART.name}`, { exact: true });
+    await quantity.fill(String(before));
+    // Enter saves this line (every line has its own Update). Wait for it: leaving the page first would cancel it.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/cart"));
+    await quantity.press("Enter");
+    await saved;
   }
   expect(await cartQuantity(page, PART.name)).toBe(before);
 });

@@ -16,3 +16,29 @@ export function loginLimits(ip: string, email: string, knownDevice: boolean): { 
 // The accounts remembered on this device after a sign-in: this one first, at most KNOWN_DEVICES_MAX.
 export const rememberAccount = (emails: string[], email: string) =>
   [email, ...emails.filter((e) => e !== email)].slice(0, KNOWN_DEVICES_MAX);
+
+// What ended a customer's sessions: a time, and single sessions by id until they would have expired anyway.
+export type Revocation = { after: number; ended: { sid: string; until: number }[] };
+const MAX_ENDED = 50;
+
+export function parseRevocation(value: unknown): Revocation {
+  const v = value as { after?: unknown; ended?: unknown } | undefined;
+  const ended = Array.isArray(v?.ended) ? (v.ended as Revocation["ended"]).filter((e) => typeof e?.sid === "string") : [];
+  return { after: Number(v?.after) || 0, ended };
+}
+
+export const withEndedSession = (value: Revocation, sid: string, until: number, now: number): Revocation => ({
+  ...value,
+  ended: [...value.ended.filter((e) => e.until > now && e.sid !== sid), { sid, until }].slice(-MAX_ENDED),
+});
+
+export const sessionRefused = (revocation: Revocation, issuedAt: number, sid: string | undefined) =>
+  issuedAt < revocation.after || (!!sid && revocation.ended.some((e) => e.sid === sid));
+
+// Passwords. Length carries the strength, with a letter and a digit so a common word alone fails; breached passwords
+// are refused separately (features/auth/password.ts).
+export const PASSWORD_MIN = 12;
+export const PASSWORD_MAX = 128;
+export const PASSWORD_RULE = `Use ${PASSWORD_MIN} to ${PASSWORD_MAX} characters with at least one letter and one number.`;
+export const strongEnough = (password: string) =>
+  password.length >= PASSWORD_MIN && password.length <= PASSWORD_MAX && /\p{L}/u.test(password) && /\d/.test(password);

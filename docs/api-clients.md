@@ -12,7 +12,7 @@ To get started, one admin client in `CTP_CLIENT_*` runs everything (that's what 
 
 ## Why
 
-The "Admin client" template holds `manage_project`: products, prices, discounts, every customer and order, project settings. If the shop runs with it, anyone who gets its secret (a leaked environment variable, a compromised dependency, a server-side bug) controls the whole project. The runtime client can't change products, prices, discounts, API clients or settings.
+The "Admin client" template holds `manage_project`: products, prices, discounts, every customer and order, project settings. If the shop runs with it, anyone who gets its secret (a leaked environment variable, a compromised dependency, a server-side bug) controls the whole project. The runtime client can't change prices, discounts, API clients or settings. It can change products, only because stock has no scope of its own; when an ERP owns the stock, set `RESTOCK_ON_CANCEL=false` and leave `manage_products` out (stock is then checked by commercetools at order time only, and `view_products` is enough for the check before a card payment).
 
 ## The runtime client's scopes
 
@@ -30,10 +30,11 @@ The list is in [`src/lib/commercetools/scopes.ts`](../src/lib/commercetools/scop
 | `manage_shopping_lists` | Company-shared purchase lists |
 | `manage_key_value_documents` | Invitations, sign-out after a password reset, merchants' redirects (Custom Objects) |
 | `manage_sessions` | Card payments through commercetools Checkout |
+| `manage_products` | Giving stock back after a cancelled order, and reading stock before a card payment. commercetools has no narrower scope for inventory |
 
 Every write with these scopes happens only after the signed-in associate's permission is checked live in the selected business unit.
 
-**Easy to get wrong in the form:** for products, standalone prices, categories, stores, shipping methods and associate roles tick **View**, not Manage (Manage lets a leak change your catalog and prices). For business units tick **Manage**, project-wide: without it, signed-in buyers can't load their company and every account page fails. `npm run setup -- --check` lists both what's missing and what's more than needed.
+**Easy to get wrong in the form:** for standalone prices, categories, stores, shipping methods and associate roles tick **View**, not Manage (Manage lets a leak change your catalog and prices). For business units tick **Manage**, project-wide: without it, signed-in buyers can't load their company and every account page fails. `npm run setup -- --check` lists both what's missing and what's more than needed.
 
 ## Switching over
 

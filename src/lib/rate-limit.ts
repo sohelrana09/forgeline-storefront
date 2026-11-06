@@ -5,13 +5,16 @@ import { Redis } from "@upstash/redis";
 // Fixed-window throttle (sign-in, sign-up, password reset, guest carts, orders, list and company changes).
 // With Upstash Redis connected (Vercel Marketplace: Storage → Upstash, which sets KV_REST_API_URL/_TOKEN or
 // UPSTASH_REDIS_REST_URL/_TOKEN) every server instance shares the counters. Without it, or if Redis fails, each
-// process counts on its own in memory: fine for development, too loose on serverless hosting.
+// process counts on its own in memory: fine for development, too loose on serverless hosting (src/lib/env.ts reports
+// it at every start in production).
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 10;
 
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
-const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : undefined;
+// A slow Redis must not hold up every form: after a second the limit falls back to memory.
+const redis =
+  redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken, signal: () => AbortSignal.timeout(1_000) }) : undefined;
 const redisKey = (key: string) => `rl:${key}`;
 
 // ---------- In-memory fallback ----------
@@ -69,6 +72,24 @@ async function uncount(key: string): Promise<void> {
   uncountInMemory(key);
 }
 
+// One holder per key for `ttlMs`, across instances with Redis (per process without it): true for the caller that got
+// it. Used to coalesce bursts (a catalog import's events, /api/revalidate).
+const locks = new Map<string, number>();
+
+export async function acquireLock(key: string, ttlMs: number): Promise<boolean> {
+  if (redis) {
+    try {
+      return (await redis.set(`lock:${key}`, 1, { nx: true, px: ttlMs })) === "OK";
+    } catch (err) {
+      console.error("lock: Redis failed, locking in memory", err);
+    }
+  }
+  const now = Date.now();
+  if ((locks.get(key) ?? 0) > now) return false;
+  locks.set(key, now + ttlMs);
+  return true;
+}
+
 // Counts this attempt; true once the key has had more than `max` attempts in the current 15-minute window.
 export async function tooManyAttempts(key: string, max = MAX_ATTEMPTS): Promise<boolean> {
   return (await count(key)) > max;
@@ -92,8 +113,10 @@ export async function reserveAttempt(limits: { key: string; max: number }[]): Pr
 
 // The client address for throttling. Only headers our own proxy sets can be trusted: x-real-ip (nginx, Vercel),
 // else the LAST x-forwarded-for hop (added by the nearest proxy; earlier hops are whatever the client sent).
-// Without a proxy (local dev) every request shares one bucket. Set the proxy up before production.
+// Without a proxy (local dev) every request shares one bucket. Set the proxy up before production. A server that is
+// reached directly (no proxy setting these headers) must set TRUSTED_PROXY=false: clients could write them themselves.
 export async function clientIp(): Promise<string> {
+  if (process.env.TRUSTED_PROXY === "false") return "no-proxy";
   const h = await headers();
   return h.get("x-real-ip")?.trim() || h.get("x-forwarded-for")?.split(",").at(-1)?.trim() || "no-proxy";
 }

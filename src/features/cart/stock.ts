@@ -19,6 +19,25 @@ export function outOfStockMessage(skus: string[]): string {
   return `Not enough stock for ${list}. Lower the quantity or remove ${skus.length === 1 ? "it" : "them"} from your cart, then try again.`;
 }
 
+type StockLine = { sku: string; channel: string; quantity: number };
+type StockEntry = { sku: string; supplyChannel?: { id: string }; availableQuantity: number };
+
+// SKUs the cart wants more of than the channel has, lines of one SKU counted together. A SKU without a stock entry is
+// left to commercetools, which decides when the order is created.
+export function shortfalls(lines: StockLine[], entries: StockEntry[]): string[] {
+  const wanted = new Map<string, StockLine>();
+  for (const line of lines) {
+    const key = `${line.channel}|${line.sku}`;
+    wanted.set(key, { ...line, quantity: (wanted.get(key)?.quantity ?? 0) + line.quantity });
+  }
+  return [...wanted.values()]
+    .filter((line) => {
+      const entry = entries.find((e) => e.sku === line.sku && e.supplyChannel?.id === line.channel);
+      return entry !== undefined && entry.availableQuantity < line.quantity;
+    })
+    .map((line) => line.sku);
+}
+
 // The buyer-facing message for an out-of-stock order error, or undefined for any other error.
 export function stockErrorMessage(err: unknown): string | undefined {
   const skus = outOfStockSkus(err);

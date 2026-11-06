@@ -1,4 +1,5 @@
 import "server-only";
+import { statusOf } from "@/lib/commercetools/errors";
 import type { LocalizedString, ShoppingList, ShoppingListPagedQueryResponse } from "@commercetools/platform-sdk";
 import { apiRoot, asAssociate, customerApiRoot } from "@/lib/commercetools/client";
 import { localize } from "@/features/catalog/utils";
@@ -41,7 +42,6 @@ type QueryArgs = { sort?: string[]; limit?: number; offset?: number; withTotal?:
 type Draft = { name: LocalizedString; deleteDaysAfterLastModification: number; lineItems: Line[] };
 
 const EXPAND = ["lineItems[*].variant"];
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 
 // The same few calls on either endpoint.
 type ListsApi = {
@@ -161,7 +161,7 @@ async function customerNames(ids: string[]): Promise<Map<string, string>> {
     .customers()
     .get({ queryArgs: { where: `id in (${unique.map((id) => `"${id}"`).join(", ")})`, limit: unique.length } })
     .execute();
-  return new Map(body.results.map((c) => [c.id, [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email]));
+  return new Map(body.results.map((c) => [c.id, [c.firstName, c.lastName].filter(Boolean).join(" ") || "A colleague"]));
 }
 
 function toList(list: ShoppingList, scope: ListScope, rights: { update: boolean; delete: boolean }, owner?: string): PurchaseList {

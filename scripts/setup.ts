@@ -269,7 +269,7 @@ async function storefrontClient(stores: string[]) {
 }
 
 // The client the running shop uses (CTP_CLIENT_*). Fine to start with the admin client; for production it should
-// hold only RUNTIME_SCOPES, so a leak can't change products, prices or project settings (docs/api-clients.md).
+// hold only RUNTIME_SCOPES, so a leak can't change prices or project settings (products only for stock) (docs/api-clients.md).
 async function runtimeClient() {
   heading("5. Runtime API client (the running shop)");
   const projectKey = filled("CTP_PROJECT_KEY")!;

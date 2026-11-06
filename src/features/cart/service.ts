@@ -1,6 +1,8 @@
 import "server-only";
+import { statusOf } from "@/lib/commercetools/errors";
 import { cache } from "react";
 import type { BaseAddress, Cart, MyCartUpdateAction, ProductVariant, ShippingMethod, TypedMoney } from "@commercetools/platform-sdk";
+import { hasLiveTransaction } from "@/features/order-processing/payment";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
 import type { QuickOrderLine } from "@/features/quick-order/types";
@@ -74,8 +76,6 @@ export async function lookupSkus(context: PricingContext, skus: string[]): Promi
 // every customer's carts and orders, so it is deliberately not used.
 const myCarts = (session: CartAuth, context: PricingContext) =>
   customerApiRoot(session.accessToken).inStoreKeyWithStoreKeyValue({ storeKey: context.storeKey }).me().carts();
-
-const statusOf = (err: unknown) => (err as { body?: { statusCode?: number } })?.body?.statusCode;
 
 // One read per page render (React cache): the header and the cart or checkout page share it.
 // A signed-in customer (their session carries a customer id) whose cart cookie is missing or stale, say on a new
@@ -195,7 +195,21 @@ export async function setCartFrozen(context: PricingContext, cart: Cart, frozen:
 async function writable(context: PricingContext, cart: Cart): Promise<Cart> {
   const state = freezeState(cart, Date.now());
   if (state === "locked") throw new CartLockedError();
-  return state === "stale" ? setCartFrozen(context, cart, false) : cart;
+  if (state === "open") return cart;
+  // Old, but a payment is running or went through: changing the cart now would charge for one order and ship another.
+  if (await cardPaymentRunning(cart)) throw new CartLockedError();
+  return setCartFrozen(context, cart, false);
+}
+
+// Whether a card payment on this cart is in progress or took money.
+export async function cardPaymentRunning(cart: Cart): Promise<boolean> {
+  const ids = (cart.paymentInfo?.payments ?? []).map((p) => `"${p.id}"`);
+  if (ids.length === 0) return false;
+  const { body } = await apiRoot
+    .payments()
+    .get({ queryArgs: { where: `id in (${ids.join(", ")})`, limit: ids.length } })
+    .execute();
+  return body.results.some(hasLiveTransaction);
 }
 
 // Applies actions built from the CURRENT cart; on a version conflict re-reads it and rebuilds once.
