@@ -1,5 +1,5 @@
-// Pricing POC: quantity breaks on two price lists, the way an ERP price feed would load them (Magento with an ERP
-// pricing API: one ladder per business partner and SKU; here a distribution channel per company).
+// Pricing POC: quantity breaks on two price lists, the way an ERP price feed would load them (an ERP
+// pricing API gives one ladder per business partner and SKU; here a distribution channel per company).
 //   company   Eagle Heavy Lift (eagle-heavy-lift-technologies-inc-us) buys from store us-large-customers, whose channel
 //             no other unit uses: it is that company's price list (USD, 10% and 20% off).
 //   public    guests and consumers without a customer group: the B2C rows on default-channel (EUR, 5% and 10% off).

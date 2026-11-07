@@ -11,6 +11,11 @@ import type { CheckoutSession } from "@/lib/commercetools/checkout-session";
 //
 // A lock nobody finished (a closed tab) must not hold the cart for good: after LOCK_TTL_MS the next change removes it,
 // unless a payment on the cart is running or took money.
+//
+// A soft lock is opened by selecting PayPal (its button only exists inside a Checkout session, so the session opens as
+// soon as PayPal is chosen). The buyer hasn't asked to pay yet, so any cart change removes it, again unless a payment
+// is running or took money; the payment step then opens a new session for the new total. "Pay by card" and a soft
+// session the buyer goes on to pay by card make it a full lock.
 
 export const LOCK_TTL_MS = 30 * 60_000;
 // How long a stored Checkout session is shown again (a reload, a second tab) instead of opening another one.
@@ -18,13 +23,21 @@ export const SESSION_TTL_MS = 15 * 60_000;
 
 export const CART_LOCKED_MESSAGE = "A payment is open for this cart. Finish it at checkout, or cancel it there to change your cart.";
 
-export type PaymentLock = { session: CheckoutSession; reviewedCentAmount: number; lockedAt: number; expiresAt: number };
+export type PaymentLock = {
+  session: CheckoutSession;
+  reviewedCentAmount: number;
+  lockedAt: number;
+  expiresAt: number;
+  // Opened by selecting PayPal: cart changes remove it (above).
+  soft?: boolean;
+};
 
-export type LockState = "open" | "locked" | "stale";
+export type LockState = "open" | "locked" | "soft" | "stale";
 
-export function lockState(lock: Pick<PaymentLock, "lockedAt"> | undefined, now: number): LockState {
+export function lockState(lock: Pick<PaymentLock, "lockedAt" | "soft"> | undefined, now: number): LockState {
   if (!lock) return "open";
-  return now - lock.lockedAt <= LOCK_TTL_MS ? "locked" : "stale";
+  if (now - lock.lockedAt > LOCK_TTL_MS) return "stale";
+  return lock.soft ? "soft" : "locked";
 }
 
 // The stored value, or undefined for anything else (records from before the lock had no `lockedAt`).

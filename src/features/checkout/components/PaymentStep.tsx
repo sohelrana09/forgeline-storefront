@@ -22,7 +22,7 @@ const paypal = {
   description: "Pay with your PayPal account. We never see your PayPal login.",
 };
 
-// Step 3 of the one-step checkout (Payment Method), like Magento's: one list of payment methods for this kind of
+// Step 3 of the one-step checkout (Payment Method): one list of payment methods for this kind of
 // customer, the billing address they share (`billing`), then the chosen method's button.
 export function PaymentStep({
   kinds,

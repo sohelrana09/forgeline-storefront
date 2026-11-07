@@ -1,4 +1,4 @@
-// Pricing POC: B2C prices per customer group (Magento: partner members price as their own "company").
+// Pricing POC: B2C prices per customer group (partner members price as their own "company").
 // Guests and consumers without a group keep the public price on the B2C channel; members of `trade-members` get
 // their own rows on the same channel, with their own quantity breaks: 10% off the public price, then 15% and 20% at
 // the SKU's break quantities (the public rows get 5% and 10% from ct:tier-prices). Product discounts apply on top of

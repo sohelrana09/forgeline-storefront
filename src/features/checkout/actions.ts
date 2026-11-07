@@ -119,7 +119,8 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
 
 // ---------- Card payments (consumers and guests) ----------
 
-export type CardPaymentState = { error?: string; session?: CheckoutSession; reviewedCentAmount?: number };
+// `soft`: the session holds a soft lock (opened by selecting PayPal; features/cart/payment-lock.ts).
+export type CardPaymentState = { error?: string; session?: CheckoutSession; reviewedCentAmount?: number; soft?: boolean };
 
 // Public endpoint: opens a commercetools Checkout session for the caller's own B2C cart. Business buyers order on
 // invoice instead. Consumers confirm their email first (an account can't order under someone else's address).
@@ -136,8 +137,9 @@ export async function startCardPayment(_prev: CardPaymentState, formData: FormDa
     return { error: "Please confirm your email address first: use the link we sent you, or send a new one above." };
   }
   try {
-    const prepared = await prepareCardPayment(auth, context, cartId, Number(formData.get("cartVersion")), session?.email);
-    return { session: prepared.session, reviewedCentAmount: prepared.reviewedCentAmount };
+    const soft = formData.get("soft") === "1";
+    const prepared = await prepareCardPayment(auth, context, cartId, Number(formData.get("cartVersion")), session?.email, soft);
+    return { session: prepared.session, reviewedCentAmount: prepared.reviewedCentAmount, soft: prepared.soft };
   } catch (err) {
     unstable_rethrow(err);
     if (err instanceof CheckoutError) return { error: err.message };

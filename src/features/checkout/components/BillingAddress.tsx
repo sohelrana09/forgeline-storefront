@@ -10,8 +10,7 @@ import { useReportBusy } from "@/features/checkout/components/CheckoutStatus";
 import { FormMessage } from "@/components/ui/PageMessages";
 import { FormGuardFields } from "@/components/ui/FormGuardFields";
 
-// The payment step's one billing address, shared by every payment method (Magento's "Display Billing Address On:
-// Payment Page"). Ticked, the cart is billed at the shipping address; unticked, the buyer picks a saved address
+// The payment step's one billing address, shared by every payment method and shown once on the payment step. Ticked, the cart is billed at the shipping address; unticked, the buyer picks a saved address
 // (consumers) or enters a new one and saves it with Update. Paying waits while a change is unsaved. Locked while a
 // payment is open: the cart can't change then.
 export function BillingAddress({

@@ -195,7 +195,7 @@ async function readyB2CCart(
   }
   let lock = await readPaymentLock(cart);
   const state = lockState(lock, Date.now());
-  if (state === "stale" || (state === "locked" && !paying)) {
+  if (state === "stale" || (state !== "open" && !paying)) {
     if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
     await clearPaymentLock(cart.id);
     lock = undefined;
@@ -223,17 +223,31 @@ export async function prepareCardPayment(
   cartId: string,
   expectedVersion: number,
   email: string | undefined,
-): Promise<{ session: CheckoutSession; reviewedCentAmount: number }> {
+  // Opened by selecting PayPal, not by asking to pay: a soft lock (features/cart/payment-lock.ts).
+  soft = false,
+): Promise<{ session: CheckoutSession; reviewedCentAmount: number; soft: boolean }> {
   const { cart, lock } = await readyB2CCart(auth, ctx, cartId, expectedVersion, email, { paying: true });
   const now = Date.now();
-  if (lock && lock.expiresAt > now) return { session: lock.session, reviewedCentAmount: lock.reviewedCentAmount };
+  if (lock && lock.expiresAt > now) {
+    // The buyer now asks to pay in a session that selecting PayPal opened: from here on the cart holds.
+    if (lock.soft && !soft) await savePaymentLock(cart.id, { ...lock, soft: false });
+    return { session: lock.session, reviewedCentAmount: lock.reviewedCentAmount, soft: Boolean(lock.soft) && soft };
+  }
   if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
   await checkStock(cart);
   const session = await createCheckoutSession(cart.id);
   // A lock whose session ran out keeps its start (it can't be renewed for ever) and the total reviewed back then.
   const reviewedCentAmount = lock?.reviewedCentAmount ?? cart.taxedPrice!.totalGross.centAmount;
-  await savePaymentLock(cart.id, { session, reviewedCentAmount, lockedAt: lock?.lockedAt ?? now, expiresAt: now + SESSION_TTL_MS });
-  return { session, reviewedCentAmount };
+  // A full lock stays full when its session is renewed.
+  const softLock = soft && (lock?.soft ?? true);
+  await savePaymentLock(cart.id, {
+    session,
+    reviewedCentAmount,
+    lockedAt: lock?.lockedAt ?? now,
+    expiresAt: now + SESSION_TTL_MS,
+    soft: softLock,
+  });
+  return { session, reviewedCentAmount, soft: softLock };
 }
 
 // The same check commercetools makes when it creates the order, made before the buyer pays. Orders can still take the

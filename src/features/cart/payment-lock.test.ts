@@ -15,6 +15,12 @@ describe("lockState", () => {
 
   it("a lock older than the TTL is stale", () => {
     expect(lockState({ lockedAt: NOW - LOCK_TTL_MS - 1 }, NOW)).toBe("stale");
+    expect(lockState({ lockedAt: NOW - LOCK_TTL_MS - 1, soft: true }, NOW)).toBe("stale");
+  });
+
+  it("a lock opened by selecting PayPal is soft", () => {
+    expect(lockState({ lockedAt: NOW, soft: true }, NOW)).toBe("soft");
+    expect(lockState({ lockedAt: NOW, soft: false }, NOW)).toBe("locked");
   });
 });
 

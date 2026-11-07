@@ -224,12 +224,13 @@ export async function clearPaymentLock(cartId: string): Promise<void> {
     });
 }
 
-// For the cart and checkout pages: a payment is open, so the cart can't change.
+// For the cart and checkout pages: a payment is open, so the cart can't change (a soft lock doesn't count: changes remove it).
 export async function paymentOpen(cart: Cart): Promise<boolean> {
   return cart.cartState === "Frozen" || lockState(await readPaymentLock(cart), Date.now()) === "locked";
 }
 
-// A cart that may be changed now: refuses one with an open payment, removes a lock whose payment was abandoned.
+// A cart that may be changed now: refuses one with an open payment, removes a soft lock or one whose payment was
+// abandoned (unless a payment is running or took money).
 async function writable(context: PricingContext, cart: Cart): Promise<Cart> {
   if (cart.cartState === "Frozen") {
     if (await cardPaymentRunning(cart)) throw new CartLockedError();
@@ -237,7 +238,8 @@ async function writable(context: PricingContext, cart: Cart): Promise<Cart> {
   }
   const state = lockState(await readPaymentLock(cart), Date.now());
   if (state === "open") return cart;
-  // An old lock, but a payment is running or went through: changing the cart now would charge for one order and ship another.
+  // A soft or old lock, but a payment is running or went through: changing the cart now would charge for one order and
+  // ship another.
   if (state === "locked" || (await cardPaymentRunning(cart))) throw new CartLockedError();
   await clearPaymentLock(cart.id);
   return cart;

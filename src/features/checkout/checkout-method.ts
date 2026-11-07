@@ -1,4 +1,4 @@
-// One flat list of payment methods (Magento style): the storefront's radios choose PayPal or card, and commercetools
+// One flat list of payment methods: the storefront's radios choose PayPal or card, and commercetools
 // Checkout, which always lists every active method of the Application, is made to show only that one. Neither its
 // session nor its browser SDK can limit the methods, so this works on Checkout's own markup, read on 7 November 2026:
 //   section[data-testid=payment-step] > fieldset > legend

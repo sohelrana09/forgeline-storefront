@@ -46,7 +46,7 @@ const norm = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "
 export const sameAddress = (a: BaseAddress | undefined, b: BaseAddress | undefined) =>
   Boolean(a && b) && ADDRESS_FIELDS.every((f) => norm(a![f]) === norm(b![f]));
 
-// The buyer chose a billing address of its own (Magento's "My billing and shipping address are the same" unticked):
+// The buyer chose a billing address of its own ("My billing and shipping address are the same" unticked):
 // a new delivery address then leaves it alone.
 export const ownBilling = (cart: Pick<Cart, "billingAddress" | "shippingAddress">) =>
   Boolean(cart.billingAddress && cart.shippingAddress) && !sameAddress(cart.billingAddress, cart.shippingAddress);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { PlaceOrderForm } from "@/features/checkout/components/CheckoutForm";
 import { BankTransferForm } from "@/features/checkout/components/BankTransferForm";
 import { CardPayment } from "@/features/checkout/components/CardPayment";
@@ -14,7 +14,7 @@ const throughCheckout = (kind: PaymentKind): kind is "card" | "paypal" => kind =
 
 const PAY_LABELS = { card: "Pay by card", paypal: "Continue with PayPal" };
 
-// One flat list of payment methods, like Magento's: radio buttons (one method shows as selected), then the billing
+// One flat list of payment methods: radio buttons (one method shows as selected), then the billing
 // address shared by all of them (`children`), then the chosen method's form and button.
 export function PaymentMethods({
   options,
@@ -34,6 +34,12 @@ export function PaymentMethods({
 }) {
   const [selected, setSelected] = useState(options[0].kind);
   const [locked, setLocked] = useState(false);
+  // Bumped to mount a fresh CardPayment when its PayPal session goes stale (the buyer is changing the cart).
+  const [round, setRound] = useState(0);
+  const reset = useCallback(() => {
+    setLocked(false);
+    setRound((r) => r + 1);
+  }, []);
   const choosing = options.length > 1;
 
   return (
@@ -73,7 +79,7 @@ export function PaymentMethods({
           );
         })}
       </fieldset>
-      {/* A payment opened in this tab locks the cart, billing address included. */}
+      {/* A payment opened in this tab with a full lock holds the cart, billing address included. */}
       <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
         {children}
       </fieldset>
@@ -82,10 +88,13 @@ export function PaymentMethods({
       ) : throughCheckout(selected) ? (
         // One element for both methods, so switching between them keeps the open Checkout session.
         <CardPayment
+          key={round}
           cartVersion={cartVersion}
           ready={ready}
           paymentOpen={paymentOpen}
           method={selected}
+          auto={selected === "paypal"}
+          onReset={reset}
           payLabel={PAY_LABELS[selected]}
           onLock={setLocked}
         />
