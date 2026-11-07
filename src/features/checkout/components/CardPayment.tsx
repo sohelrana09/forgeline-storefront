@@ -6,7 +6,7 @@ import { cancelCardPayment, finishCardPayment, startCardPayment, type CardPaymen
 import { useCheckoutBusy } from "@/features/checkout/components/CheckoutStatus";
 import { FormMessage } from "@/components/ui/PageMessages";
 import { Message } from "@/components/ui/Message";
-import { flatMethodCss, pickCheckoutMethod, type CheckoutMethod } from "@/features/checkout/checkout-method";
+import { checkoutLookCss, flatMethodCss, pickCheckoutMethod, type CheckoutMethod } from "@/features/checkout/checkout-method";
 
 // Card payment through commercetools Checkout (Payment Only). The server opens a session for the cart the buyer
 // reviewed; the SDK renders the Application's payment methods inline (the data-ctc element), takes the payment
@@ -172,7 +172,7 @@ export function CardPayment({
 
   return (
     <div className="flex flex-col gap-3" data-checkout-flat="" data-flat={picked}>
-      <style>{flatMethodCss("[data-checkout-flat]", method)}</style>
+      <style>{`${flatMethodCss("[data-checkout-flat]", method)}\n${checkoutLookCss("[data-checkout-flat]")}`}</style>
       {paymentOpen && !state.session && !auto && (
         <Message type="warning">
           A payment is open for this cart, so it can&apos;t be changed. Pay below, or cancel the payment to change your cart.

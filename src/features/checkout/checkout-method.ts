@@ -23,12 +23,33 @@ export function methodOfValue(value: string): string | undefined {
   return method || undefined;
 }
 
-// The style that hides Checkout's list around the chosen method. Selectors only use the fixed method names above.
+// The style that hides Checkout's list around the chosen method, and drops the indent and margins its body keeps for
+// the hidden radio. Selectors only use the fixed method names above.
 export function flatMethodCss(scope: string, method: CheckoutMethod): string {
   const list = `${scope}[data-flat="${method}"] [data-ctc] section[data-testid="payment-step"] fieldset`;
-  return [`${list} > legend`, `${list} > div[data-test] > label`, `${list} > div[data-test]:not([data-test^="${method}-"])`]
+  const hidden = [`${list} > legend`, `${list} > div[data-test] > label`, `${list} > div[data-test]:not([data-test^="${method}-"])`]
     .join(",\n")
     .concat(" { display: none; }");
+  return [
+    hidden,
+    `${list} { margin: 0; }`,
+    `${list} > div[data-test] { margin: 0; }`,
+    `${list} > div[data-test] > div { margin: 0; }`,
+  ].join("\n");
+}
+
+// Checkout's form in the storefront's look: the page's font, and its pay button like the storefront's own (orange,
+// semibold, 48 px). Checkout's class names are generated, so this holds on to its data-testid and plain elements; if
+// they change, Checkout keeps its own look. PayPal's button is an iframe and isn't touched.
+export function checkoutLookCss(scope: string): string {
+  const root = `${scope} [data-ctc] [data-testid="checkout"]`;
+  return [
+    // Checkout sets Roboto on its container and on elements inside its form, so all of them inherit the page font.
+    `${scope} [data-ctc], ${root}, ${root} * { font-family: inherit; }`,
+    `${root} button { font-size: 1rem; font-weight: 600; text-transform: none; min-height: 3rem; border-radius: 0.25rem; background-color: #c2410c; color: #fff; }`,
+    `${root} button:hover:not(:disabled) { background-color: #9a3412; }`,
+    `${root} button:disabled { opacity: 0.6; }`,
+  ].join("\n");
 }
 
 // Selects the chosen method among Checkout's radios. Returns whether Checkout offers it (and it is now selected).

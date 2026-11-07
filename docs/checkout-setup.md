@@ -81,6 +81,8 @@ Braintree has no connector for the AWS regions in the marketplace (its region li
 
 Set `CHECKOUT_BRAINTREE=true` next to `B2C_CARD_PAYMENTS=true`. It changes no method, only the CSP on per-request pages: `*.braintreegateway.com` (card fields and client API), `*.braintree-api.com` (GraphQL API), `*.cardinalcommerce.com` and `*.cardinaltrusted.com` (Cardinal, 3-D Secure), in `connect-src`, `frame-src`, `img-src` and `style-src`, plus `*.cardinalcommerce.com` in `form-action` (Cardinal posts its device-fingerprint and challenge forms from the page). Cardinal's sandbox also sends logs to an `execute-api.us-east-1.amazonaws.com` host; that stays blocked (it only logs). Without it, Braintree's card fields stay empty and Checkout says "3D Secure could not be initialized". Test with Braintree's sandbox cards (`4111 1111 1111 1111`, any future date).
 
+**Look:** the card form is the connector's own (its enabler), so its labels, fields and focus colours are set in the fork (`enabler/src/components/CreditCard/CreditCardMask.tsx`, `enabler/src/styles/index.tsx`, `enabler/src/index.css`; tag `1.0.34-aws.2` matches the storefront's inputs). Its card fields are Braintree iframes and take their font from the fork, not from the page. The pay button is Checkout's: `checkoutLookCss` (`features/checkout/checkout-method.ts`) gives it the storefront's orange, and Checkout's form the page's font; its text is the integration's pay button label (Merchant Center, the integration's "Display of the payment method", Custom details).
+
 Braintree's connector also offers ACH, Apple Pay, Google Pay and PayPal as payment methods; none of them is added yet, and the storefront's radios only know card and PayPal.
 
 ## Which methods are offered
