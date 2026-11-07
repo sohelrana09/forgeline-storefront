@@ -8,15 +8,22 @@
 // BASE repeats next.config.ts, which covers the responses the proxy doesn't see. Framing: this site, plus the Studio's
 // own domain when it runs outside the storefront (its Presentation tool previews the pages in an iframe).
 // `reportUri`: where browsers send violations (CSP_REPORT_URI), so a broken or attacked page is seen.
-export type PolicyOptions = { dev: boolean; sanityProjectId?: string; studioOrigin?: string; reportUri?: string; paypal?: boolean };
+export type PolicyOptions = {
+  dev: boolean;
+  sanityProjectId?: string;
+  studioOrigin?: string;
+  reportUri?: string;
+  paypal?: boolean;
+  braintree?: boolean;
+};
 
 const reporting = (reportUri?: string) => (reportUri ? [`report-uri ${reportUri}`] : []);
 
-export const basePolicy = (studioOrigin?: string) => [
+export const basePolicy = (studioOrigin?: string, forms: string[] = []) => [
   `frame-ancestors ${["'self'", ...(studioOrigin ? [studioOrigin] : [])].join(" ")}`,
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  `form-action ${["'self'", ...forms].join(" ")}`,
 ];
 
 // React's development build needs eval; the dev server's live reload uses a WebSocket.
@@ -41,6 +48,16 @@ const CHECKOUT_FONTS = { styles: "https://fonts.googleapis.com", fonts: "https:/
 // PayPal through Checkout's Connector, only when it is switched on: its buttons, its popup's frames and its API. Its
 // scripts need no entry: 'strict-dynamic' trusts what Checkout's script loads.
 const PAYPAL = ["https://*.paypal.com", "https://*.paypalobjects.com"];
+// Braintree through Checkout's Connector (CHECKOUT_BRAINTREE): its card fields' frames, its client and GraphQL APIs, and
+// Cardinal's 3-D Secure frames and API. Cardinal also posts forms from the page into its frames (device fingerprint,
+// the 3-D Secure challenge), hence CARDINAL_FORMS in form-action.
+const CARDINAL_FORMS = ["https://*.cardinalcommerce.com"];
+const BRAINTREE = [
+  "https://*.braintreegateway.com",
+  "https://*.braintree-api.com",
+  "https://*.cardinalcommerce.com",
+  "https://*.cardinaltrusted.com",
+];
 
 // Sanity's API for this project only: draft preview (Visual Editing) on the storefront's pages.
 const sanityApi = (projectId?: string) => (projectId ? [`https://${projectId}.api.sanity.io`, `wss://${projectId}.api.sanity.io`] : []);
@@ -58,11 +75,11 @@ function pagePolicy(connect: string[], frames: string[], dev: boolean, images: s
   ];
 }
 
-export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri, paypal }: PolicyOptions): string {
-  const payments = paypal ? PAYPAL : [];
+export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri, paypal, braintree }: PolicyOptions): string {
+  const payments = [...(paypal ? PAYPAL : []), ...(braintree ? BRAINTREE : [])];
   const scripts = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:", "'unsafe-inline'", ...devEval(dev)];
   return [
-    ...basePolicy(studioOrigin),
+    ...basePolicy(studioOrigin, braintree ? CARDINAL_FORMS : []),
     `script-src ${scripts.join(" ")}`,
     ...pagePolicy(
       [...CHECKOUT, ...payments],

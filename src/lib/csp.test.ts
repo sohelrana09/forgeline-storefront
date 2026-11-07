@@ -58,6 +58,21 @@ describe("CSP", () => {
     }
   });
 
+  it("allows Braintree on per-visitor pages only when it is switched on", () => {
+    const on = noncePolicy("abc", { dev: false, braintree: true });
+    for (const name of ["connect-src", "frame-src"]) {
+      expect(directive(on, name)).toContain("https://*.braintreegateway.com");
+      expect(directive(on, name)).toContain("https://*.braintree-api.com");
+      expect(directive(on, name)).toContain("https://*.cardinalcommerce.com");
+      expect(directive(on, name)).toContain("https://*.cardinaltrusted.com");
+      expect(directive(noncePolicy("abc", prod), name)).not.toContain("braintree");
+      expect(directive(shellPolicy({ dev: false, braintree: true }), name)).not.toContain("braintree");
+    }
+    // Cardinal posts its device-fingerprint and 3-D Secure forms from the page.
+    expect(directive(on, "form-action")).toBe("form-action 'self' https://*.cardinalcommerce.com");
+    expect(directive(noncePolicy("abc", prod), "form-action")).toBe("form-action 'self'");
+  });
+
   it("lets a Studio on its own domain frame the pages", () => {
     const origin = studioOrigin("https://forgeline.sanity.studio/structure");
     expect(origin).toBe("https://forgeline.sanity.studio");

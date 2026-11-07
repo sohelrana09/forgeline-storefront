@@ -27,6 +27,7 @@ const POLICY: PolicyOptions = {
   studioOrigin: studioOrigin(STUDIO_URL),
   reportUri: process.env.CSP_REPORT_URI,
   paypal: process.env.CHECKOUT_PAYPAL === "true",
+  braintree: process.env.CHECKOUT_BRAINTREE === "true",
 };
 
 // Catalog URLs: not the app's own routes, not files (catalog URL keys never contain a dot). Old /c/, /p/ and /pages/

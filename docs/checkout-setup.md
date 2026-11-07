@@ -75,6 +75,14 @@ Orders count as PayPal when a Payment's `paymentMethodInfo.method` or `paymentIn
 
 To test: use a PayPal sandbox buyer account, and watch the browser console for CSP errors and for the `checkout …` lines (below). If PayPal doesn't show, check the `config` response in the browser's network tab: its `connectors` must list the PayPal connector's deployment, otherwise the integration isn't on the Application or isn't switched on.
 
+## Braintree (cards)
+
+Braintree has no connector for the AWS regions in the marketplace (its region list is empty for `ctwara`), so it runs from a fork as an organization connector: `sohelrana09/braintree-commercetools-connector`, tag `1.0.34-aws.1`, with `connect.yaml` set to `us-east-2.aws` and the events app removed (it only takes Google Cloud Pub/Sub messages). On `ctwara` (7 November 2026) it is a Preview deployment (trial projects can't use the production type), and the Application has **Card (Braintree)** (key `braintree-card`, method `card`) switched on. The sample connector's card integration is switched off: with two card integrations Checkout lists two card radios and the storefront picks the first.
+
+Set `CHECKOUT_BRAINTREE=true` next to `B2C_CARD_PAYMENTS=true`. It changes no method, only the CSP on per-request pages: `*.braintreegateway.com` (card fields and client API), `*.braintree-api.com` (GraphQL API), `*.cardinalcommerce.com` and `*.cardinaltrusted.com` (Cardinal, 3-D Secure), in `connect-src`, `frame-src`, `img-src` and `style-src`, plus `*.cardinalcommerce.com` in `form-action` (Cardinal posts its device-fingerprint and challenge forms from the page). Cardinal's sandbox also sends logs to an `execute-api.us-east-1.amazonaws.com` host; that stays blocked (it only logs). Without it, Braintree's card fields stay empty and Checkout says "3D Secure could not be initialized". Test with Braintree's sandbox cards (`4111 1111 1111 1111`, any future date).
+
+Braintree's connector also offers ACH, Apple Pay, Google Pay and PayPal as payment methods; none of them is added yet, and the storefront's radios only know card and PayPal.
+
 ## Which methods are offered
 
 Each payment method for consumers and guests has its own switch, all off by default (`src/lib/commercetools/checkout-session.ts`). Business buyers always order on invoice.
@@ -84,6 +92,7 @@ Each payment method for consumers and guests has its own switch, all off by defa
 | `B2C_CARD_PAYMENTS=true` | Credit or debit card, through Checkout |
 | `CHECKOUT_PAYPAL=true` | PayPal, through Checkout |
 | `B2C_BANK_TRANSFER=true` | Bank transfer, placed directly |
+| `CHECKOUT_BRAINTREE=true` | No method: allows Braintree's hosts in the CSP when cards go through Braintree |
 
 They appear in that order and the first one is selected; with only one on, it shows without a choice. With all three off, the payment step says online ordering isn't available and the environment check warns. A change in Vercel needs a redeploy.
 
