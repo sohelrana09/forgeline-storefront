@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { hasPermissionNow } from "@/features/business-units/service";
 import { ORDER_PERMISSION } from "@/features/business-units/utils";
-import { getActiveCart } from "@/features/cart/service";
+import { clearPaymentLock, getActiveCart } from "@/features/cart/service";
 import {
   applyCheckoutDetails,
   applyDelivery,
@@ -16,9 +16,10 @@ import {
   placeBankTransferOrder,
   placeOrder,
   prepareCardPayment,
+  setBillingAddress,
 } from "@/features/checkout/service";
 import { numberNewOrder, processOrder } from "@/features/order-processing/service";
-import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
+import { bankTransferEnabled, cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { CheckoutSession } from "@/lib/commercetools/checkout-session";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { parseAddress } from "@/features/account/utils";
@@ -27,9 +28,9 @@ import { cartCookie, saveGuest } from "@/features/auth/session";
 import { actorKey, requireBrowseContext, requireShopContext } from "@/features/business-units/context";
 import { getMe, withMyAddresses } from "@/features/account/service";
 import type { BuyerContext } from "@/features/business-units/types";
-import type { Order } from "@commercetools/platform-sdk";
+import type { BaseAddress, Order } from "@commercetools/platform-sdk";
 import { AUTOMATED_MESSAGE, isAutomated } from "@/lib/bot-check";
-import { CartLockedError } from "@/features/cart/freeze";
+import { CartLockedError } from "@/features/cart/payment-lock";
 import { orderErrorMessage } from "@/features/checkout/utils";
 import { reportEvent } from "@/lib/error-report";
 import { flash } from "@/lib/flash";
@@ -81,7 +82,7 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
   }
 
   // Invoice + PO is for business buyers; consumers and guests pay by card (startCardPayment).
-  if (context.consumer) return { error: "Please pay by card." };
+  if (context.consumer) return { error: "Please choose a payment method at checkout." };
   // G8: the same limits as the B2C order actions, but per buyer instead of per IP: a company's buyers often share
   // one office address. The bucket is shared with ordering from quotes.
   // Per buyer, not per cart: the cart id is a cookie the caller picks.
@@ -123,7 +124,7 @@ export type CardPaymentState = { error?: string; session?: CheckoutSession; revi
 // Public endpoint: opens a commercetools Checkout session for the caller's own B2C cart. Business buyers order on
 // invoice instead. Consumers confirm their email first (an account can't order under someone else's address).
 export async function startCardPayment(_prev: CardPaymentState, formData: FormData): Promise<CardPaymentState> {
-  if (!cardPaymentsEnabled()) return { error: "Card payments are not available right now." };
+  if (!cardPaymentsEnabled()) return { error: "Online payment is not available right now." };
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const browse = await requireBrowseContext();
   const { session, auth, context, cartId } = browse;
@@ -141,11 +142,11 @@ export async function startCardPayment(_prev: CardPaymentState, formData: FormDa
     unstable_rethrow(err);
     if (err instanceof CheckoutError) return { error: err.message };
     console.error("card payment start failed", (err as { body?: unknown })?.body ?? (err as Error).message);
-    return { error: "Card payment is unavailable right now. Please try again later." };
+    return { error: "Online payment is unavailable right now. Please try again later." };
   }
 }
 
-// Public endpoint: the buyer cancels the card payment they opened, so their cart can change again. Only ever unfreezes
+// Public endpoint: the buyer cancels the card payment they opened, so their cart can change again. Only ever unlocks
 // the caller's own cart, read with their own token.
 export async function cancelCardPayment(): Promise<void> {
   const browse = await requireBrowseContext();
@@ -164,8 +165,9 @@ export async function cancelCardPayment(): Promise<void> {
 
 // Public endpoint: called by the payment component once Checkout reports the order. Trusts nothing from the
 // browser but the id: the order must be the caller's own and come from their current cart.
-// `reviewedCentAmount`: the total the buyer saw when they clicked "Pay by card". The cart is frozen while the payment
-// form is shown, so this only differs when a freeze lapsed; a different order total is flagged on the order page.
+// `reviewedCentAmount`: the total the buyer saw when they opened the payment. The storefront refuses cart changes while
+// the payment form is shown, but prices and discounts can still change; a different order total is flagged on the
+// order page.
 export async function finishCardPayment(orderId: string, reviewedCentAmount: number) {
   const { guest, auth, context, cartId } = await requireBrowseContext();
   if (!auth || !cartId) redirect("/cart");
@@ -181,6 +183,7 @@ export async function finishCardPayment(orderId: string, reviewedCentAmount: num
   refreshPages();
   await numberNewOrder(order);
   after(() => processOrder(order.id));
+  after(() => clearPaymentLock(cartId).catch((err) => console.error("payment lock not removed", (err as { body?: unknown })?.body ?? err)));
   const total = order.taxedPrice?.totalGross.centAmount ?? order.totalPrice.centAmount;
   const changed = Number.isFinite(reviewedCentAmount) && total !== reviewedCentAmount ? "?changed=1" : "";
   redirect(guest ? `/order-confirmation/${order.id}${changed}` : `/account/orders/${order.id}${changed}`);
@@ -226,14 +229,53 @@ export async function saveGuestDetails(_prev: GuestDetailsState, formData: FormD
   return { saved: true };
 }
 
+export type BillingState = { error?: string; saved?: boolean };
+
+// Public endpoint: the billing address on a consumer's or guest's own cart (the payment step's billing section):
+// the shipping address ("same"), one of the consumer's saved addresses ("saved:<id>", looked up on the server), or a
+// new address. Business buyers are billed at their company's address and can't change it here.
+export async function saveBillingAddress(_prev: BillingState, formData: FormData): Promise<BillingState> {
+  const browse = await requireBrowseContext();
+  const { session, auth, context, cartId } = browse;
+  if (!auth || !cartId || !(context.consumer || context.guest)) return { error: "Your cart is no longer open." };
+  if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
+  if (await tooManyAttempts(`billing:${actorKey(browse)}`, 30)) {
+    return { error: "Too many changes. Please wait a few minutes and try again." };
+  }
+  const cart = await getActiveCart(auth, cartId, context);
+  if (!cart) return { error: "Your cart is no longer open." };
+  if (!cart.shippingAddress) return { error: "Save your shipping address first." };
+  const choice = String(formData.get("billing") ?? "");
+  let address: BaseAddress | undefined;
+  if (choice === "same") address = cart.shippingAddress;
+  else if (choice.startsWith("saved:") && context.consumer && session) {
+    const mine = await withMyAddresses(session, context);
+    address = mine.addresses.find((a) => a.id && `saved:${a.id}` === choice);
+  } else if (choice === "new") {
+    const parsed = parseAddress(formData, CONSUMER_COUNTRIES);
+    if ("error" in parsed) return parsed;
+    address = parsed.address;
+  }
+  if (!address) return { error: "Choose a billing address." };
+  try {
+    await setBillingAddress(auth, context, cart, address);
+  } catch (err) {
+    unstable_rethrow(err);
+    if (err instanceof CheckoutError || err instanceof CartLockedError) return { error: err.message };
+    console.error("billing address failed", (err as { body?: unknown })?.body ?? err);
+    return { error: "Your billing address could not be saved. Please try again." };
+  }
+  refreshPages();
+  return { saved: true };
+}
+
 // ---------- Bank transfer (B2C fallback while card payments are switched off) ----------
 
 export type BankTransferState = { error?: string };
 
-// Public endpoint: places the consumer's or guest's own cart as an order to be paid by bank transfer. Only while card
-// payments are off; business buyers use placeOrderAction (invoice + PO).
+// Public endpoint: places the consumer's or guest's own cart as an order to be paid by bank transfer. Business buyers use placeOrderAction (invoice + PO).
 export async function placeBankTransferOrderAction(_prev: BankTransferState, formData: FormData): Promise<BankTransferState> {
-  if (cardPaymentsEnabled()) return { error: "Please pay by card." };
+  if (!bankTransferEnabled()) return { error: "Bank transfer is not available. Please choose another payment method." };
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const browse = await requireBrowseContext();
   const { session, guest, auth, context, cartId } = browse;

@@ -35,7 +35,8 @@ export async function GuestOrderConfirmation({
         <h1 className="m-0 text-2xl font-bold text-green-900">Thank you for your order</h1>
         <p className="m-0 mt-1 text-sm text-green-900">
           Order {orderReference(order)}
-          {payment === "card" ? " · paid by card" : " · to pay by bank transfer"} · {order.customerEmail}
+          {payment === "paypal" ? " · paid by PayPal" : payment === "card" ? " · paid by card" : " · to pay by bank transfer"} ·{" "}
+          {order.customerEmail}
         </p>
       </div>
       {totalChanged && (

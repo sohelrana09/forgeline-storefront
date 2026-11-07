@@ -6,7 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { applyDiscountCode, getActiveCart, removeDiscountCode, setLineQuantity } from "@/features/cart/service";
 import { discountStateMessage, nonApplicableMessage, normalizeCode } from "@/features/cart/discount";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
-import { CartLockedError } from "@/features/cart/freeze";
+import { CartLockedError } from "@/features/cart/payment-lock";
 import { localize } from "@/features/catalog/utils";
 import { actorKey, requireBrowseContext } from "@/features/business-units/context";
 import { addParsedLines } from "@/features/quick-order/service";

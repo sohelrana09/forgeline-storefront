@@ -6,19 +6,37 @@ import { cancelCardPayment, finishCardPayment, startCardPayment, type CardPaymen
 import { useCheckoutBusy } from "@/features/checkout/components/CheckoutStatus";
 import { FormMessage } from "@/components/ui/PageMessages";
 import { Message } from "@/components/ui/Message";
+import { flatMethodCss, pickCheckoutMethod, type CheckoutMethod } from "@/features/checkout/checkout-method";
 
 // Card payment through commercetools Checkout (Payment Only). The server opens a session for the cart the buyer
 // reviewed; the SDK renders the Application's payment methods inline (the data-ctc element), takes the payment
 // through the Connector and creates the order. On success the server checks the order before clearing the cart.
-// `paymentOpen`: the cart is frozen for a payment opened earlier (another tab, or before a reload). Paying continues on
-// the same frozen cart; cancelling unfreezes it so the buyer can change it again.
+// `paymentOpen`: the cart is locked for a payment opened earlier (another tab, or before a reload; features/cart/
+// payment-lock.ts). Paying continues the same payment; cancelling removes the lock so the buyer can change the cart.
+// `method`: the buyer's choice in the storefront's own list (PayPal or card). Checkout lists every method it has, so it
+// is made to show only that one (features/checkout/checkout-method.ts); switching keeps the same session.
 // How long Checkout's script may take to load before the buyer is told card payment is unavailable.
 const CHECKOUT_LOAD_MS = 15_000;
 // How long a late script still clears that message.
 const CHECKOUT_WATCH_MS = 3 * 60_000;
-const CHECKOUT_UNAVAILABLE = "Card payment is unavailable right now. Please try again later.";
+const CHECKOUT_UNAVAILABLE = "Online payment is unavailable right now. Please try again later.";
 
-export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartVersion: number; ready: boolean; paymentOpen?: boolean }) {
+export function CardPayment({
+  cartVersion,
+  ready,
+  paymentOpen = false,
+  payLabel,
+  method,
+  onLock,
+}: {
+  cartVersion: number;
+  ready: boolean;
+  paymentOpen?: boolean;
+  payLabel: string;
+  method: CheckoutMethod;
+  // Told when a payment is being opened or is open, and when it no longer is.
+  onLock?: (locked: boolean) => void;
+}) {
   const [state, start, starting] = useActionState(startCardPayment, {} as CardPaymentState);
   const busy = useCheckoutBusy();
   const router = useRouter();
@@ -29,12 +47,28 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
   const [attempt, setAttempt] = useState(0);
   const [canRetry, setCanRetry] = useState(false);
   const [cancelling, startCancelling] = useTransition();
-  // Unfreezes the cart, then reloads: the payment form Checkout mounted must go away with it.
+  // Unlocks the cart, then reloads: the payment form Checkout mounted must go away with it.
   const cancel = () =>
     startCancelling(async () => {
       await cancelCardPayment();
       window.location.reload();
     });
+
+  const open = starting || Boolean(state.session);
+  useEffect(() => onLock?.(open), [open, onLock]);
+
+  // Checkout's own list follows the buyer's choice; it is hidden only once the chosen method was found there.
+  const ctc = useRef<HTMLDivElement>(null);
+  const [picked, setPicked] = useState<CheckoutMethod>();
+  useEffect(() => {
+    const root = ctc.current;
+    if (!root) return;
+    const pick = () => setPicked(pickCheckoutMethod(root, method) ? method : undefined);
+    pick();
+    const watch = new MutationObserver(pick);
+    watch.observe(root, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, [method]);
 
   useEffect(() => {
     const session = state.session;
@@ -53,15 +87,18 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
           locale: "en",
           currencyLocale: "en-GB",
           onInfo: (message) => {
+            devLog("info", message);
             if (message.code === "checkout_completed") {
               const order = (message.payload as { order?: { id?: string } } | undefined)?.order;
               if (order?.id) startFinishing(() => finishCardPayment(order.id!, state.reviewedCentAmount ?? NaN));
               else router.push("/checkout?payment=unconfirmed"); // paid, and the order id didn't reach us
             }
           },
+          onWarn: (message) => devLog("warn", message),
           onError: (message) => {
+            devLog("error", message);
             if (message.code === "payment_failed") {
-              setProblem("The payment didn't go through. Check the card details or try another card.");
+              setProblem("The payment didn't go through. Check your details or try another payment method.");
               setCanRetry(true);
             } else if (message.code.endsWith("_error") || message.code.endsWith("_failed")) {
               setProblem(CHECKOUT_UNAVAILABLE);
@@ -102,10 +139,11 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
   }, [sessionId, attempt]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" data-checkout-flat="" data-flat={picked}>
+      <style>{flatMethodCss("[data-checkout-flat]", method)}</style>
       {paymentOpen && !state.session && (
         <Message type="warning">
-          A card payment is open for this cart, so it can&apos;t be changed. Pay below, or cancel the payment to change your cart.
+          A payment is open for this cart, so it can&apos;t be changed. Pay below, or cancel the payment to change your cart.
         </Message>
       )}
       {!state.session && (
@@ -116,7 +154,7 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
             disabled={starting || !ready || busy}
             className="min-h-12 rounded bg-orange-700 px-5 text-base font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
           >
-            {starting ? "Opening secure payment…" : "Pay by card"}
+            {starting ? "Opening secure payment…" : payLabel}
           </button>
         </form>
       )}
@@ -143,7 +181,13 @@ export function CardPayment({ cartVersion, ready, paymentOpen = false }: { cartV
       )}
       {finishing && <Message type="success">Payment received. Opening your order…</Message>}
       {/* Checkout renders the payment methods here (inline mode). */}
-      <div data-ctc className="min-h-0" />
+      <div ref={ctc} data-ctc className="min-h-0" />
     </div>
   );
+}
+
+// In development, every Checkout message goes to the browser console: its codes explain setup problems that the buyer
+// only sees as "Unable to proceed with the checkout".
+function devLog(kind: string, message: { code: string; payload?: unknown }) {
+  if (process.env.NODE_ENV !== "production") console.info("checkout", kind, message.code, message.payload ?? "");
 }

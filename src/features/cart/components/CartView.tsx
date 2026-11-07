@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getActiveCart, type CartAuth } from "@/features/cart/service";
+import { getActiveCart, paymentOpen, type CartAuth } from "@/features/cart/service";
 import { isQuoteOnly, localize } from "@/features/catalog/utils";
 import { nextStep, unitPriceAt } from "@/features/catalog/tiers";
 import { formatMoney } from "@/lib/utils";
@@ -17,7 +17,7 @@ import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
 import { categoryPath } from "@/lib/urls";
 import { Message } from "@/components/ui/Message";
-import { CART_LOCKED_MESSAGE } from "@/features/cart/freeze";
+import { CART_LOCKED_MESSAGE } from "@/features/cart/payment-lock";
 
 // After sign-in, the guest cart's lines were added here: ?merged=<count>&skipped=<skus not sold to this unit>.
 type MergeNotice = { merged?: string; skipped?: string };
@@ -88,13 +88,14 @@ export async function CartView({
   }
 
   const quoteLines = cart.lineItems.filter((l) => isQuoteOnly(l.price));
+  const locked = await paymentOpen(cart);
   const ship = cart.shippingAddress;
 
   return (
     <div className="flex flex-col gap-6">
       <MergeBanner merge={merge} context={context} />
       <h1 className="m-0 text-2xl font-bold">{context.guest || context.consumer ? "Cart" : `Cart · ${context.businessUnitName}`}</h1>
-      {cart.cartState === "Frozen" && (
+      {locked && (
         <Message type="warning" link={{ href: "/checkout", label: "Go to checkout" }}>
           {CART_LOCKED_MESSAGE}
         </Message>
@@ -166,7 +167,7 @@ export async function CartView({
 
         <div className="flex w-full flex-col gap-4 md:max-w-sm md:flex-[1_1_300px]">
           <CartSummary cart={cart} />
-          {context.canOrder && <DiscountCodes cart={cart} />}
+          {context.canOrder && <DiscountCodes cart={cart} locked={locked} />}
           <Suspense fallback={null}>
             <AddToListPanel context={context} kind="cart" />
           </Suspense>

@@ -563,8 +563,8 @@ export async function orderPaymentKind(order: Order): Promise<PaymentKind> {
     .payments()
     .get({ queryArgs: { where: `id in (${payments.map((p) => `"${p.id}"`).join(", ")})`, limit: payments.length } })
     .execute()
-    .then((r) => r.body.results.map((p) => p.paymentMethodInfo.method))
-    .catch((err): string[] => {
+    .then((r) => r.body.results.flatMap((p) => [p.paymentMethodInfo.method, p.paymentMethodInfo.paymentInterface]))
+    .catch((err): (string | undefined)[] => {
       console.error(`order ${order.id}: payments not readable`, errorOf(err));
       return [];
     });

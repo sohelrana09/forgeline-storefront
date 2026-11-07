@@ -216,8 +216,8 @@ export async function OrderView({
           </InfoBlock>
           <InfoBlock title="Payment method">
             <p className="m-0">
-              {payment === "card"
-                ? `Card${order.paymentState ? ` (${order.paymentState.toLowerCase()})` : ""}`
+              {payment === "card" || payment === "paypal"
+                ? `${payment === "paypal" ? "PayPal" : "Card"}${order.paymentState ? ` (${order.paymentState.toLowerCase()})` : ""}`
                 : payment === "bank-transfer"
                   ? "Bank transfer (details in the order confirmation)"
                   : `Invoice to ${context.businessUnitName}`}

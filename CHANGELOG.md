@@ -4,9 +4,12 @@
 
 Hardening before production: stock, payments, sessions, access checks, speed and resilience.
 
+- **PayPal ready:** with `CHECKOUT_PAYPAL=true` the checkout lists PayPal as its own payment method next to card, both through commercetools Checkout, and orders, PDFs and emails name PayPal. `B2C_BANK_TRANSFER=true` offers bank transfer as a choice next to it. Not yet run against a real PayPal payment.
 - **Stock comes back:** orders we cancel add their stock back, line by line and only once. Unpaid bank transfers can expire (`BANK_TRANSFER_EXPIRY_DAYS`), and guests' unpaid orders are capped.
 - **Money is reconciled:** an order's payment state follows what the card payments really did; a wrong amount, or money without an order, raises an alert.
 - **Orders use today's prices:** a total that changed since the buyer reviewed it goes back to them instead of being ordered.
+- **Magento-style payment step:** one list of payment methods (card, PayPal, bank transfer, or purchase order for business buyers) with one billing address under it. Consumers and guests can bill to an address other than the shipping one, or to a saved address.
+- **Card payments work again:** Checkout refuses Frozen carts ("Unable to proceed with the checkout"), so the cart is no longer frozen while the buyer pays. A payment lock does the job instead: the cart can't change for 30 minutes, cancelling unlocks it, and old frozen carts are unfrozen. The page's security policy now lets Checkout load its stylesheet and fonts, which it needs before it shows any payment method. In development, Checkout's messages are logged in the browser console.
 - **Card payments:** stock is checked before paying, two tabs share one session, and a cart with a running payment can't be reopened.
 - **Sessions:** signing out ends that session even if a cookie was copied, sessions end 90 days after sign-in at the latest, buyers can change their password, and new passwords are checked against known breaches. Production needs `SESSION_SECRET`; the cookie is renamed `__Host-ct_session`, which signs everyone out once.
 - **Least privilege:** customer tokens only carry the stores of the customer's own units; quote actions check permissions live; who may order follows the permission, not the role's name.

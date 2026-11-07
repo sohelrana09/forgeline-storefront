@@ -7,7 +7,7 @@ import { requestAnonymousToken } from "@/lib/commercetools/customer-token";
 import { cartCookie, cookieOptions, guestScopes, saveGuest } from "@/features/auth/session";
 import { currentBrowseContext } from "@/features/business-units/context";
 import { addLinesToCart, lookupSkus } from "@/features/cart/service";
-import { CartLockedError } from "@/features/cart/freeze";
+import { CartLockedError } from "@/features/cart/payment-lock";
 import { parseQuickOrder } from "@/features/quick-order/parser";
 import type { QuickOrderState } from "@/features/quick-order/types";
 

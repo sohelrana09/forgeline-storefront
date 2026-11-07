@@ -1,29 +1,30 @@
+import type { ReactNode } from "react";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
-import { PlaceOrderForm } from "@/features/checkout/components/CheckoutForm";
-import { BankTransferForm } from "@/features/checkout/components/BankTransferForm";
-import { CardPayment } from "@/features/checkout/components/CardPayment";
+import { PaymentMethods, type PaymentKind, type PaymentOption } from "@/features/checkout/components/PaymentMethods";
 
-export type PaymentKind = "invoice" | "bank-transfer" | "card";
+export type { PaymentKind };
 
-const METHODS: Record<PaymentKind, { title: string; description: string }> = {
-  invoice: {
-    title: "Purchase order (pay on invoice)",
-    description: "Invoiced to your company under your payment terms.",
-  },
-  "bank-transfer": {
-    title: "Bank transfer",
-    description: "Your order confirmation shows our bank details and the reference to use. We ship once the payment arrives.",
-  },
-  card: {
-    title: "Credit or debit card",
-    description: "Handled by commercetools Checkout. We never see your card number.",
-  },
+const invoice = {
+  title: "Purchase order (pay on invoice)",
+  description: "Invoiced to your company under your payment terms.",
+};
+const bankTransfer = {
+  title: "Bank transfer",
+  description: "Your order confirmation shows our bank details and the reference to use. We ship once the payment arrives.",
+};
+const card = {
+  title: "Credit or debit card",
+  description: "Handled by commercetools Checkout. We never see your card number.",
+};
+const paypal = {
+  title: "PayPal",
+  description: "Pay with your PayPal account. We never see your PayPal login.",
 };
 
-// Step 3 of the one-step checkout (Payment Method): the payment method for this kind of customer, the
-// billing address, then Place order. Each customer kind has one method, shown selected.
+// Step 3 of the one-step checkout (Payment Method), like Magento's: one list of payment methods for this kind of
+// customer, the billing address they share (`billing`), then the chosen method's button.
 export function PaymentStep({
-  kind,
+  kinds,
   billing,
   cartVersion,
   purchaseOrderNumber,
@@ -31,39 +32,32 @@ export function PaymentStep({
   waitingFor,
   paymentOpen = false,
 }: {
-  kind: PaymentKind;
-  billing: string;
+  kinds: PaymentKind[];
+  billing: ReactNode;
   cartVersion: number;
   purchaseOrderNumber?: string;
   ready: boolean;
   waitingFor?: string;
-  // The cart is frozen: a card payment was opened for it (features/cart/freeze.ts).
+  // The cart is locked: a card or PayPal payment was opened for it (features/cart/payment-lock.ts).
   paymentOpen?: boolean;
 }) {
-  const method = METHODS[kind];
+  const details = { invoice, "bank-transfer": bankTransfer, card, paypal };
+  // An open payment is finished or cancelled first: only the methods paid through Checkout until then.
+  const open = paymentOpen ? kinds.filter((k) => k === "card" || k === "paypal") : [];
+  const offered = open.length > 0 ? open : kinds;
+  const options: PaymentOption[] = offered.map((kind) => ({ kind, ...details[kind] }));
   return (
     <CheckoutStep step={3} title="Payment method" waitingFor={waitingFor}>
       <div className="flex flex-col gap-4">
-        <div className="rounded border-2 border-orange-700 bg-orange-50 p-4">
-          <p className="m-0 flex items-center gap-3 font-semibold">
-            <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border-2 border-orange-700">
-              <span className="size-2 rounded-full bg-orange-700" />
-            </span>
-            {method.title}
-          </p>
-          <p className="m-0 mt-1 pl-7 text-sm text-gray-700">{method.description}</p>
-        </div>
-        <div className="text-sm">
-          <p className="m-0 font-semibold">Billing address</p>
-          <p className="m-0 whitespace-pre-line text-gray-700">{billing}</p>
-        </div>
-        {kind === "invoice" ? (
-          <PlaceOrderForm cartVersion={cartVersion} purchaseOrderNumber={purchaseOrderNumber} ready={ready} />
-        ) : kind === "card" ? (
-          <CardPayment cartVersion={cartVersion} ready={ready} paymentOpen={paymentOpen} />
-        ) : (
-          <BankTransferForm cartVersion={cartVersion} ready={ready} />
-        )}
+        <PaymentMethods
+          options={options}
+          cartVersion={cartVersion}
+          purchaseOrderNumber={purchaseOrderNumber}
+          ready={ready}
+          paymentOpen={paymentOpen}
+        >
+          {billing}
+        </PaymentMethods>
       </div>
     </CheckoutStep>
   );

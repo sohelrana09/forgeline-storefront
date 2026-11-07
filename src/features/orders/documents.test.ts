@@ -79,6 +79,12 @@ describe("orderDocument", () => {
     expect(doc.notes[0]).toMatch(/Payment within 30 days .* INV-ES-1001/);
   });
 
+  it("says a PayPal payment is paid, or still running", () => {
+    expect(orderDocument(order({ orderState: "Complete" }), "invoice", { payment: "paypal" }).notes[0]).toBe("Paid by PayPal.");
+    const pending = order({ orderState: "Complete", paymentState: "Pending" });
+    expect(orderDocument(pending, "confirmation", { payment: "paypal" }).notes[0]).toBe("PayPal payment in progress.");
+  });
+
   it("says a card payment is paid and has no due date", () => {
     const doc = orderDocument(order({ orderState: "Complete" }), "invoice", { payment: "card" });
     expect(Object.fromEntries(doc.meta)["Due date"]).toBeUndefined();

@@ -39,4 +39,11 @@ describe("checkEnv", () => {
     expect(degraded.some((d) => d.startsWith("CRON_SECRET"))).toBe(true);
     expect(degraded.some((d) => d.startsWith("BANK_TRANSFER_EXPIRY_DAYS"))).toBe(true);
   });
+
+  it("wants a bank-transfer expiry whenever bank transfer is offered", () => {
+    const expiry = (env: Record<string, string>) =>
+      checkEnv({ ...base, ...env }).degraded.some((d) => d.startsWith("BANK_TRANSFER_EXPIRY_DAYS"));
+    expect(expiry({ B2C_CARD_PAYMENTS: "true" })).toBe(false);
+    expect(expiry({ B2C_CARD_PAYMENTS: "true", B2C_BANK_TRANSFER: "true" })).toBe(true);
+  });
 });

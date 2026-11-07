@@ -39,7 +39,23 @@ describe("CSP", () => {
   it("allows commercetools Checkout on per-visitor pages (card payment)", () => {
     expect(directive(noncePolicy("abc", prod), "connect-src")).toContain("https://*.commercetools.com");
     expect(directive(noncePolicy("abc", prod), "frame-src")).toContain("https://*.commercetools.app");
+    // Checkout's script loads its own stylesheets; a blocked one stops it before it lists payment methods.
+    expect(directive(noncePolicy("abc", prod), "style-src")).toContain("https://*.commercetools.com");
     expect(directive(shellPolicy(prod), "frame-src")).not.toContain("commercetools");
+    expect(directive(shellPolicy(prod), "style-src")).toBe("style-src 'self' 'unsafe-inline'");
+    // Its page loads Roboto from Google Fonts.
+    expect(directive(noncePolicy("abc", prod), "style-src")).toContain("https://fonts.googleapis.com");
+    expect(directive(noncePolicy("abc", prod), "font-src")).toContain("https://fonts.gstatic.com");
+    expect(directive(shellPolicy(prod), "font-src")).toBe("font-src 'self' data:");
+  });
+
+  it("allows PayPal on per-visitor pages only when it is switched on", () => {
+    const on = noncePolicy("abc", { dev: false, paypal: true });
+    for (const name of ["connect-src", "frame-src", "img-src", "style-src"]) {
+      expect(directive(on, name)).toContain("https://*.paypal.com");
+      expect(directive(noncePolicy("abc", prod), name)).not.toContain("paypal");
+      expect(directive(shellPolicy({ dev: false, paypal: true }), name)).not.toContain("paypal");
+    }
   });
 
   it("lets a Studio on its own domain frame the pages", () => {

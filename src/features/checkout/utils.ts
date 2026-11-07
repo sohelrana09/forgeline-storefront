@@ -1,10 +1,14 @@
 import { hasCode, statusOf } from "@/lib/commercetools/errors";
 import { stockErrorMessage } from "@/features/cart/stock";
-import type { BaseAddress, Cart } from "@commercetools/platform-sdk";
+import type { BaseAddress, Cart, MyCartUpdateAction } from "@commercetools/platform-sdk";
 import { formatMoney } from "@/lib/utils";
 import type { ShippingOption } from "@/features/cart/service";
 
 export type MethodOption = { key: string; name: string; price: string; note?: string };
+
+// Takes every Payment off a cart (see placeBankTransferOrder).
+export const removePaymentActions = (cart: Pick<Cart, "paymentInfo">): MyCartUpdateAction[] =>
+  (cart.paymentInfo?.payments ?? []).map((p) => ({ action: "removePayment", payment: { typeId: "payment", id: p.id } }));
 
 // One address as lines (company, street, postcode and city, region and country).
 export const addressLabel = (a: BaseAddress) =>
@@ -41,6 +45,11 @@ const norm = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase() : "
 // checkout matches them back by every field, not just country, city and street (two offices on one street).
 export const sameAddress = (a: BaseAddress | undefined, b: BaseAddress | undefined) =>
   Boolean(a && b) && ADDRESS_FIELDS.every((f) => norm(a![f]) === norm(b![f]));
+
+// The buyer chose a billing address of its own (Magento's "My billing and shipping address are the same" unticked):
+// a new delivery address then leaves it alone.
+export const ownBilling = (cart: Pick<Cart, "billingAddress" | "shippingAddress">) =>
+  Boolean(cart.billingAddress && cart.shippingAddress) && !sameAddress(cart.billingAddress, cart.shippingAddress);
 
 // The cart's chosen shipping method among the offered options, by the method's id (names can repeat).
 export const selectedMethodKey = (options: Pick<ShippingOption, "id" | "key">[], cart: Pick<Cart, "shippingInfo">) =>

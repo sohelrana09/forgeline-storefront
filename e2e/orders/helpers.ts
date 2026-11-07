@@ -48,8 +48,10 @@ export async function removeFromCart(page: Page, product = PART) {
 
 // Which payment the checkout offers this customer: the server decides (B2C_CARD_PAYMENTS). Step 3 shows its button
 // only once the delivery details are saved, so call this after that.
+export const PAY_BUTTON = /^Pay by card$/;
+
 export async function offersCard(page: Page) {
-  const card = page.getByRole("button", { name: "Pay by card" });
+  const card = page.getByRole("button", { name: PAY_BUTTON });
   await expect(card.or(page.getByRole("button", { name: "Place order" }))).toBeVisible();
   return card.isVisible();
 }

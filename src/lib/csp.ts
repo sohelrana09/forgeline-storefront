@@ -8,7 +8,7 @@
 // BASE repeats next.config.ts, which covers the responses the proxy doesn't see. Framing: this site, plus the Studio's
 // own domain when it runs outside the storefront (its Presentation tool previews the pages in an iframe).
 // `reportUri`: where browsers send violations (CSP_REPORT_URI), so a broken or attacked page is seen.
-export type PolicyOptions = { dev: boolean; sanityProjectId?: string; studioOrigin?: string; reportUri?: string };
+export type PolicyOptions = { dev: boolean; sanityProjectId?: string; studioOrigin?: string; reportUri?: string; paypal?: boolean };
 
 const reporting = (reportUri?: string) => (reportUri ? [`report-uri ${reportUri}`] : []);
 
@@ -35,29 +35,43 @@ const IMAGES = [
 ];
 // commercetools Checkout (card payments): its SDK, its iframes and the payment connector's service.
 const CHECKOUT = ["https://*.commercetools.com", "https://*.commercetools.app"];
+// Checkout's own page loads Roboto from Google Fonts.
+const CHECKOUT_FONTS = { styles: "https://fonts.googleapis.com", fonts: "https://fonts.gstatic.com" };
+
+// PayPal through Checkout's Connector, only when it is switched on: its buttons, its popup's frames and its API. Its
+// scripts need no entry: 'strict-dynamic' trusts what Checkout's script loads.
+const PAYPAL = ["https://*.paypal.com", "https://*.paypalobjects.com"];
 
 // Sanity's API for this project only: draft preview (Visual Editing) on the storefront's pages.
 const sanityApi = (projectId?: string) => (projectId ? [`https://${projectId}.api.sanity.io`, `wss://${projectId}.api.sanity.io`] : []);
 
-function pagePolicy(connect: string[], frames: string[], dev: boolean) {
+function pagePolicy(connect: string[], frames: string[], dev: boolean, images: string[] = [], styles: string[] = [], fonts: string[] = []) {
   return [
     "default-src 'self'",
-    `img-src ${IMAGES.join(" ")}`,
-    // Next and the Studio set inline styles.
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
+    `img-src ${[...IMAGES, ...images].join(" ")}`,
+    // Next and the Studio set inline styles; Checkout loads its own stylesheets (684.css and the like).
+    `style-src ${["'self'", "'unsafe-inline'", ...styles].join(" ")}`,
+    `font-src ${["'self'", "data:", ...fonts].join(" ")}`,
     `connect-src ${["'self'", ...connect, ...devSocket(dev)].join(" ")}`,
     `frame-src ${["'self'", ...frames].join(" ")}`,
     "worker-src 'self' blob:",
   ];
 }
 
-export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri }: PolicyOptions): string {
+export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri, paypal }: PolicyOptions): string {
+  const payments = paypal ? PAYPAL : [];
   const scripts = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:", "'unsafe-inline'", ...devEval(dev)];
   return [
     ...basePolicy(studioOrigin),
     `script-src ${scripts.join(" ")}`,
-    ...pagePolicy(CHECKOUT, CHECKOUT, dev),
+    ...pagePolicy(
+      [...CHECKOUT, ...payments],
+      [...CHECKOUT, ...payments],
+      dev,
+      payments,
+      [...CHECKOUT, CHECKOUT_FONTS.styles, ...payments],
+      [CHECKOUT_FONTS.fonts],
+    ),
     ...reporting(reportUri),
   ].join("; ");
 }

@@ -13,8 +13,8 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
     <div className="flex flex-col gap-4">
       {payment === "unconfirmed" && (
         <Message type="warning">
-          We couldn&apos;t confirm your order yet. If your card was charged, your order confirmation email has the details: please contact
-          us before paying again.
+          We couldn&apos;t confirm your order yet. If you were charged, your order confirmation email has the details: please contact us
+          before paying again.
         </Message>
       )}
       {session ? (

@@ -17,6 +17,21 @@ export const checkoutRegion = () => new URL(requireEnv("CTP_API_URL")).hostname.
 // are placed directly and paid by bank transfer: the fallback while Checkout isn't set up (see docs/checkout-setup.md).
 export const cardPaymentsEnabled = () => process.env.B2C_CARD_PAYMENTS === "true";
 
+// Bank transfer next to Checkout is opt-in: B2C_BANK_TRANSFER=true. Without Checkout it is the only way to pay.
+export const bankTransferEnabled = () => !cardPaymentsEnabled() || process.env.B2C_BANK_TRANSFER === "true";
+
+// What the buyer is told: Merchant Center decides what Checkout really offers, so CHECKOUT_PAYPAL=true goes with an
+// active PayPal integration on the Application.
+export const paypalEnabled = () => cardPaymentsEnabled() && process.env.CHECKOUT_PAYPAL === "true";
+
+// The payment methods consumers and guests choose from, the first one selected. Card and PayPal are both paid
+// through Checkout, which is made to show only the chosen one (features/checkout/checkout-method.ts).
+export const b2cPaymentKinds = () => [
+  ...(cardPaymentsEnabled() ? (["card"] as const) : []),
+  ...(paypalEnabled() ? (["paypal"] as const) : []),
+  ...(bankTransferEnabled() ? (["bank-transfer"] as const) : []),
+];
+
 // The Payment Only Application's key from Merchant Center (Checkout → Applications).
 export const checkoutApplicationKey = () => process.env.CTP_CHECKOUT_APPLICATION_KEY || "ironline-payment";
 

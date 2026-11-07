@@ -5,10 +5,11 @@ import type { Order, OrderUpdateAction, Payment, PaymentDraft, PaymentState, Pay
 // order a paymentState (Pending until finance or the ERP marks it Paid). Card orders already have the Payment
 // commercetools Checkout created. Pure, unit-tested; service.ts does the writes.
 
-export type PaymentKind = "invoice" | "bank-transfer" | "card";
+export type PendingPaymentKind = "invoice" | "bank-transfer";
+export type PaymentKind = PendingPaymentKind | "card" | "paypal";
 
 export const PAYMENT_INTERFACE = "storefront";
-const NAMES: Record<Exclude<PaymentKind, "card">, string> = { invoice: "Invoice", "bank-transfer": "Bank transfer" };
+const NAMES: Record<PendingPaymentKind, string> = { invoice: "Invoice", "bank-transfer": "Bank transfer" };
 
 export const paymentKey = (orderId: string) => `order-${orderId}`;
 
@@ -18,14 +19,14 @@ export const paymentKey = (orderId: string) => `order-${orderId}`;
 // A cancelled order (a rejected approval) is not going to be paid, so it never gets one.
 export function pendingPaymentKind(
   order: Pick<Order, "businessUnit" | "paymentInfo"> & Partial<Pick<Order, "orderState">>,
-): Exclude<PaymentKind, "card"> | undefined {
+): PendingPaymentKind | undefined {
   if (order.paymentInfo?.payments.length || order.orderState === "Cancelled") return undefined;
   return order.businessUnit ? "invoice" : "bank-transfer";
 }
 
 export function paymentDraft(
   order: Pick<Order, "id" | "taxedPrice" | "totalPrice" | "customerId">,
-  kind: Exclude<PaymentKind, "card">,
+  kind: PendingPaymentKind,
 ): PaymentDraft {
   const total = order.taxedPrice?.totalGross ?? order.totalPrice;
   return {
@@ -46,13 +47,14 @@ export function linkPaymentActions(order: Pick<Order, "paymentInfo" | "paymentSt
   return actions;
 }
 
-// How an order is paid, for the order page, the confirmation and the PDFs. `methods`: paymentMethodInfo.method of the
-// order's Payments (read only when the order has any). Business orders are always on invoice; B2C orders without a
+// How an order is paid, for the order page, the confirmation and the PDFs. `methods`: paymentMethodInfo.method and
+// paymentInterface of the order's Payments (read only when the order has any): the PayPal Connector's code sets the
+// interface, and the values stored through Checkout are not confirmed yet, so both are checked. Business orders are always on invoice; B2C orders without a
 // Payment (placed before G3) were bank-transfer orders.
 export function paymentKind(order: Pick<Order, "businessUnit" | "paymentInfo">, methods: (string | undefined)[]): PaymentKind {
   if (order.businessUnit) return "invoice";
   if (!order.paymentInfo?.payments.length || methods.includes("bank-transfer")) return "bank-transfer";
-  return "card";
+  return methods.some((m) => m?.toLowerCase().includes("paypal")) ? "paypal" : "card";
 }
 
 // Cancelling an order that was not paid (a rejected approval): the order, and its payment state from Pending to
@@ -108,7 +110,7 @@ export function reconcile(order: Pick<Order, "taxedPrice" | "totalPrice">, payme
   };
 }
 
-// A card payment that is running or went through: the cart under it must stay frozen. Not Initial: a Connector may
+// A card payment that is running or went through: the cart under it must stay locked. Not Initial: a Connector may
 // write that when the form opens, and an abandoned form must not lock the cart for good.
 export const hasLiveTransaction = (payment: Pick<Payment, "transactions">) =>
   payment.transactions.some((t) => t.state === "Pending" || (t.state === "Success" && t.type !== "Refund"));

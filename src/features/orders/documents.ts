@@ -1,4 +1,5 @@
 import type { BaseAddress, Order } from "@commercetools/platform-sdk";
+import type { PaymentKind } from "@/features/order-processing/payment";
 import { localize } from "@/features/catalog/utils";
 import { summarize } from "@/features/cart/summary";
 import { formatMoney } from "@/lib/utils";
@@ -50,7 +51,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2
 export function orderDocument(
   order: Order,
   kind: DocumentKind,
-  { buyer, payment }: { buyer?: string; payment: "invoice" | "card" | "bank-transfer" },
+  { buyer, payment }: { buyer?: string; payment: PaymentKind },
 ): OrderDocument {
   const s = summarize(order);
   const money = (centAmount: number) => formatMoney({ centAmount, currencyCode: s.currency, fractionDigits: s.fractionDigits });
@@ -74,10 +75,10 @@ export function orderDocument(
   ];
 
   const paymentNote =
-    payment === "card"
+    payment === "paypal" || payment === "card"
       ? order.paymentState && order.paymentState !== "Paid"
-        ? "Card payment in progress."
-        : "Paid by card."
+        ? `${payment === "paypal" ? "PayPal" : "Card"} payment in progress.`
+        : `Paid by ${payment === "paypal" ? "PayPal" : "card"}.`
       : payment === "invoice"
         ? `Payment within ${SELLER.paymentTermsDays} days to ${SELLER.bank.name}, IBAN ${SELLER.bank.iban}, BIC ${SELLER.bank.bic}. Please quote ${invoice ? `INV-${ref}` : `order ${ref}`}.`
         : `Please pay by bank transfer to ${SELLER.bank.name}, IBAN ${SELLER.bank.iban}, BIC ${SELLER.bank.bic}, quoting order ${ref}.`;

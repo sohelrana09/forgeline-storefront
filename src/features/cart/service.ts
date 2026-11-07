@@ -11,7 +11,7 @@ import { isQuoteOnly } from "@/features/catalog/utils";
 import { priceSelection, pricingKey } from "@/features/catalog/pricing";
 import { companyBasePrices } from "@/features/company-pricing/service";
 import { str } from "@/lib/predicate";
-import { CartLockedError, freezeState } from "@/features/cart/freeze";
+import { CartLockedError, lockState, parsePaymentLock, type PaymentLock } from "@/features/cart/payment-lock";
 
 // The token for "my carts": a signed-in buyer's session or a guest's anonymous token.
 export type CartAuth = { accessToken: string };
@@ -124,7 +124,7 @@ async function cartById(session: CartAuth, cartId: string, context: PricingConte
       if (statusOf(err) === 404 || (statusOf(err) === 401 && !context.businessUnitKey)) return undefined;
       return signOutOnAuthError(err);
     });
-  // A cart only counts if it is still open (Active, or Frozen while a card payment is open: freeze.ts) and belongs to
+  // A cart only counts if it is still open (Active, or Frozen by the storefront's old payment freeze) and belongs to
   // the currently selected business unit (the guest context has the empty key, and guest carts have no business unit).
   const open = cart?.cartState === "Active" || cart?.cartState === "Frozen";
   return open && (cart.businessUnit?.key ?? "") === context.businessUnitKey ? cart : undefined;
@@ -173,32 +173,74 @@ export async function getShippingOptions(ctx: PricingContext, address?: BaseAddr
   });
 }
 
-// Freezes or unfreezes the caller's cart (card payments, freeze.ts). The customer token can't (freezeCart isn't a My
-// Cart action), so the admin client does it in the cart's store, only for a cart just read with the caller's own
-// token (getActiveCart), and with that read's version: if the cart changed since, this fails with a 409.
-export async function setCartFrozen(context: PricingContext, cart: Cart, frozen: boolean): Promise<Cart> {
+// Unfreezes a cart frozen by the storefront before the payment lock replaced freezing (Checkout refuses Frozen carts).
+// The customer token can't (unfreezeCart isn't a My Cart action), so the admin client does it in the cart's store, only
+// for a cart just read with the caller's own token (getActiveCart), and with that read's version.
+export async function unfreezeCart(context: PricingContext, cart: Cart): Promise<Cart> {
   const { body } = await apiRoot
     .inStoreKeyWithStoreKeyValue({ storeKey: context.storeKey })
     .carts()
     .withId({ ID: cart.id })
-    .post({
-      body: {
-        version: cart.version,
-        actions: [frozen ? { action: "freezeCart", strategy: "HardFreeze" } : { action: "unfreezeCart" }],
-      },
-    })
+    .post({ body: { version: cart.version, actions: [{ action: "unfreezeCart" }] } })
     .execute();
   return body;
 }
 
-// A cart that may be changed now: refuses one with an open card payment, unfreezes one whose payment was abandoned.
+// ---------- Payment lock (features/cart/payment-lock.ts) ----------
+
+const LOCK_CONTAINER = "checkout-session";
+
+// The cart's payment lock. Only consumer and guest carts are paid through Checkout, so business carts never have one.
+// A failed read counts as no lock: the lock keeps the charged total in step, and cardPaymentRunning still guards money.
+export async function readPaymentLock(cart: Cart): Promise<PaymentLock | undefined> {
+  if (cart.businessUnit) return undefined;
+  return apiRoot
+    .customObjects()
+    .withContainerAndKey({ container: LOCK_CONTAINER, key: cart.id })
+    .get()
+    .execute()
+    .then((r) => parsePaymentLock(r.body.value))
+    .catch((err) => {
+      if (statusOf(err) !== 404) console.error("payment lock read failed", (err as { body?: unknown })?.body ?? err);
+      return undefined;
+    });
+}
+
+export async function savePaymentLock(cartId: string, lock: PaymentLock): Promise<void> {
+  await apiRoot
+    .customObjects()
+    .post({ body: { container: LOCK_CONTAINER, key: cartId, value: lock } })
+    .execute();
+}
+
+export async function clearPaymentLock(cartId: string): Promise<void> {
+  await apiRoot
+    .customObjects()
+    .withContainerAndKey({ container: LOCK_CONTAINER, key: cartId })
+    .delete()
+    .execute()
+    .catch((err) => {
+      if (statusOf(err) !== 404) throw err;
+    });
+}
+
+// For the cart and checkout pages: a payment is open, so the cart can't change.
+export async function paymentOpen(cart: Cart): Promise<boolean> {
+  return cart.cartState === "Frozen" || lockState(await readPaymentLock(cart), Date.now()) === "locked";
+}
+
+// A cart that may be changed now: refuses one with an open payment, removes a lock whose payment was abandoned.
 async function writable(context: PricingContext, cart: Cart): Promise<Cart> {
-  const state = freezeState(cart, Date.now());
-  if (state === "locked") throw new CartLockedError();
+  if (cart.cartState === "Frozen") {
+    if (await cardPaymentRunning(cart)) throw new CartLockedError();
+    return unfreezeCart(context, cart);
+  }
+  const state = lockState(await readPaymentLock(cart), Date.now());
   if (state === "open") return cart;
-  // Old, but a payment is running or went through: changing the cart now would charge for one order and ship another.
-  if (await cardPaymentRunning(cart)) throw new CartLockedError();
-  return setCartFrozen(context, cart, false);
+  // An old lock, but a payment is running or went through: changing the cart now would charge for one order and ship another.
+  if (state === "locked" || (await cardPaymentRunning(cart))) throw new CartLockedError();
+  await clearPaymentLock(cart.id);
+  return cart;
 }
 
 // Whether a card payment on this cart is in progress or took money.
@@ -299,8 +341,8 @@ export async function mergeGuestCart(
 ): Promise<MergeResult> {
   const guestCart = await getActiveCart(guest, guest.cartId, guestContext);
   if (!guestCart || guestCart.lineItems.length === 0) return { merged: 0, skipped: [] };
-  // A card payment is open for the guest cart: leave it alone (it is paid as a guest, or unlocks after FREEZE_TTL_MS).
-  if (freezeState(guestCart, Date.now()) === "locked") return { merged: 0, skipped: [] };
+  // A payment is open for the guest cart: leave it alone (it is paid as a guest, or unlocks after LOCK_TTL_MS).
+  if (await paymentOpen(guestCart)) return { merged: 0, skipped: [] };
 
   const lines = guestCart.lineItems.flatMap((l) => (l.variant.sku ? [{ sku: l.variant.sku, quantity: l.quantity }] : []));
   const skus = await lookupSkus(

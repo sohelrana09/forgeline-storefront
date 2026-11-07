@@ -6,8 +6,8 @@ import { SubmitButton } from "@/components/ui/SubmitButton";
 // Discount code entry on the cart page (G7): plain forms, so it works without JavaScript; results show in the page
 // message bar. commercetools only returns a reference to an applied code (not its text), so codes in the cart are
 // listed by their status; the message after applying names the code.
-export function DiscountCodes({ cart }: { cart: Cart }) {
-  const frozen = cart.cartState === "Frozen";
+// `locked`: a payment is open for the cart (features/cart/payment-lock.ts), so codes can't change.
+export function DiscountCodes({ cart, locked }: { cart: Cart; locked: boolean }) {
   return (
     <section aria-label="Discount code" className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-5 text-sm">
       <h2 className="m-0 text-base font-semibold">Discount code</h2>
@@ -19,7 +19,7 @@ export function DiscountCodes({ cart }: { cart: Cart }) {
                 {cart.discountCodes.length > 1 ? `Code ${i + 1}` : "Code"} ·{" "}
                 <span className="text-gray-600">{discountStateLabel(d.state)}</span>
               </span>
-              {!frozen && (
+              {!locked && (
                 <form action={removeDiscountCodeAction}>
                   <input type="hidden" name="discountCodeId" value={d.discountCode.id} />
                   <SubmitButton className="text-sm font-semibold text-[#1979c3] hover:underline">Remove</SubmitButton>
@@ -29,7 +29,7 @@ export function DiscountCodes({ cart }: { cart: Cart }) {
           ))}
         </ul>
       )}
-      {!frozen && (
+      {!locked && (
         <form action={applyDiscountCodeAction} className="flex gap-2">
           <label htmlFor="discount-code" className="sr-only">
             Discount code

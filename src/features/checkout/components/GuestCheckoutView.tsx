@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getActiveCart } from "@/features/cart/service";
+import { getActiveCart, paymentOpen } from "@/features/cart/service";
 import { getShippingOptions, orderFromCart, quoteOnlyLines } from "@/features/checkout/service";
 import { recoverOrder } from "@/features/order-processing/service";
 import { CONSUMER_COUNTRIES } from "@/features/business-units/service";
@@ -9,8 +9,9 @@ import { CartSummary } from "@/features/cart/components/CartSummary";
 import { CheckoutItems } from "@/features/checkout/components/CheckoutItems";
 import { PaymentStep } from "@/features/checkout/components/PaymentStep";
 import { CheckoutStatusProvider } from "@/features/checkout/components/CheckoutStatus";
-import { addressLabel, methodOptions, selectedMethodKey } from "@/features/checkout/utils";
-import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
+import { addressLabel, methodOptions, ownBilling, selectedMethodKey } from "@/features/checkout/utils";
+import { b2cPaymentKinds } from "@/lib/commercetools/checkout-session";
+import { BillingAddress } from "@/features/checkout/components/BillingAddress";
 import { GuestDetailsForm } from "@/features/checkout/components/GuestDetailsForm";
 import type { GuestSession } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
@@ -31,6 +32,7 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
   }
   // Machines are sold to business customers on quote: the cart page explains that.
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");
+  const locked = await paymentOpen(cart);
 
   // Delivery methods for the address on the cart (or the first delivery country until the guest enters one).
   const options = await getShippingOptions(context, cart.shippingAddress ?? { country: countries[0].code });
@@ -59,14 +61,26 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
               methodKey={selectedMethodKey(options, cart)}
             />
             <PaymentStep
-              kind={cardPaymentsEnabled() ? "card" : "bank-transfer"}
+              kinds={b2cPaymentKinds()}
               billing={
-                cart.shippingAddress
-                  ? `Same as the shipping address\n${addressLabel(cart.shippingAddress)}`
-                  : "Same as the shipping address"
+                cart.shippingAddress ? (
+                  <BillingAddress
+                    same={!ownBilling(cart)}
+                    billingLabel={cart.billingAddress && addressLabel(cart.billingAddress)}
+                    billing={cart.billingAddress}
+                    saved={[]}
+                    countries={countries}
+                    locked={locked}
+                  />
+                ) : (
+                  <div className="text-sm">
+                    <p className="m-0 font-semibold">Billing address</p>
+                    <p className="m-0 text-gray-700">Save your shipping address first.</p>
+                  </div>
+                )
               }
               cartVersion={cart.version}
-              paymentOpen={cart.cartState === "Frozen"}
+              paymentOpen={locked}
               ready={ready}
               waitingFor={ready ? undefined : "Save your shipping address and method first."}
             />

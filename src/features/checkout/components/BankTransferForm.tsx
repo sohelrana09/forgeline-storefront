@@ -5,7 +5,7 @@ import { FormMessage } from "@/components/ui/PageMessages";
 import { placeBankTransferOrderAction, type BankTransferState } from "@/features/checkout/actions";
 import { keepFields, PlaceOrderButton } from "@/features/checkout/components/CheckoutForm";
 
-// B2C fallback while card payments are switched off: place the order now, pay by bank transfer afterwards.
+// B2C: place the order now, pay by bank transfer afterwards.
 export function BankTransferForm({ cartVersion, ready }: { cartVersion: number; ready: boolean }) {
   const [state, action, pending] = useActionState(placeBankTransferOrderAction, {} as BankTransferState);
   return (

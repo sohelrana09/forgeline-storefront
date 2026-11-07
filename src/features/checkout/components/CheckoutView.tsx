@@ -1,21 +1,26 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getActiveCart } from "@/features/cart/service";
+import { getActiveCart, paymentOpen } from "@/features/cart/service";
 import { getMe, withMyAddresses } from "@/features/account/service";
 import { ResendVerificationButton } from "@/features/auth/components/AccountForms";
 import { getShippingOptions, orderFromCart, quoteOnlyLines } from "@/features/checkout/service";
 import { recoverOrder } from "@/features/order-processing/service";
-import { addressLabel, methodOptions, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
+import { addressLabel, methodOptions, ownBilling, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { DeliveryForm } from "@/features/checkout/components/CheckoutForm";
 import { CheckoutItems } from "@/features/checkout/components/CheckoutItems";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import { PaymentStep } from "@/features/checkout/components/PaymentStep";
 import { CheckoutStatusProvider } from "@/features/checkout/components/CheckoutStatus";
-import { cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
+import { b2cPaymentKinds } from "@/lib/commercetools/checkout-session";
+import { BillingAddress } from "@/features/checkout/components/BillingAddress";
+import { CONSUMER_COUNTRIES } from "@/features/business-units/service";
+import { countryName } from "@/features/account/utils";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { Message } from "@/components/ui/Message";
+
+const countries = CONSUMER_COUNTRIES.map((code) => ({ code, name: countryName(code) })).sort((a, b) => a.name.localeCompare(b.name));
 
 // One-step checkout for signed-in customers: 1 Shipping address, 2 Shipping methods,
 // 3 Payment method with Place order, and the order summary beside them.
@@ -43,6 +48,7 @@ export async function CheckoutView({
     }
   }
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");
+  const locked = await paymentOpen(cart);
 
   // The cart's address is a copy; match it back to the saved address by its fields.
   const selected = context.addresses.find((a) => sameAddress(a, cart.shippingAddress)) ?? context.defaultShippingAddress;
@@ -51,11 +57,30 @@ export async function CheckoutView({
   const shippingMethodSet = Boolean(cart.shippingInfo);
   const emailOk = !context.consumer || Boolean(me?.isEmailVerified);
   const ready = shippingMethodSet && Boolean(cart.taxedPrice) && emailOk;
-  const billing = context.defaultBillingAddress
-    ? addressLabel(context.defaultBillingAddress)
-    : context.consumer
-      ? "Same as the shipping address"
-      : "Your company's billing address";
+  // Consumers choose their billing address (BillingAddress); business buyers are billed at their company's.
+  const billing =
+    context.consumer && cart.shippingAddress ? (
+      <BillingAddress
+        same={!ownBilling(cart)}
+        billingLabel={cart.billingAddress && addressLabel(cart.billingAddress)}
+        billing={cart.billingAddress}
+        saved={context.addresses.filter((a) => a.id).map((a) => ({ key: a.id!, label: addressLabel(a) }))}
+        savedId={context.addresses.find((a) => sameAddress(a, cart.billingAddress))?.id}
+        countries={countries}
+        locked={locked}
+      />
+    ) : (
+      <div className="text-sm">
+        <p className="m-0 font-semibold">Billing address</p>
+        <p className="m-0 whitespace-pre-line text-gray-700">
+          {context.consumer
+            ? "Choose a shipping address first."
+            : context.defaultBillingAddress
+              ? addressLabel(context.defaultBillingAddress)
+              : "Your company's billing address"}
+        </p>
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-6">
@@ -99,10 +124,10 @@ export async function CheckoutView({
               </Message>
             )}
             <PaymentStep
-              kind={context.consumer ? (cardPaymentsEnabled() ? "card" : "bank-transfer") : "invoice"}
+              kinds={context.consumer ? b2cPaymentKinds() : ["invoice"]}
               billing={billing}
               cartVersion={cart.version}
-              paymentOpen={cart.cartState === "Frozen"}
+              paymentOpen={locked}
               purchaseOrderNumber={cart.purchaseOrderNumber}
               ready={ready}
               waitingFor={shippingMethodSet ? undefined : "Choose a shipping method first."}

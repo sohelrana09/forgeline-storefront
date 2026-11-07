@@ -7,17 +7,20 @@ import {
   cartAddress,
   getActiveCart,
   getShippingOptions,
-  setCartFrozen,
+  clearPaymentLock,
+  readPaymentLock,
+  savePaymentLock,
+  unfreezeCart,
   updateMyCart,
   type CartAuth,
 } from "@/features/cart/service";
-import { CART_LOCKED_MESSAGE, freezeState } from "@/features/cart/freeze";
+import { CART_LOCKED_MESSAGE, SESSION_TTL_MS, lockState, type PaymentLock } from "@/features/cart/payment-lock";
 import { outOfStockMessage, shortfalls } from "@/features/cart/stock";
 import { statusOf } from "@/lib/commercetools/errors";
-import { reportEvent } from "@/lib/error-report";
 import { str } from "@/lib/predicate";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { createCheckoutSession, type CheckoutSession } from "@/lib/commercetools/checkout-session";
+import { ownBilling, removePaymentActions } from "@/features/checkout/utils";
 export { getShippingOptions, type ShippingOption } from "@/features/cart/service";
 import { isQuoteOnly } from "@/features/catalog/utils";
 // Checkout: delivery details, PO number and placing the order (server-only).
@@ -42,6 +45,12 @@ export async function applyCheckoutDetails(
     shippingMethodKey,
     methodOptional: true,
   });
+}
+
+// The billing address of a consumer's or guest's cart (the payment step's billing section). Refused while a payment
+// is open (updateMyCart).
+export async function setBillingAddress(session: CartAuth, ctx: PricingContext, cart: Cart, address: BaseAddress) {
+  return updateMyCart(session, ctx, cart, () => [{ action: "setBillingAddress", address: cartAddress(address) }]);
 }
 
 // Sets the delivery address (and billing address, and for guests the email) and the shipping method on the cart.
@@ -71,7 +80,8 @@ export async function applyDelivery(
   // location-only match can't. The cart was just read with the buyer's token, so the admin read is safe.
   const withAddress = await updateMyCart(session, ctx, cart, (c) => [
     { action: "setShippingAddress", address: cartAddress(address) },
-    { action: "setBillingAddress", address: cartAddress(billing) },
+    // A billing address the buyer chose separately stays (features/checkout/utils.ts ownBilling).
+    ...(ownBilling(c) ? [] : [{ action: "setBillingAddress" as const, address: cartAddress(billing) }]),
     ...(email ? [{ action: "setCustomerEmail" as const, email }] : []),
     // B2C carts start without a country (the store has none). commercetools Checkout matches its Application's
     // countries against cart.country, so it follows the delivery country. Prices without a country still match.
@@ -162,8 +172,9 @@ export async function placeOrder(
 
 // A B2C cart (consumer or guest) ready to be paid: the caller's own (read with their token), the version they
 // reviewed, delivery address + method set, no quote-only machines, and an email for the confirmation.
-// A frozen cart whose payment was abandoned reopens at today's prices (never ordered or paid at the old ones);
-// a fresh freeze stays only when `paying` by card (a reload continues the same payment).
+// A payment lock (features/cart/payment-lock.ts) stays only when `paying` by card and still fresh: a reload continues
+// the same payment. An old lock, or one in the way of a bank transfer, goes unless a payment is running; the cart is
+// then repriced like any other. Carts frozen by the storefront's old freeze are unfrozen first: Checkout refuses them.
 async function readyB2CCart(
   auth: CartAuth,
   ctx: PricingContext,
@@ -171,36 +182,41 @@ async function readyB2CCart(
   expectedVersion: number,
   email: string | undefined,
   { paying }: { paying: boolean },
-) {
+): Promise<{ cart: Cart; lock?: PaymentLock }> {
   let cart = await getActiveCart(auth, cartId, ctx);
   if (!cart) throw new CheckoutError("Your cart is no longer open.");
   if (cart.version !== expectedVersion) throw new CheckoutError("Your cart changed. Please review it and try again.");
   if (cart.lineItems.length === 0) throw new CheckoutError("Your cart is empty.");
   if (quoteOnlyLines(cart).length > 0) throw new CheckoutError("Remove quote-only items before ordering.");
   if (!cart.shippingInfo || !cart.taxedPrice || !cart.shippingAddress) throw new CheckoutError("Choose a delivery address and method.");
-  const freeze = freezeState(cart, Date.now());
-  if (freeze === "stale" || (freeze === "locked" && !paying)) {
+  if (cart.cartState === "Frozen") {
     if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
-    const open = await setCartFrozen(ctx, cart, false);
-    await updateMyCart(auth, ctx, open, () => [{ action: "recalculate", updateProductData: false }]);
-    throw new CheckoutError("Your payment timed out. Please review your cart.");
+    cart = await unfreezeCart(ctx, cart);
   }
-  if (freeze === "open") cart = await repriced(auth, ctx, cart);
-  // The order confirmation goes to this address; signed-in customers' carts may not carry it yet.
+  let lock = await readPaymentLock(cart);
+  const state = lockState(lock, Date.now());
+  if (state === "stale" || (state === "locked" && !paying)) {
+    if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
+    await clearPaymentLock(cart.id);
+    lock = undefined;
+  }
+  if (!lock) cart = await repriced(auth, ctx, cart);
+  // The order confirmation goes to this address; signed-in customers' carts may not carry it yet (a locked cart has it:
+  // it was set before the lock).
   if (!cart.customerEmail) {
     if (!email) throw new CheckoutError("Enter your email address.");
     cart = await updateMyCart(auth, ctx, cart, () => [{ action: "setCustomerEmail", email }]);
   }
-  return cart;
+  return { cart, lock };
 }
 
 // Opens a Checkout Session for a ready cart; Checkout takes the payment and creates the Order.
-// G5: the cart is frozen first, with the version the buyer reviewed (a change since fails with a 409), so Checkout
-// charges exactly the reviewed total: commercetools keeps prices, discounts and the shipping method, and the storefront
-// refuses cart changes while the freeze is fresh (features/cart/freeze.ts). A cart that is already frozen (the buyer
-// reloaded the page and pays again) stays frozen. If no session can be opened, the cart is unfrozen again.
+// G5: the session is stored as the cart's payment lock with the total the buyer reviewed, and the storefront refuses
+// cart changes while the lock is fresh (features/cart/payment-lock.ts), so Checkout charges the reviewed total. A reload
+// or a second tab gets the same session while it lasts (SESSION_TTL_MS) instead of a second one that could charge too.
 // The money is taken before the order exists, so what can stop the order is checked first: stock, and a payment that
-// is already running (a second session could charge twice).
+// is already running. A change made in another tab in the moment between the session and the lock is caught after the
+// payment: the order page flags a total that differs from the reviewed one.
 export async function prepareCardPayment(
   auth: CartAuth,
   ctx: PricingContext,
@@ -208,18 +224,16 @@ export async function prepareCardPayment(
   expectedVersion: number,
   email: string | undefined,
 ): Promise<{ session: CheckoutSession; reviewedCentAmount: number }> {
-  let cart = await readyB2CCart(auth, ctx, cartId, expectedVersion, email, { paying: true });
-  const freezing = cart.cartState === "Active";
-  if (!freezing && (await cardPaymentRunning(cart))) throw new CheckoutError(CART_LOCKED_MESSAGE);
+  const { cart, lock } = await readyB2CCart(auth, ctx, cartId, expectedVersion, email, { paying: true });
+  const now = Date.now();
+  if (lock && lock.expiresAt > now) return { session: lock.session, reviewedCentAmount: lock.reviewedCentAmount };
+  if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
   await checkStock(cart);
-  if (freezing) cart = await setCartFrozen(ctx, cart, true);
-  try {
-    const session = (await openSession(cart.id, cart.version)) ?? (await rememberSession(cart, await createCheckoutSession(cart.id)));
-    return { session, reviewedCentAmount: cart.taxedPrice!.totalGross.centAmount };
-  } catch (err) {
-    if (freezing) await setCartFrozen(ctx, cart, false).catch(() => undefined); // else it unlocks after FREEZE_TTL_MS
-    throw err;
-  }
+  const session = await createCheckoutSession(cart.id);
+  // A lock whose session ran out keeps its start (it can't be renewed for ever) and the total reviewed back then.
+  const reviewedCentAmount = lock?.reviewedCentAmount ?? cart.taxedPrice!.totalGross.centAmount;
+  await savePaymentLock(cart.id, { session, reviewedCentAmount, lockedAt: lock?.lockedAt ?? now, expiresAt: now + SESSION_TTL_MS });
+  return { session, reviewedCentAmount };
 }
 
 // The same check commercetools makes when it creates the order, made before the buyer pays. Orders can still take the
@@ -238,47 +252,22 @@ async function checkStock(cart: Cart) {
   if (short.length > 0) throw new CheckoutError(outOfStockMessage(short));
 }
 
-// One Checkout session per frozen cart version: two tabs share it instead of each being able to charge. The object is
-// only a convenience (running payments are refused above), so failing to read or write it changes nothing.
-const SESSION_CONTAINER = "checkout-session";
-const SESSION_TTL_MS = 15 * 60_000;
-type StoredSession = { session: CheckoutSession; cartVersion: number; expiresAt: number };
-
-async function openSession(cartId: string, cartVersion: number): Promise<CheckoutSession | undefined> {
-  const stored = await apiRoot
-    .customObjects()
-    .withContainerAndKey({ container: SESSION_CONTAINER, key: cartId })
-    .get()
-    .execute()
-    .then((r) => r.body.value as StoredSession)
-    .catch(() => undefined);
-  return stored?.cartVersion === cartVersion && stored.expiresAt > Date.now() ? stored.session : undefined;
-}
-
-async function rememberSession(cart: Cart, session: CheckoutSession): Promise<CheckoutSession> {
-  const value: StoredSession = { session, cartVersion: cart.version, expiresAt: Date.now() + SESSION_TTL_MS };
-  await apiRoot
-    .customObjects()
-    .post({ body: { container: SESSION_CONTAINER, key: cart.id, value } })
-    .execute()
-    .catch((err) => reportEvent("checkout_session_not_stored", err, { cartId: cart.id }));
-  return session;
-}
-
-// The buyer cancels the open card payment: their own cart (read with their token) is unfrozen, so it can change again.
+// The buyer cancels the open payment: the lock on their own cart (read with their token) goes, so it can change again.
 // Refused once the payment is running: the buyer would change a cart that is being paid for.
 export async function cancelCardPayment(auth: CartAuth, ctx: PricingContext, cartId: string): Promise<void> {
   const cart = await getActiveCart(auth, cartId, ctx);
-  if (cart?.cartState !== "Frozen") return;
+  if (!cart) return;
   if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
-  await setCartFrozen(ctx, cart, false);
+  if (cart.cartState === "Frozen") await unfreezeCart(ctx, cart);
+  await clearPaymentLock(cart.id);
 }
 
 // Bank transfer takes stock before any money arrives, so a guest (no account behind the order) can't reserve much.
 const unpaidOrderMaxQuantity = () => Number(process.env.UNPAID_ORDER_MAX_QUANTITY) || 100;
 
-// While card payments are switched off (B2C_CARD_PAYMENTS): the B2C order is placed straight away with the caller's
-// own token and paid by bank transfer afterwards.
+// The B2C order is placed straight away with the caller's own token and paid by bank transfer afterwards. A card or
+// PayPal attempt the buyer gave up on can leave its Payment on the cart: it goes first, or the order would count as
+// paid online and never get its bank-transfer Payment. One that is running or took money keeps the cart locked.
 export async function placeBankTransferOrder(
   auth: CartAuth,
   ctx: PricingContext & { guest?: boolean },
@@ -286,7 +275,11 @@ export async function placeBankTransferOrder(
   expectedVersion: number,
   email: string | undefined,
 ) {
-  const cart = await readyB2CCart(auth, ctx, cartId, expectedVersion, email, { paying: false });
+  let { cart } = await readyB2CCart(auth, ctx, cartId, expectedVersion, email, { paying: false });
+  if (await cardPaymentRunning(cart)) throw new CheckoutError(CART_LOCKED_MESSAGE);
+  if (cart.paymentInfo?.payments.length) {
+    cart = await updateMyCart(auth, ctx, cart, removePaymentActions);
+  }
   if (ctx.guest) {
     const quantity = cart.lineItems.reduce((total, l) => total + l.quantity, 0);
     if (quantity > unpaidOrderMaxQuantity()) throw new CheckoutError("For an order this large, please create an account or contact us.");

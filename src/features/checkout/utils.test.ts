@@ -1,11 +1,28 @@
 import { describe, expect, it } from "vitest";
 import type { Cart, TypedMoney } from "@commercetools/platform-sdk";
-import { orderErrorMessage, addressLabel, methodOptions, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
+import {
+  orderErrorMessage,
+  addressLabel,
+  methodOptions,
+  ownBilling,
+  removePaymentActions,
+  sameAddress,
+  selectedMethodKey,
+} from "@/features/checkout/utils";
 import type { ShippingOption } from "@/features/cart/service";
 
 const eur = (centAmount: number): TypedMoney => ({ type: "centPrecision", currencyCode: "EUR", centAmount, fractionDigits: 2 });
 const cart = (subtotal: number) => ({ lineItems: [{ totalPrice: eur(subtotal) }] }) as Cart;
 const option = (o: Partial<ShippingOption>) => ({ key: "std", name: "Standard", ...o }) as ShippingOption;
+
+describe("removePaymentActions", () => {
+  it("removes every Payment on the cart, and nothing when there is none", () => {
+    expect(removePaymentActions({ paymentInfo: { payments: [{ typeId: "payment", id: "p1" }] } })).toEqual([
+      { action: "removePayment", payment: { typeId: "payment", id: "p1" } },
+    ]);
+    expect(removePaymentActions({})).toEqual([]);
+  });
+});
 
 describe("addressLabel", () => {
   it("joins the parts that are set, one per line", () =>
@@ -100,4 +117,17 @@ describe("orderErrorMessage", () => {
     expect(orderErrorMessage(err("ConcurrentModification", 409))).toMatch(/cart changed/);
   });
   it("leaves unexpected errors to the caller", () => expect(orderErrorMessage(err("General", 500))).toBeUndefined());
+});
+
+describe("ownBilling", () => {
+  const home = { country: "ES", city: "Madrid", streetName: "Calle Mayor", streetNumber: "1", postalCode: "28013" };
+  const office = { ...home, streetNumber: "9" };
+  it("is false while billing follows the shipping address", () => {
+    expect(ownBilling({ shippingAddress: home, billingAddress: { ...home } })).toBe(false);
+    expect(ownBilling({ shippingAddress: home })).toBe(false);
+    expect(ownBilling({ billingAddress: office })).toBe(false);
+  });
+  it("is true for a billing address of its own", () => {
+    expect(ownBilling({ shippingAddress: home, billingAddress: office })).toBe(true);
+  });
 });

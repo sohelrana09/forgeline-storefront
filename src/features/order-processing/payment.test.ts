@@ -117,4 +117,10 @@ describe("paymentKind", () => {
     expect(paymentKind({ paymentInfo: paid }, ["card"])).toBe("card");
     expect(paymentKind({ paymentInfo: paid }, [undefined])).toBe("card");
   });
+
+  it("B2C: a PayPal Payment, by its method or its interface", () => {
+    expect(paymentKind({ paymentInfo: paid }, ["paypal"])).toBe("paypal");
+    expect(paymentKind({ paymentInfo: paid }, [undefined, "PayPal"])).toBe("paypal");
+    expect(paymentKind({ businessUnit: unit, paymentInfo: paid }, ["paypal"])).toBe("invoice");
+  });
 });
