@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
+import { Message } from "@/components/ui/Message";
 import { PaymentMethods, type PaymentKind, type PaymentOption } from "@/features/checkout/components/PaymentMethods";
 
 export type { PaymentKind };
@@ -46,6 +47,14 @@ export function PaymentStep({
   const open = paymentOpen ? kinds.filter((k) => k === "card" || k === "paypal") : [];
   const offered = open.length > 0 ? open : kinds;
   const options: PaymentOption[] = offered.map((kind) => ({ kind, ...details[kind] }));
+  // No method switched on (B2C_CARD_PAYMENTS, CHECKOUT_PAYPAL, B2C_BANK_TRANSFER all off).
+  if (options.length === 0) {
+    return (
+      <CheckoutStep step={3} title="Payment method" waitingFor={waitingFor}>
+        <Message type="error">Online ordering is not available right now. Please contact us to place your order.</Message>
+      </CheckoutStep>
+    );
+  }
   return (
     <CheckoutStep step={3} title="Payment method" waitingFor={waitingFor}>
       <div className="flex flex-col gap-4">

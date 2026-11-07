@@ -4,6 +4,7 @@
 
 Hardening before production: stock, payments, sessions, access checks, speed and resilience.
 
+- **One switch per payment method:** `B2C_CARD_PAYMENTS`, `CHECKOUT_PAYPAL` and `B2C_BANK_TRANSFER` each offer their own method, so PayPal can run without cards. Bank transfer is no longer offered automatically when cards are off: set `B2C_BANK_TRANSFER=true` to keep it.
 - **PayPal ready:** with `CHECKOUT_PAYPAL=true` the checkout lists PayPal as its own payment method next to card, both through commercetools Checkout, and orders, PDFs and emails name PayPal. `B2C_BANK_TRANSFER=true` offers bank transfer as a choice next to it. Not yet run against a real PayPal payment.
 - **Stock comes back:** orders we cancel add their stock back, line by line and only once. Unpaid bank transfers can expire (`BANK_TRANSFER_EXPIRY_DAYS`), and guests' unpaid orders are capped.
 - **Money is reconciled:** an order's payment state follows what the card payments really did; a wrong amount, or money without an order, raises an alert.

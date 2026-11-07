@@ -19,7 +19,7 @@ import {
   setBillingAddress,
 } from "@/features/checkout/service";
 import { numberNewOrder, processOrder } from "@/features/order-processing/service";
-import { bankTransferEnabled, cardPaymentsEnabled } from "@/lib/commercetools/checkout-session";
+import { bankTransferEnabled, checkoutPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import type { CheckoutSession } from "@/lib/commercetools/checkout-session";
 import { clientIp, tooManyAttempts } from "@/lib/rate-limit";
 import { parseAddress } from "@/features/account/utils";
@@ -124,7 +124,7 @@ export type CardPaymentState = { error?: string; session?: CheckoutSession; revi
 // Public endpoint: opens a commercetools Checkout session for the caller's own B2C cart. Business buyers order on
 // invoice instead. Consumers confirm their email first (an account can't order under someone else's address).
 export async function startCardPayment(_prev: CardPaymentState, formData: FormData): Promise<CardPaymentState> {
-  if (!cardPaymentsEnabled()) return { error: "Online payment is not available right now." };
+  if (!checkoutPaymentsEnabled()) return { error: "Online payment is not available right now." };
   if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
   const browse = await requireBrowseContext();
   const { session, auth, context, cartId } = browse;

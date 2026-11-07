@@ -46,7 +46,7 @@ export async function removeFromCart(page: Page, product = PART) {
   }
 }
 
-// Which payment the checkout offers this customer: the server decides (B2C_CARD_PAYMENTS). Step 3 shows its button
+// Which payment the checkout offers this customer: the server decides (B2C_CARD_PAYMENTS, B2C_BANK_TRANSFER). Step 3 shows its button
 // only once the delivery details are saved, so call this after that.
 export const PAY_BUTTON = /^Pay by card$/;
 

@@ -63,21 +63,33 @@ PayPal runs through the same Checkout Application, on the official connector (`c
 2. Create a separate commercetools API client with the seven scopes from step 2 plus `manage_checkout_payment_intents` (the PayPal connector's `connect.yaml` lists it and its status check requires it).
 3. Merchant Center → **Connect** → marketplace: install the PayPal connector with those values, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_ENVIRONMENT`. Wait until it shows **Deployed**.
 4. In the `ironline-payment` Application → **Payment integrations**, add an integration on that connector (web components, the only type it supports) and switch it on.
-5. Set `B2C_CARD_PAYMENTS=true` and `CHECKOUT_PAYPAL=true` in the deployment. The payment step then lists **PayPal** as its own method next to **Credit or debit card** (button **Continue with PayPal**), and the CSP on per-request pages allows `*.paypal.com` and `*.paypalobjects.com` (`connect-src`, `frame-src`, `img-src`, `style-src`). Scripts need no entry: `'strict-dynamic'` trusts what Checkout's script loads.
+5. Set `CHECKOUT_PAYPAL=true` in the deployment (and `B2C_CARD_PAYMENTS=true` if cards are offered too). The payment step then lists **PayPal** as its own method (button **Continue with PayPal**), and the CSP on per-request pages allows `*.paypal.com` and `*.paypalobjects.com` (`connect-src`, `frame-src`, `img-src`, `style-src`). Scripts need no entry: `'strict-dynamic'` trusts what Checkout's script loads.
 
 **One list of payment methods, like Magento's:** the payment step shows its own radio buttons (card, PayPal, bank transfer; purchase order for business buyers), then one billing address for all of them, then the chosen method's button. Checkout always lists every active method of the Application, and neither its session nor its SDK can limit that, so `CardPayment.tsx` clicks Checkout's radio for the chosen method and hides Checkout's own list around it (`features/checkout/checkout-method.ts`, which records the markup it relies on). Hiding starts only once that radio is found, so if commercetools changes Checkout's markup, the buyer sees Checkout's own list again and can still pay. Switching between card and PayPal keeps the same session; other methods wait until the payment is finished or cancelled.
 
 **Billing address:** consumers and guests get "My billing and shipping address are the same" (ticked by default). Unticked, consumers pick a saved address or enter a new one, guests enter one, and **Update** saves it on the cart (`saveBillingAddress`); paying waits until it is saved. A billing address chosen this way stays when the shipping address changes (`ownBilling`). Business buyers are billed at their company's address.
 
-`CHECKOUT_PAYPAL` only adds the PayPal radio and the CSP hosts. What Checkout really offers comes from the Application, so keep the two in step. The PayPal connector offers PayPal only, so cards need a second connector.
+`CHECKOUT_PAYPAL` only adds the PayPal radio and the CSP hosts. What Checkout really offers comes from the Application, so keep the two in step. The PayPal connector offers PayPal only, so cards need a second connector. For PayPal only, also switch off the card integrations on the Application: then Checkout has nothing else to show even if hiding its own list stops working.
 
 Orders count as PayPal when a Payment's `paymentMethodInfo.method` or `paymentInterface` contains "paypal" (`paymentKind`); the order page, guest confirmation, PDFs and email then say so. Check this on the first sandbox payment: the connector's code sets `paymentInterface`, but the values stored through Checkout have not been seen on a real Payment.
 
 To test: use a PayPal sandbox buyer account, and watch the browser console for CSP errors and for the `checkout …` lines (below). If PayPal doesn't show, check the `config` response in the browser's network tab: its `connectors` must list the PayPal connector's deployment, otherwise the integration isn't on the Application or isn't switched on.
 
+## Which methods are offered
+
+Each payment method for consumers and guests has its own switch, all off by default (`src/lib/commercetools/checkout-session.ts`). Business buyers always order on invoice.
+
+| Variable | Offers |
+|---|---|
+| `B2C_CARD_PAYMENTS=true` | Credit or debit card, through Checkout |
+| `CHECKOUT_PAYPAL=true` | PayPal, through Checkout |
+| `B2C_BANK_TRANSFER=true` | Bank transfer, placed directly |
+
+They appear in that order and the first one is selected; with only one on, it shows without a choice. With all three off, the payment step says online ordering isn't available and the environment check warns. A change in Vercel needs a redeploy.
+
 ## Bank transfer next to Checkout
 
-With `B2C_CARD_PAYMENTS=true`, bank transfer disappears unless `B2C_BANK_TRANSFER=true`. With both on, consumers and guests choose between them with radio buttons, card first. The choice locks while a payment is opening or open. Set `BANK_TRANSFER_EXPIRY_DAYS` too, or unpaid orders hold their stock forever.
+With bank transfer and card or PayPal on, consumers and guests choose between them with radio buttons. The choice locks while a payment is opening or open. Set `BANK_TRANSFER_EXPIRY_DAYS` too, or unpaid orders hold their stock forever.
 
 A buyer can give up on a card or PayPal attempt and then choose bank transfer. Checkout may have left its Payment on the cart, so `placeBankTransferOrder` removes it first; otherwise the order would count as paid online and never get its bank-transfer Payment. A Payment that is running or took money keeps the cart locked.
 

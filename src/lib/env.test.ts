@@ -37,13 +37,23 @@ describe("checkEnv", () => {
     const { degraded } = checkEnv(base);
     expect(degraded.some((d) => d.startsWith("no Redis"))).toBe(true);
     expect(degraded.some((d) => d.startsWith("CRON_SECRET"))).toBe(true);
-    expect(degraded.some((d) => d.startsWith("BANK_TRANSFER_EXPIRY_DAYS"))).toBe(true);
+    expect(degraded.some((d) => d.endsWith("can't pay"))).toBe(true);
   });
 
   it("wants a bank-transfer expiry whenever bank transfer is offered", () => {
     const expiry = (env: Record<string, string>) =>
       checkEnv({ ...base, ...env }).degraded.some((d) => d.startsWith("BANK_TRANSFER_EXPIRY_DAYS"));
+    expect(expiry({})).toBe(false);
     expect(expiry({ B2C_CARD_PAYMENTS: "true" })).toBe(false);
+    expect(expiry({ B2C_BANK_TRANSFER: "true" })).toBe(true);
     expect(expiry({ B2C_CARD_PAYMENTS: "true", B2C_BANK_TRANSFER: "true" })).toBe(true);
+  });
+
+  it("says when consumers and guests have no way to pay", () => {
+    const none = (env: Record<string, string>) => checkEnv({ ...base, ...env }).degraded.some((d) => d.endsWith("can't pay"));
+    expect(none({})).toBe(true);
+    expect(none({ B2C_CARD_PAYMENTS: "false", CHECKOUT_PAYPAL: "false", B2C_BANK_TRANSFER: "false" })).toBe(true);
+    expect(none({ CHECKOUT_PAYPAL: "true" })).toBe(false);
+    expect(none({ B2C_BANK_TRANSFER: "true" })).toBe(false);
   });
 });

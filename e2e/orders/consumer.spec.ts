@@ -39,7 +39,7 @@ test("consumer bank transfer: order number, pending Payment, order page", async 
   }
   if (await offersCard(page)) {
     await removeFromCart(page);
-    test.skip(true, "card payments are on: start the server with B2C_CARD_PAYMENTS=false");
+    test.skip(true, "card payments are on: start the server with B2C_CARD_PAYMENTS=false and B2C_BANK_TRANSFER=true");
   }
   orderId = await placeOrder(page);
 

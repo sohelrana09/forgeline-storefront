@@ -40,8 +40,12 @@ export function checkEnv(env: Env): { missing: string[]; degraded: string[] } {
     "REVALIDATE_SECRET missing or under 32 characters: cached pages only refresh by their lifetimes",
   );
   note(
-    (env.B2C_CARD_PAYMENTS !== "true" || env.B2C_BANK_TRANSFER === "true") && !env.BANK_TRANSFER_EXPIRY_DAYS,
+    env.B2C_BANK_TRANSFER === "true" && !env.BANK_TRANSFER_EXPIRY_DAYS,
     "BANK_TRANSFER_EXPIRY_DAYS unset: unpaid orders hold their stock forever",
+  );
+  note(
+    ![env.B2C_CARD_PAYMENTS, env.CHECKOUT_PAYPAL, env.B2C_BANK_TRANSFER].includes("true"),
+    "B2C_CARD_PAYMENTS, CHECKOUT_PAYPAL and B2C_BANK_TRANSFER all off: consumers and guests can't pay",
   );
   note(!open && demoSellerFields(env).length > 0, `demo seller details in use: ${demoSellerFields(env).join(", ")}`);
   return { missing, degraded };

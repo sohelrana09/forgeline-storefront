@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
 //   password from the git-ignored .env.demo that `npm run ct:seed-associates` sets on those accounts.
 // - orders: opt-in with E2E_ORDERS=1 (e2e/orders). They place real orders in the shared project (guest and consumer
 //   bank transfer, business invoice and approval) and cancel them and give the stock back afterwards; the card test
-//   stubs Checkout out. Bank-transfer tests need the server with B2C_CARD_PAYMENTS=false, the card test the default.
+//   stubs Checkout out. Bank-transfer tests need the server with B2C_CARD_PAYMENTS=false and B2C_BANK_TRANSFER=true, the card test B2C_CARD_PAYMENTS=true.
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 try {

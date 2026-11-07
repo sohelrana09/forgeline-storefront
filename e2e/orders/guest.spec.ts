@@ -3,7 +3,7 @@ import { cancelTestOrder, cleanupProblem, waitForOrder } from "./cleanup";
 import { ORDER_NUMBER, addToCart, fillGuestDetails, marker, offersCard, placeOrder, removeFromCart } from "./helpers";
 
 // A guest orders a spare part and pays by bank transfer. Needs the server with card payments off
-// (B2C_CARD_PAYMENTS=false, launch config next-dev-bank-transfer); skipped when checkout offers a card.
+// (B2C_CARD_PAYMENTS=false, B2C_BANK_TRANSFER=true, launch config next-dev-bank-transfer); skipped when checkout offers a card.
 // Creates an anonymous cart and an order; the order is cancelled and its stock given back afterwards.
 
 let orderId = "";
@@ -26,7 +26,7 @@ test("guest bank transfer: order number, pending Payment, confirmation page", as
   await fillGuestDetails(page, email);
   if (await offersCard(page)) {
     await removeFromCart(page);
-    test.skip(true, "card payments are on: start the server with B2C_CARD_PAYMENTS=false");
+    test.skip(true, "card payments are on: start the server with B2C_CARD_PAYMENTS=false and B2C_BANK_TRANSFER=true");
   }
   orderId = await placeOrder(page);
 

@@ -13,16 +13,18 @@ import { B2C_STORE_KEY } from "@/lib/commercetools/stores";
 // e.g. https://api.us-east-2.aws.commercetools.com → us-east-2.aws (the SDK's `region`, the Session API host).
 export const checkoutRegion = () => new URL(requireEnv("CTP_API_URL")).hostname.replace(/^api\./, "").replace(/\.commercetools\.com$/, "");
 
-// Card payments for consumers and guests are switched on with B2C_CARD_PAYMENTS=true. Off (the default), B2C orders
-// are placed directly and paid by bank transfer: the fallback while Checkout isn't set up (see docs/checkout-setup.md).
+// The payment methods consumers and guests are offered, one switch each, all off by default (docs/checkout-setup.md):
+//   B2C_CARD_PAYMENTS=true   credit or debit card, through commercetools Checkout
+//   CHECKOUT_PAYPAL=true     PayPal, through commercetools Checkout
+//   B2C_BANK_TRANSFER=true   bank transfer, placed directly (set BANK_TRANSFER_EXPIRY_DAYS too)
+// The switches only decide what the buyer is offered: what Checkout really takes comes from the Application's payment
+// integrations in Merchant Center, so keep the two in step. With all three off, consumers and guests can't pay.
 export const cardPaymentsEnabled = () => process.env.B2C_CARD_PAYMENTS === "true";
+export const paypalEnabled = () => process.env.CHECKOUT_PAYPAL === "true";
+export const bankTransferEnabled = () => process.env.B2C_BANK_TRANSFER === "true";
 
-// Bank transfer next to Checkout is opt-in: B2C_BANK_TRANSFER=true. Without Checkout it is the only way to pay.
-export const bankTransferEnabled = () => !cardPaymentsEnabled() || process.env.B2C_BANK_TRANSFER === "true";
-
-// What the buyer is told: Merchant Center decides what Checkout really offers, so CHECKOUT_PAYPAL=true goes with an
-// active PayPal integration on the Application.
-export const paypalEnabled = () => cardPaymentsEnabled() && process.env.CHECKOUT_PAYPAL === "true";
+// Card or PayPal: a Checkout session may be opened.
+export const checkoutPaymentsEnabled = () => cardPaymentsEnabled() || paypalEnabled();
 
 // The payment methods consumers and guests choose from, the first one selected. Card and PayPal are both paid
 // through Checkout, which is made to show only the chosen one (features/checkout/checkout-method.ts).
