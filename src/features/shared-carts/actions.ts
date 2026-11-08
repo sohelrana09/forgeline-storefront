@@ -47,8 +47,11 @@ export async function shareCartAction(_prev: ShareState, formData: FormData): Pr
   } catch (err) {
     return failed(err, "share");
   }
+  // The form that was sent goes away on refresh (the page then shows the share state), so the message goes to the
+  // page bar instead of the form.
+  await flash("success", "You sent your cart for review. We emailed your colleague.");
   refresh();
-  return { saved: "You sent your cart for review. We emailed your colleague." };
+  return {};
 }
 
 export async function withdrawShareAction(): Promise<ShareState> {
@@ -59,8 +62,11 @@ export async function withdrawShareAction(): Promise<ShareState> {
   } catch (err) {
     return failed(err, "withdraw");
   }
+  // The form that was sent goes away on refresh (the page then shows the share state), so the message goes to the
+  // page bar instead of the form.
+  await flash("success", "Your cart is no longer shared.");
   refresh();
-  return { saved: "Your cart is no longer shared." };
+  return {};
 }
 
 export async function takeOverSharedCartAction(_prev: ShareState, formData: FormData): Promise<ShareState> {
@@ -90,6 +96,9 @@ export async function declineSharedCartAction(_prev: ShareState, formData: FormD
   } catch (err) {
     return failed(err, "decline");
   }
+  // The form that was sent goes away on refresh (the page then shows the share state), so the message goes to the
+  // page bar instead of the form.
+  await flash("success", "You sent the cart back.");
   refresh();
-  return { saved: "You sent the cart back." };
+  return {};
 }

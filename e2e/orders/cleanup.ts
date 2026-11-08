@@ -167,6 +167,12 @@ export async function deleteTestCart(id: string) {
   await ct(`/carts/${encodeURIComponent(id)}?version=${cart.version}`, { method: "DELETE" });
 }
 
+// Carts of a customer in a unit (ids only), to find the cart a flow created on the server, such as a PunchOut session.
+export async function cartIdsOf(customerId: string, unitKey: string): Promise<string[]> {
+  const where = encodeURIComponent(`customerId="${customerId.replace(/"/g, "")}" and businessUnit(key="${unitKey.replace(/"/g, "")}")`);
+  return (await ct<{ results: { id: string }[] }>(`/carts?where=${where}&limit=500`)).results.map((c) => c.id);
+}
+
 // Recurring orders a test set up for the buyer (features/recurring-orders): cancelled if still running, then deleted
 // with their blueprint cart. Needs manage_recurring_orders on the cleanup client.
 type RecurringOrder = { id: string; version: number; recurringOrderState: string; cart: { id: string } };
