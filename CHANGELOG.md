@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.3.0 (2026-11-08)
+
+17 new B2B and B2C features, each off until its environment flag is set, plus a setup check that knows which scopes your switched-on features need. Release note: [v2.3.0 on GitHub](https://github.com/sohelrana09/forgeline-storefront/releases/tag/v2.3.0).
+
+- **B2B buying:** procurement fields at checkout (`PROCUREMENT_FIELDS`), budgets per company and buyer (`SPENDING_LIMITS`), recurring orders on native commercetools Recurring Orders (`RECURRING_ORDERS`), shared carts (`SHARED_CARTS`), cXML and OCI PunchOut (`PUNCHOUT`), and purchase order to cart with Claude (`AI_PO_TO_CART`).
+- **Finding parts:** fitment with "My equipment", compare up to four products, spec sheet PDFs and downloads, a category table view, and company assortments through Product Selections.
+- **Consumers:** reviews from verified buyers (`REVIEWS`), back-in-stock alerts (`STOCK_ALERTS`), wallet buttons on the cart (`CHECKOUT_EXPRESS`), a free-shipping bar and recently viewed products.
+- **Platform:** one language per deployment (`NEXT_PUBLIC_SITE_LOCALE`), a GA4 data layer with a consent banner (`NEXT_PUBLIC_GTM_ID`), category listings on the Product Search API (`CATALOG_SEARCH=product-search`), and demo personas with a nightly reset (`DEMO_MODE`).
+- **Quality:** WCAG 2.1 AA checks on 31 pages, Lighthouse CI budgets (`npm run lhci`), OpenTelemetry tracing.
+- **Setup:** `npm run setup -- --check` adds the scopes of switched-on features (`DEMO_MODE` now needs `manage_quote_requests` and `manage_staged_quotes`) and accepts `view_products` with `RESTOCK_ON_CANCEL=false`. `NEXT_PUBLIC_PRODUCT_IMAGES_URL` sets the product image folder. The Deploy with Vercel button asks for `SESSION_SECRET`, and production refuses a session key under 32 characters. A new wiki covers setup, configuration, flags and troubleshooting.
+- **Fixed:** real 404s for switched-off feature pages, shared-cart messages, the Product Search pause in prerendered pages, and the demo reset on a narrowed API client.
+
 ## v2.2.0 (2026-11-08)
 
 Pay by card, PayPal or bank transfer in one clear payment step, with Braintree cards and a storefront hardened for production: stock, payments, sessions, access checks, speed and resilience. Release note: [v2.2.0 on GitHub](https://github.com/sohelrana09/forgeline-storefront/releases/tag/v2.2.0).
