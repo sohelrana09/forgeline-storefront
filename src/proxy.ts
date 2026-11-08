@@ -1,4 +1,5 @@
 import { PRIVATE_SEGMENTS } from "@/lib/private-segments";
+import { isDisabledFeaturePath } from "@/lib/feature-routes";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { RESERVED_SEGMENTS, isLocalPath } from "@/lib/urls";
@@ -59,6 +60,9 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     if (POLICY.studioOrigin) return NextResponse.redirect(`${STUDIO_URL!.replace(/\/+$/, "")}${pathname.slice("/studio".length)}`, 307);
     return withPolicy(NextResponse.next(), studioPolicy());
   }
+  // A switched-off feature's page: a real 404 (the catch-all route answers an unknown path with one before streaming).
+  if (isDisabledFeaturePath(pathname))
+    return withPolicy(NextResponse.rewrite(new URL("/feature-not-available", request.url)), shellPolicy(POLICY));
   const first = pathname.split("/")[1] ?? "";
   if (pageLoad && first === "account" && !request.cookies.has(SESSION_COOKIE))
     return NextResponse.redirect(new URL("/login", request.url), 307);
