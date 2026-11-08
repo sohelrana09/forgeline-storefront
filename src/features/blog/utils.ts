@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import type { PostFilter } from "@/features/blog/types";
 
 // Blog URLs: /blog, /blog/<post>, /blog/category/<slug>, /blog/tag/<tag>, ?page=N for later pages.
@@ -27,4 +28,4 @@ export function tagCounts(tags: string[][]): { tag: string; count: number }[] {
 }
 
 export const formatPostDate = (iso: string) =>
-  new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(iso));
+  new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(iso));

@@ -34,6 +34,17 @@ The list is in [`src/lib/commercetools/scopes.ts`](../src/lib/commercetools/scop
 
 Every write with these scopes happens only after the signed-in associate's permission is checked live in the selected business unit.
 
+### Scopes of optional features
+
+Optional features (`docs/features/`) that need more rights list them in `FEATURE_SCOPES` (`src/lib/commercetools/scopes.ts`), by the env flag that switches them on. `npm run setup -- --check` adds them to the comparison only when that flag is `true`, so a shop without the feature keeps the narrower client.
+
+| Flag | Scopes | Why |
+|---|---|---|
+| `RECURRING_ORDERS` | `manage_recurring_orders`, `view_recurrence_policies` | Native Recurring Orders have no customer (`/me`) endpoint: the shop creates and changes them for the buyer after checking ownership and permissions ([recurring-orders](features/recurring-orders.md)) |
+| `REVIEWS` | `manage_reviews`, `view_states` | commercetools has no `/me/reviews`: the shop writes a verified buyer's review for them, and reads the moderation states ([b2c-engagement](features/b2c-engagement.md)) |
+
+Scripts for one-off setup need more than the runtime client and are best run with a separate admin client: `ct:product-selections` (`manage_product_selections`, `manage_stores`) and `ct:review-states` (`manage_states`).
+
 **Easy to get wrong in the form:** for standalone prices, categories, stores, shipping methods and associate roles tick **View**, not Manage (Manage lets a leak change your catalog and prices). For business units tick **Manage**, project-wide: without it, signed-in buyers can't load their company and every account page fails. `npm run setup -- --check` lists both what's missing and what's more than needed.
 
 ## Switching over

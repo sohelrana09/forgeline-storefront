@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import Link from "next/link";
 
 // The header cart's face: icon with the item count, and "My cart" with the total. The minicart
@@ -13,14 +14,17 @@ export function MiniCartBadge({ items, total }: { items?: number; total?: string
           <circle cx="17" cy="19.5" r="1.3" />
         </svg>
         {items !== undefined && (
-          <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-xs font-bold text-white">
+          <span
+            aria-hidden="true"
+            className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-xs font-bold text-white"
+          >
             {items}
           </span>
         )}
       </span>
-      <span className="hidden text-sm sm:block">
-        <span className="block text-xs text-gray-300">My cart</span>
-        <span className="font-semibold">{items === undefined ? "\u00a0" : (total ?? "Empty")}</span>
+      <span className="sr-only text-sm sm:not-sr-only sm:block">
+        <span className="block text-xs text-gray-300">{t("header.myCart")}</span>
+        <span className="font-semibold">{items === undefined ? "\u00a0" : (total ?? t("header.empty"))}</span>
       </span>
     </>
   );
@@ -30,7 +34,7 @@ export function MiniCartBadge({ items, total }: { items?: number; total?: string
 export function MiniCartPlaceholder() {
   return (
     <div className="relative ml-auto sm:ml-0">
-      <Link href="/cart" aria-label="Cart" className="flex items-center gap-3 text-gray-50 no-underline hover:text-white">
+      <Link href="/cart" className="flex items-center gap-3 text-gray-50 no-underline hover:text-white">
         <MiniCartBadge />
       </Link>
     </div>

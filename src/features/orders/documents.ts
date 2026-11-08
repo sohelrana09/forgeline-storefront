@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import type { BaseAddress, Order } from "@commercetools/platform-sdk";
 import type { PaymentKind } from "@/features/order-processing/payment";
 import { localize } from "@/features/catalog/utils";
@@ -5,6 +6,7 @@ import { summarize } from "@/features/cart/summary";
 import { formatMoney } from "@/lib/utils";
 import { SELLER } from "@/lib/seller";
 import { orderReference as orderRef } from "@/features/orders/utils";
+import { procurementRows, readProcurement } from "@/features/checkout/procurement";
 
 // Order documents as plain data (pure, unit-tested); src/features/orders/pdf.ts draws them.
 // commercetools issues no invoices: an invoice is offered once fulfilment confirmed the order (state Confirmed or
@@ -44,7 +46,10 @@ const addressLines = (a?: BaseAddress) =>
       ].filter((l): l is string => Boolean(l))
     : [];
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const day = (iso: string) => new Date(iso).toLocaleDateString(dateLocale(), { day: "2-digit", month: "short", year: "numeric" });
+// A calendar day (YYYY-MM-DD) prints as that day wherever the server runs.
+export const calendarDay = (ymd: string) =>
+  new Date(`${ymd}T00:00:00Z`).toLocaleDateString(dateLocale(), { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 
 // `buyer`: the company name for business orders. `payment`: how the order is paid, as the order page says it. The
 // invoice date is the order's completion (else its last change), so the same invoice always prints the same.
@@ -58,6 +63,7 @@ export function orderDocument(
   const ref = orderRef(order);
   const invoice = kind === "invoice";
   const issued = order.completedAt ?? order.lastModifiedAt;
+  const procurement = readProcurement(order.custom);
   const due = new Date(new Date(issued).getTime() + SELLER.paymentTermsDays * 24 * 60 * 60 * 1000).toISOString();
 
   const meta: [string, string][] = [
@@ -70,6 +76,7 @@ export function orderDocument(
     ["Order number", ref],
     ["Order date", day(order.createdAt)],
     ...(order.purchaseOrderNumber ? ([["Purchase order", order.purchaseOrderNumber]] as [string, string][]) : []),
+    ...procurementRows(procurement, calendarDay),
     ...(buyer ? ([["Customer", buyer]] as [string, string][]) : []),
     ...(invoice && payment === "invoice" ? ([["Due date", day(due)]] as [string, string][]) : []),
   ];
@@ -107,6 +114,8 @@ export function orderDocument(
     ],
     total: ["Total", money(s.total)],
     notes: [
+      // The buyer's own words: one paragraph (the PDF draws no line breaks), labelled so it can't pass for ours.
+      ...(procurement.orderNote ? [`Buyer's note: ${procurement.orderNote.replace(/\s*\n+\s*/g, " ")}`] : []),
       paymentNote,
       ...(order.orderState === "Cancelled" ? ["This order was cancelled."] : []),
       ...(invoice ? [] : ["This is an order confirmation, not an invoice. The invoice follows once the order is confirmed."]),

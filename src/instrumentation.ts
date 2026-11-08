@@ -5,6 +5,9 @@ export async function register() {
   // commercetools and Sanity, and calls made together open extra ones. Keep them open for a minute instead.
   const { Agent, setGlobalDispatcher } = await import("undici");
   setGlobalDispatcher(new Agent({ keepAliveTimeout: 60_000, keepAliveMaxTimeout: 600_000 }));
+  // Traces to an OTLP backend, only when one is configured (docs/features/quality-gates.md).
+  const { otelEnabled } = await import("@/lib/otel-config");
+  if (otelEnabled()) (await import("@/lib/otel")).registerTracing();
   // A production deployment must not look healthy while it is misconfigured.
   if (process.env.NODE_ENV === "production") {
     const { checkEnv } = await import("@/lib/env");

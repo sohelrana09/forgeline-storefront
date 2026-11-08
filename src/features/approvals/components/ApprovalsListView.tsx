@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatMoney } from "@/lib/utils";
@@ -11,7 +12,7 @@ import { orderReference } from "@/features/orders/service";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 
-const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
+const date = (iso: string) => new Date(iso).toLocaleDateString(dateLocale());
 
 // Order approvals: orders of the selected unit that matched an approval rule. Pending first (the
 // default tab); "All" includes approved and rejected ones. For associates with UpdateApprovalFlows (checked live).

@@ -36,7 +36,12 @@ const nextConfig: NextConfig = {
   // fallback with status 200 instead of a real 404.
   partialPrefetching: false,
   // Several root layouts ((shop), (private), studio), so unmatched URLs get src/app/global-not-found.tsx.
-  experimental: { globalNotFound: true },
+  experimental: {
+    globalNotFound: true,
+    // Server Actions accept 1 MB by default; reading a PDF purchase order (AI_PO_TO_CART, up to 5 MB) needs a little
+    // more. Raised only when the feature is on, at build time.
+    ...(process.env.AI_PO_TO_CART === "true" && { serverActions: { bodySizeLimit: "6mb" } }),
+  },
   poweredByHeader: false,
   // Images go through the optimizer only from these exact hosts (a wildcard would make it an open image proxy):
   // the sample data's bucket, this project's commercetools CDN folder (product images uploaded in Merchant Center) and
@@ -66,7 +71,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      { source: "/:path*", headers: securityHeaders },
+      // Everything but the PunchOut return page, which sets its own CSP (its form posts to the buyer's procurement
+      // system; browsers apply every CSP header, so the base form-action 'self' would block it).
+      { source: "/:path((?!api/punchout/return$).*)", headers: securityHeaders },
+      { source: "/api/punchout/return", headers: securityHeaders.filter((h) => h.key !== "Content-Security-Policy") },
       // Pages whose URL carries a one-time token: never leak it in a Referer header, never cache the page.
       ...["/reset-password", "/verify-email"].map((source) => ({
         source,

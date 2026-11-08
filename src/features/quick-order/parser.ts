@@ -4,7 +4,7 @@
 import type { QuickOrderError, QuickOrderLine } from "@/features/quick-order/types";
 
 export const MAX_LINES = 100;
-const MAX_QUANTITY = 9999;
+export const MAX_QUANTITY = 9999;
 
 export function parseQuickOrder(input: string): { lines: QuickOrderLine[]; errors: QuickOrderError[] } {
   const merged = new Map<string, number>();

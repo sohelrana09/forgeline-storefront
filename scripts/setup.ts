@@ -15,7 +15,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { demoPassword, parseEnv, REGIONS, regionOf, regionUrls, setEnvValue, storefrontScopes } from "./setup/lib";
-import { RUNTIME_SCOPES, compareScopes } from "../src/lib/commercetools/scopes";
+import { compareScopes, requiredScopes } from "../src/lib/commercetools/scopes";
 
 const args = process.argv.slice(2);
 const check = args.includes("--check");
@@ -284,10 +284,15 @@ async function runtimeClient() {
   // needs: a Manage scope covers its View scope, and anything beyond the list is reported too.
   const all = await token(id, secret, "");
   if (!all.ok) throw new SetupError(`the runtime client was refused (${all.error}): check CTP_CLIENT_ID and CTP_CLIENT_SECRET`);
-  const { missing, extra } = compareScopes(all.scope.split(" ").map((s) => s.split(":")[0]));
+  // Optional features switched on in the env file (FEATURE_SCOPES) need their scopes too.
+  const required = requiredScopes(Object.fromEntries(env()));
+  const { missing, extra } = compareScopes(
+    all.scope.split(" ").map((s) => s.split(":")[0]),
+    required,
+  );
   if (missing.length) say("todo", `the runtime client (CTP_CLIENT_*) lacks: ${missing.join(" ")} (${NEW_CLIENT} CTP_CLIENT_*)`);
   if (extra.length) say("todo", `the runtime client has rights the shop doesn't need: ${extra.join(" ")} (${NEW_CLIENT} CTP_CLIENT_*)`);
-  if (!missing.length && !extra.length) say("ok", `narrowed client: the ${RUNTIME_SCOPES.length} scopes the shop needs, nothing more`);
+  if (!missing.length && !extra.length) say("ok", `narrowed client: the ${required.length} scopes the shop needs, nothing more`);
 }
 
 async function demoUsers() {

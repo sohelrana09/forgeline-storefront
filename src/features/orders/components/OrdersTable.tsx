@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import Link from "next/link";
 import type { Order } from "@commercetools/platform-sdk";
 import { formatMoney } from "@/lib/utils";
@@ -8,7 +9,7 @@ import { ReorderButton } from "@/features/orders/components/ReorderButton";
 import { APPROVAL_STATES } from "@/features/approvals/utils";
 import type { OrderApproval } from "@/features/approvals/types";
 
-const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
+const date = (iso: string) => new Date(iso).toLocaleDateString(dateLocale());
 
 // Order grid: Order #, Date, Ship To, PO, Order Total, Status, then View Order / Reorder.
 // `ownerId` set: a company-wide list, so show who placed each order (`names`: customer id → colleague's name;

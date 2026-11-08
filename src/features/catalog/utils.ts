@@ -1,9 +1,12 @@
+import { localizeIn, siteLocale } from "@/lib/i18n";
 import type { Attribute, LocalizedString, Price, ProductProjection, ProductVariant } from "@commercetools/platform-sdk";
 
 // Pure catalog helpers (no API calls): safe for any component.
 import { categoryPath, productPath } from "@/lib/urls";
 
-export const LOCALE = "en-US";
+// The site's commercetools locale (NEXT_PUBLIC_SITE_LOCALE, src/lib/i18n.ts): product and category names, slugs in
+// predicates, sorting.
+export const LOCALE = siteLocale();
 
 // Storefront URLs (src/lib/urls.ts): a category's path from its trail (top level down to itself), a product at the root.
 export const categoryHref = (trail: { slug: LocalizedString }[]) => categoryPath(trail.map((c) => localize(c.slug)));
@@ -11,8 +14,7 @@ export const productHref = (slug: LocalizedString | string | undefined, sku?: st
   productPath(typeof slug === "string" ? slug : localize(slug), sku);
 
 export function localize(value: LocalizedString | undefined): string {
-  if (!value) return "";
-  return value[LOCALE] ?? Object.values(value)[0] ?? "";
+  return localizeIn(value, LOCALE);
 }
 
 // Above this a product is quote-only (machines).

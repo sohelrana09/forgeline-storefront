@@ -12,6 +12,7 @@ import { changeMyPassword, removeMyAddress, saveMyAddress, updateMe } from "@/fe
 import { getCustomerContexts } from "@/features/business-units/service";
 import { hasCode } from "@/lib/commercetools/errors";
 import { requestCustomerToken, revokeToken } from "@/lib/commercetools/customer-token";
+import { demoLocked } from "@/features/demo/demo";
 import { CONSUMER_COUNTRIES } from "@/features/business-units/service";
 import { NAME_PATTERN, parseAddress } from "@/features/account/utils";
 import type { AccountInfoState, AddressFormState, ChangePasswordState } from "@/features/account/types";
@@ -48,6 +49,8 @@ export async function updateAccountInformation(_prev: AccountInfoState, formData
 // survive this), this one continues on a new token.
 export async function changePassword(_prev: ChangePasswordState, formData: FormData): Promise<ChangePasswordState> {
   const { session } = await requireShopContext();
+  const locked = demoLocked(session.email);
+  if (locked) return { error: locked };
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");
   if (!currentPassword) return { error: "Enter your current password." };

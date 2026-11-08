@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE cXML SYSTEM "http://xml.cxml.org/schemas/cXML/1.2.014/cXML.dtd">
+<cXML payloadID="1699999999.123@buyer.example" timestamp="2026-11-08T10:00:00+00:00" xml:lang="en-US">
+  <Header>
+    <From>
+      <Credential domain="NetworkID">
+        <Identity>LIFTTECH-ES</Identity>
+      </Credential>
+    </From>
+    <To>
+      <Credential domain="DUNS">
+        <Identity>FORGELINE</Identity>
+      </Credential>
+    </To>
+    <Sender>
+      <Credential domain="NetworkID">
+        <Identity>LIFTTECH-ES</Identity>
+        <SharedSecret>correct horse battery staple</SharedSecret>
+      </Credential>
+      <UserAgent>Procurement Suite 9</UserAgent>
+    </Sender>
+  </Header>
+  <Request>
+    <PunchOutSetupRequest operation="create">
+      <BuyerCookie>34234234ADFSDF234234</BuyerCookie>
+      <Extrinsic name="UserEmail">sofia-lopez@ltsl.com</Extrinsic>
+      <BrowserFormPost>
+        <URL>https://procurement.example.com/punchout/return?session=abc</URL>
+      </BrowserFormPost>
+      <Contact role="endUser">
+        <Name xml:lang="en">Sofía López</Name>
+        <Email>sofia-lopez@ltsl.com</Email>
+      </Contact>
+      <SupplierSetup>
+        <URL>https://shop.example.com/api/punchout/setup</URL>
+      </SupplierSetup>
+    </PunchOutSetupRequest>
+  </Request>
+</cXML>

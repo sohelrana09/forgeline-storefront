@@ -85,14 +85,15 @@ export function MiniCart({ initial = EMPTY_MINICART, remember = false }: { initi
     };
   }, [open, close, panelId]);
 
-  const label = `Cart, ${summary.items} ${summary.items === 1 ? "item" : "items"}${summary.total ? `, ${summary.total}` : ""}`;
+  // The link's name is its visible text ("My cart", the total) plus the item count for screen readers, so voice
+  // control users can say what they see (WCAG 2.5.3).
+  const count = `, ${summary.items} ${summary.items === 1 ? "item" : "items"}`;
 
   return (
     <div ref={root} className="relative ml-auto sm:ml-0">
       <Link
         ref={toggle}
         href="/cart"
-        aria-label={label}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={(e) => {
@@ -102,6 +103,7 @@ export function MiniCart({ initial = EMPTY_MINICART, remember = false }: { initi
         className="flex items-center gap-3 text-gray-50 no-underline hover:text-white"
       >
         <MiniCartBadge items={summary.items} total={summary.total} />
+        <span className="sr-only">{count}</span>
       </Link>
 
       {open && (

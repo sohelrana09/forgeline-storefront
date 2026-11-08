@@ -15,6 +15,9 @@ export type PolicyOptions = {
   reportUri?: string;
   paypal?: boolean;
   braintree?: boolean;
+  // Google Tag Manager and Google Analytics 4 (NEXT_PUBLIC_GTM_ID): the container script, GA4's collection endpoints
+  // and its pixel fallback. Tags of other vendors in the container need their hosts here too.
+  analytics?: boolean;
 };
 
 const reporting = (reportUri?: string) => (reportUri ? [`report-uri ${reportUri}`] : []);
@@ -59,6 +62,10 @@ const BRAINTREE = [
   "https://*.cardinaltrusted.com",
 ];
 
+const GTM_SCRIPT = "https://www.googletagmanager.com";
+const GA = ["https://www.googletagmanager.com", "https://*.google-analytics.com", "https://*.analytics.google.com"];
+const ga = (on?: boolean) => (on ? GA : []);
+
 // Sanity's API for this project only: draft preview (Visual Editing) on the storefront's pages.
 const sanityApi = (projectId?: string) => (projectId ? [`https://${projectId}.api.sanity.io`, `wss://${projectId}.api.sanity.io`] : []);
 
@@ -75,17 +82,17 @@ function pagePolicy(connect: string[], frames: string[], dev: boolean, images: s
   ];
 }
 
-export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri, paypal, braintree }: PolicyOptions): string {
+export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri, paypal, braintree, analytics }: PolicyOptions): string {
   const payments = [...(paypal ? PAYPAL : []), ...(braintree ? BRAINTREE : [])];
   const scripts = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:", "'unsafe-inline'", ...devEval(dev)];
   return [
     ...basePolicy(studioOrigin, braintree ? CARDINAL_FORMS : []),
     `script-src ${scripts.join(" ")}`,
     ...pagePolicy(
-      [...CHECKOUT, ...payments],
+      [...CHECKOUT, ...payments, ...ga(analytics)],
       [...CHECKOUT, ...payments],
       dev,
-      payments,
+      [...payments, ...ga(analytics)],
       [...CHECKOUT, CHECKOUT_FONTS.styles, ...payments],
       [CHECKOUT_FONTS.fonts],
     ),
@@ -93,12 +100,12 @@ export function noncePolicy(nonce: string, { dev, studioOrigin, reportUri, paypa
   ].join("; ");
 }
 
-export function shellPolicy({ dev, sanityProjectId, studioOrigin, reportUri }: PolicyOptions): string {
-  const scripts = ["'self'", "'unsafe-inline'", ...devEval(dev)];
+export function shellPolicy({ dev, sanityProjectId, studioOrigin, reportUri, analytics }: PolicyOptions): string {
+  const scripts = ["'self'", "'unsafe-inline'", ...(analytics ? [GTM_SCRIPT] : []), ...devEval(dev)];
   return [
     ...basePolicy(studioOrigin),
     `script-src ${scripts.join(" ")}`,
-    ...pagePolicy(sanityApi(sanityProjectId), [], dev),
+    ...pagePolicy([...sanityApi(sanityProjectId), ...ga(analytics)], [], dev, ga(analytics)),
     ...reporting(reportUri),
   ].join("; ");
 }

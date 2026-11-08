@@ -1,3 +1,6 @@
+import { TrackPurchase } from "@/features/analytics/components/DataLayer";
+import { purchaseEvent } from "@/features/analytics/events";
+import { orderInput } from "@/features/analytics/items";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { guestOrder } from "@/features/checkout/service";
@@ -31,6 +34,7 @@ export async function GuestOrderConfirmation({
 
   return (
     <div className="flex flex-col gap-6">
+      <TrackPurchase id={order.id} createdAt={order.createdAt} event={purchaseEvent(orderInput(order))} />
       <div className="rounded-md border border-green-200 bg-green-50 p-5">
         <h1 className="m-0 text-2xl font-bold text-green-900">Thank you for your order</h1>
         <p className="m-0 mt-1 text-sm text-green-900">

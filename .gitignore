@@ -75,3 +75,7 @@ __pycache__/
 # Local drafts: release notes (published on GitHub Releases) and reviews, not committed
 docs/releases/
 docs/review/
+docs/features/
+
+# Lighthouse CI reports (npm run lhci)
+/.lighthouseci/

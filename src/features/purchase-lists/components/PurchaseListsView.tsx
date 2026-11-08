@@ -1,5 +1,8 @@
+import { dateLocale } from "@/lib/i18n";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RecurringEntry } from "@/features/recurring-orders/components/RecurringEntry";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ListToolbar } from "@/components/ui/ListToolbar";
 import { lookupSkus } from "@/features/cart/service";
@@ -17,7 +20,7 @@ import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { Message } from "@/components/ui/Message";
 
-const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
+const date = (iso: string) => new Date(iso).toLocaleDateString(dateLocale());
 
 // The customer's purchase lists in the selected unit's store, newest change first; for business buyers who may see
 // them, the company's shared lists below (paged on their own, ?cpage).
@@ -237,6 +240,11 @@ export async function PurchaseListView({
         </div>
         {list.canDelete && <DeleteListButton listId={list.id} name={list.name} scope={scope} />}
       </div>
+      {lines.length > 0 && (
+        <Suspense fallback={null}>
+          <RecurringEntry context={context} sourceKind="list" sourceId={list.id} listScope={scope} />
+        </Suspense>
+      )}
       {lines.length === 0 ? (
         <p className="m-0 rounded-md border border-gray-200 bg-white p-5 text-sm text-gray-600">
           This list is empty. Use &ldquo;Add to purchase list&rdquo; on a product page, in your cart or in Quick order.

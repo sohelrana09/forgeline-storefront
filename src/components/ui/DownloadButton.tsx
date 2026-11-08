@@ -20,7 +20,6 @@ export function DownloadButton({
     <a
       href={href}
       download
-      aria-label={`Download ${label} (${fileType})`}
       className={`items-center justify-center gap-2 rounded border border-gray-300 bg-white font-semibold text-gray-800 no-underline hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700 ${
         block ? "flex w-full sm:inline-flex sm:w-auto" : "inline-flex"
       } ${size === "sm" ? "min-h-9 px-3 text-sm" : "min-h-11 px-4 text-sm"}`}
@@ -35,6 +34,8 @@ export function DownloadButton({
       >
         <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
+      {/* The name is the visible text with "Download" in front, so voice control users can say what they see. */}
+      <span className="sr-only">Download </span>
       {shortLabel ? (
         <>
           <span className="sm:hidden">{shortLabel}</span>

@@ -1,3 +1,6 @@
+import { TrackEvent } from "@/features/analytics/components/DataLayer";
+import { itemListEvent, searchEvent } from "@/features/analytics/events";
+import { productItems } from "@/features/analytics/items";
 import Link from "next/link";
 import { searchProducts } from "@/features/catalog/service";
 import { taxNote } from "@/features/catalog/utils";
@@ -24,6 +27,8 @@ export async function SearchResultsView({
   return (
     <div className="flex flex-col gap-6">
       <Breadcrumbs items={[{ label: `Search results for "${query}"` }]} />
+      {page === 1 && <TrackEvent event={searchEvent(query, total)} />}
+      {products.length > 0 && <TrackEvent event={itemListEvent("search", "Search results", productItems(products), (page - 1) * size)} />}
       <h1 className="m-0 text-2xl font-bold">Search results for: &lsquo;{query}&rsquo;</h1>
       {corrected && total > 0 && (
         <p className="m-0 -mt-3 text-sm text-gray-700">

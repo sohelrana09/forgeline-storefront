@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Session } from "@/features/auth/session";
@@ -30,7 +31,7 @@ export async function QuoteView({ session, context, id }: { session: Session; co
         <StateBadge state={quote.quoteState} map={QUOTE_STATES} />
       </div>
       <p className="m-0 text-sm text-gray-600">
-        {quote.validTo ? `Valid until ${new Date(quote.validTo).toLocaleDateString("en-GB")}` : "No expiry date"}
+        {quote.validTo ? `Valid until ${new Date(quote.validTo).toLocaleDateString(dateLocale())}` : "No expiry date"}
         {expired && " · expired"}
         {" · for "}
         <Link href={`/account/quotes/requests/${quote.quoteRequest.id}`} className="text-orange-800">

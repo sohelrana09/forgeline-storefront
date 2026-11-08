@@ -93,10 +93,12 @@ test("order documents: CSV export, order confirmation and invoice", async ({ pag
   await page.goto("/account/orders");
   const [csv] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("link", { name: "Download Export orders (CSV)" }).click(),
+    page.getByRole("link", { name: /^Download Export orders\s*CSV$/ }).click(),
   ]);
   expect(csv.suggestedFilename()).toMatch(/^my-orders-\d{4}-\d{2}-\d{2}\.csv$/);
-  expect((await body(csv)).toString("utf8")).toMatch(/^﻿Order,Date,Purchase order,Status,Items,Net,Tax,Total,Currency\r\n/);
+  expect((await body(csv)).toString("utf8")).toMatch(
+    /^﻿Order,Date,Purchase order,Status,Items,Net,Tax,Total,Currency(,Cost centre,Project code,Requested delivery,Order note)?\r\n/,
+  );
 
   await page
     .getByRole("link", { name: /^View order / })
@@ -105,13 +107,13 @@ test("order documents: CSV export, order confirmation and invoice", async ({ pag
   await page.waitForURL(/\/account\/orders\/[0-9a-f-]{36}$/);
   const [confirmation] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("link", { name: "Download Order confirmation (PDF)" }).click(),
+    page.getByRole("link", { name: /^Download Order confirmation\s*PDF$/ }).click(),
   ]);
   expect(confirmation.suggestedFilename()).toMatch(/^order-confirmation-.+\.pdf$/);
   expect((await body(confirmation)).subarray(0, 5).toString()).toBe("%PDF-");
 
   // Only Confirmed or Complete orders have an invoice (the demo data keeps one confirmed order).
-  const invoice = page.getByRole("link", { name: "Download Invoice (PDF)" });
+  const invoice = page.getByRole("link", { name: /^Download Invoice\s*PDF$/ });
   if (await invoice.count()) {
     const [file] = await Promise.all([page.waitForEvent("download"), invoice.click()]);
     expect(file.suggestedFilename()).toMatch(/^invoice-.+\.pdf$/);

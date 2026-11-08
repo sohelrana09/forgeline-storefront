@@ -1,4 +1,5 @@
 "use server";
+import { PROCUREMENT_KEYS, parseProcurement, procurementEnabled, type Procurement } from "@/features/checkout/procurement";
 
 import { cookies } from "next/headers";
 import { revalidatePath, refresh } from "next/cache";
@@ -91,15 +92,26 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
 
+  // Cost centre, project code, delivery date and note (PROCUREMENT_FIELDS=true), checked before anything is written.
+  let procurement: Procurement | undefined;
+  if (procurementEnabled()) {
+    const field = (k: string) => (typeof formData.get(k) === "string" ? String(formData.get(k)) : undefined);
+    const parsed = parseProcurement(Object.fromEntries(PROCUREMENT_KEYS.map((k) => [k, field(k)])), new Date());
+    if (!parsed.ok) return { error: parsed.error };
+    procurement = parsed.value;
+  }
+
   let order: Order;
+  let budgetWarning: string | undefined;
   try {
-    order = await placeOrder(
+    ({ order, budgetWarning } = await placeOrder(
       session,
       context,
       cartId,
       Number(formData.get("cartVersion")),
       String(formData.get("purchaseOrderNumber") ?? "").trim(),
-    );
+      procurement,
+    ));
   } catch (err) {
     unstable_rethrow(err); // signed out (revoked token)
     // Re-render the page so the form carries the cart's current version (setting the PO may have bumped it).
@@ -111,6 +123,8 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
 
   (await cookies()).delete(cartCookie(context.businessUnitKey));
   refreshPages();
+  // Over a budget in warn mode (features/spending-limits): placed, and the buyer is told on the order page.
+  if (budgetWarning) await flash("warning", budgetWarning);
   const placed = await numberNewOrder(order);
   // After the response: the Payment, the confirmation and telling approvers (and again from the Subscription and the
   // sweep, which skip what is done).

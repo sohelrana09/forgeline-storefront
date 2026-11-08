@@ -17,6 +17,19 @@ describe("CSP", () => {
   it("allows only this site's scripts on cached pages", () =>
     expect(scriptSrc(shellPolicy(prod))).toBe("script-src 'self' 'unsafe-inline'"));
 
+  it("adds Tag Manager and GA4 hosts only when analytics is on", () => {
+    const on = { dev: false, analytics: true };
+    expect(scriptSrc(shellPolicy(on))).toBe("script-src 'self' 'unsafe-inline' https://www.googletagmanager.com");
+    // 'strict-dynamic' already trusts what the bundled loader adds: no host in the nonce policy's script-src.
+    expect(scriptSrc(noncePolicy("abc", on))).not.toContain("googletagmanager");
+    for (const p of [shellPolicy(on), noncePolicy("abc", on)]) {
+      expect(directive(p, "connect-src")).toContain("https://*.google-analytics.com");
+      expect(directive(p, "img-src")).toContain("https://*.google-analytics.com");
+    }
+    expect(shellPolicy(prod)).not.toMatch(/googletagmanager|google-analytics/);
+    expect(noncePolicy("abc", prod)).not.toContain("google-analytics");
+  });
+
   it("lets the Studio load Sanity's bridge script", () => expect(scriptSrc(studioPolicy())).toContain("https://core.sanity-cdn.com"));
 
   it("adds eval and the live-reload socket in development only", () => {

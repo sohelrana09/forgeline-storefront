@@ -21,6 +21,11 @@ export const SORTS = {
 } as const;
 export type SortKey = keyof typeof SORTS;
 export const DEFAULT_SORT: SortKey = "name-asc";
+// Grid (cards) or table (dense rows for buyers who know what they want); ?view=table, grid by default.
+export const VIEWS = ["grid", "table"] as const;
+export type View = (typeof VIEWS)[number];
+export const parseView = (raw?: string | string[]): View => ((Array.isArray(raw) ? raw[0] : raw) === "table" ? "table" : "grid");
+
 export const LIMITS = [12, 24, 48] as const;
 export const DEFAULT_LIMIT = 24;
 
@@ -34,7 +39,7 @@ type AttributeFilter = {
 
 const attr = (v: ProductVariant, name: string) => v.attributes?.find((a) => a.name === name)?.value as unknown;
 
-const CAPACITY_BUCKETS = [
+export const CAPACITY_BUCKETS = [
   { value: "0-499", label: "Under 500", from: 0, to: 500 },
   { value: "500-999", label: "500 to 999", from: 500, to: 1000 },
   { value: "1000-9999", label: "1,000 to 9,999", from: 1000, to: 10_000 },
@@ -91,8 +96,8 @@ export const ATTRIBUTE_FILTERS: AttributeFilter[] = [
   },
 ];
 
-export type Filters = Partial<Record<AttributeFilter["key"] | "price" | "cat", string>>;
-export const FILTER_KEYS = ["price", "cat", ...ATTRIBUTE_FILTERS.map((f) => f.key)] as const;
+export type Filters = Partial<Record<AttributeFilter["key"] | "price" | "cat" | "fits", string>>;
+export const FILTER_KEYS = ["price", "cat", "fits", ...ATTRIBUTE_FILTERS.map((f) => f.key)] as const;
 const VALUE = /^[a-z0-9-]{1,40}$/;
 
 // Only known keys with plain values; a repeated parameter keeps its first value.
@@ -144,7 +149,15 @@ function inPriceRange(p: ProductProjection, range: string) {
 // Categories: the child slug's whole subtree (products sit on leaf categories).
 export type CategoryOption = { slug: string; name: string; ids: Set<string> };
 
-function matches(p: ProductProjection, filters: Filters, categories: CategoryOption[], except?: string) {
+// Fitment (features/fitment): ?fits=<machine URL key> keeps the parts that fit that machine. `options` are every
+// machine (so a link from a product page works for anyone); the facet lists only `shown` (the company's equipment).
+export type FitsOptions = { options: CategoryOption[]; shown: string[] };
+
+function matches(p: ProductProjection, filters: Filters, categories: CategoryOption[], except?: string, fits?: FitsOptions) {
+  if (filters.fits && except !== "fits") {
+    const machine = fits?.options.find((m) => m.slug === filters.fits);
+    if (!machine || !machine.ids.has(p.id)) return false;
+  }
   if (filters.price && except !== "price" && !inPriceRange(p, filters.price)) return false;
   if (filters.cat && except !== "cat") {
     const cat = categories.find((c) => c.slug === filters.cat);
@@ -188,9 +201,23 @@ export type Layered = {
   applied: { key: string; label: string; value: string; valueLabel: string }[];
 };
 
-export function layer(products: ProductProjection[], filters: Filters, sort: SortKey, categories: CategoryOption[]): Layered {
-  const filtered = products.filter((p) => matches(p, filters, categories));
+export function layer(
+  products: ProductProjection[],
+  filters: Filters,
+  sort: SortKey,
+  categories: CategoryOption[],
+  fits?: FitsOptions,
+): Layered {
+  const filtered = products.filter((p) => matches(p, filters, categories, undefined, fits));
   const facets: Facet[] = [];
+
+  if (!filters.fits && fits && fits.shown.length > 0) {
+    const options = fits.options
+      .filter((m) => fits.shown.includes(m.slug))
+      .map((m) => ({ value: m.slug, label: m.name, count: filtered.filter((p) => m.ids.has(p.id)).length }))
+      .filter((o) => o.count > 0);
+    if (options.length > 0) facets.push({ key: "fits", label: "Fits my equipment", options });
+  }
 
   if (!filters.cat && categories.length > 0) {
     const options = categories
@@ -223,7 +250,9 @@ export function layer(products: ProductProjection[], filters: Filters, sort: Sor
   for (const key of FILTER_KEYS) {
     const value = filters[key];
     if (!value) continue;
-    if (key === "cat") {
+    if (key === "fits") {
+      applied.push({ key, label: "Fits", value, valueLabel: fits?.options.find((m) => m.slug === value)?.name ?? value });
+    } else if (key === "cat") {
       applied.push({ key, label: "Category", value, valueLabel: categories.find((c) => c.slug === value)?.name ?? value });
     } else if (key === "price") {
       const [from, to] = value.split("-");
@@ -242,7 +271,7 @@ export function layer(products: ProductProjection[], filters: Filters, sort: Sor
   }
 
   const price = priceRange(
-    products.filter((p) => matches(p, filters, categories, "price")),
+    products.filter((p) => matches(p, filters, categories, "price", fits)),
     filters.price,
   );
   return { products: sortProducts(filtered, sort), facets, applied, price };
@@ -268,19 +297,21 @@ function sortProducts(products: ProductProjection[], sort: SortKey) {
 // The category URL with the given state; defaults are left out so the plain URL stays the cached one.
 export function catalogHref(
   basePath: string,
-  state: { filters: Filters; sort: SortKey; limit: number; page?: number },
-  change: Partial<{ filters: Filters; sort: SortKey; limit: number; page: number }> = {},
+  state: { filters: Filters; sort: SortKey; limit: number; page?: number; view?: View },
+  change: Partial<{ filters: Filters; sort: SortKey; limit: number; page: number; view: View }> = {},
 ) {
   const filters = change.filters ?? state.filters;
   const sort = change.sort ?? state.sort;
   const limit = change.limit ?? state.limit;
   // Any change to what's listed starts again at page 1.
   const page = change.page ?? (change.filters || change.sort || change.limit ? 1 : (state.page ?? 1));
+  const view = change.view ?? state.view ?? "grid";
   const params = new URLSearchParams();
   for (const key of FILTER_KEYS) if (filters[key]) params.set(key, filters[key]!);
   if (sort !== DEFAULT_SORT) params.set("sort", sort);
   if (limit !== DEFAULT_LIMIT) params.set("limit", String(limit));
   if (page > 1) params.set("page", String(page));
+  if (view !== "grid") params.set("view", view);
   const query = params.toString();
   return `${basePath}${query ? `?${query}` : ""}`;
 }

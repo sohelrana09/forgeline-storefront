@@ -12,7 +12,7 @@ const LINE = rgb(0.85, 0.86, 0.88);
 const ACCENT = rgb(0.76, 0.25, 0.05);
 
 // The standard fonts only know Windows-1252: typographic spaces become plain ones, anything else unknown becomes "?".
-function sanitizer(font: PDFFont) {
+export function sanitizer(font: PDFFont) {
   const known = new Set(font.getCharacterSet());
   return (text: string) =>
     [...text.replace(/[  ]/g, " ").replace(/[‐‑]/g, "-")].map((ch) => (known.has(ch.codePointAt(0)!) ? ch : "?")).join("");

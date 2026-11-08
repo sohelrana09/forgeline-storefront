@@ -7,7 +7,7 @@ import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
 import type { QuickOrderLine } from "@/features/quick-order/types";
 import { signOutOnAuthError } from "@/features/auth/session";
-import { isQuoteOnly } from "@/features/catalog/utils";
+import { isQuoteOnly, localize } from "@/features/catalog/utils";
 import { priceSelection, pricingKey } from "@/features/catalog/pricing";
 import { companyBasePrices } from "@/features/company-pricing/service";
 import { str } from "@/lib/predicate";
@@ -46,7 +46,7 @@ export async function lookupSkus(context: PricingContext, skus: string[]): Promi
     .execute();
 
   for (const product of body.results) {
-    const name = product.name["en-US"] ?? Object.values(product.name)[0];
+    const name = localize(product.name);
     const variants: ProductVariant[] = [product.masterVariant, ...product.variants];
     for (const v of variants) {
       if (v.sku && skus.includes(v.sku)) {
@@ -56,7 +56,7 @@ export async function lookupSkus(context: PricingContext, skus: string[]): Promi
           priced: Boolean(v.price),
           quoteOnly: isQuoteOnly(v.price),
           price: v.price?.discounted?.value ?? v.price?.value,
-          slug: product.slug["en-GB"] ?? Object.values(product.slug)[0],
+          slug: localize(product.slug),
           image: v.images?.[0]?.url ?? product.masterVariant.images?.[0]?.url,
         });
       }
@@ -92,7 +92,14 @@ export const getActiveCart = cache(async (session: CartAuth, cartId: string | un
 async function latestCart(session: CartAuth, context: PricingContext): Promise<Cart | undefined> {
   const unit = context.businessUnitKey ? `businessUnit(key=${str(context.businessUnitKey)})` : "businessUnit is not defined";
   const { body } = await myCarts(session, context)
-    .get({ queryArgs: { where: `cartState in ("Active", "Frozen") and ${unit}`, sort: ["lastModifiedAt desc"], limit: 5 } })
+    // A recurring order's cart (features/recurring-orders) is its blueprint, never the buyer's shopping cart.
+    .get({
+      queryArgs: {
+        where: `cartState in ("Active", "Frozen") and origin != "RecurringOrder" and ${unit}`,
+        sort: ["lastModifiedAt desc"],
+        limit: 5,
+      },
+    })
     .execute()
     .catch(signOutOnAuthError);
   if (body.results.length === 0) return undefined;
@@ -126,7 +133,7 @@ async function cartById(session: CartAuth, cartId: string, context: PricingConte
     });
   // A cart only counts if it is still open (Active, or Frozen by the storefront's old payment freeze) and belongs to
   // the currently selected business unit (the guest context has the empty key, and guest carts have no business unit).
-  const open = cart?.cartState === "Active" || cart?.cartState === "Frozen";
+  const open = (cart?.cartState === "Active" || cart?.cartState === "Frozen") && cart.origin !== "RecurringOrder";
   return open && (cart.businessUnit?.key ?? "") === context.businessUnitKey ? cart : undefined;
 }
 

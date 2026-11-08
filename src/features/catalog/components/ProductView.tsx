@@ -1,4 +1,16 @@
+import { TrackEvent } from "@/features/analytics/components/DataLayer";
+import { ecommerceEvent } from "@/features/analytics/events";
+import { variantItem } from "@/features/analytics/items";
+import { t } from "@/lib/i18n";
 import { Suspense } from "react";
+import { StockAlert } from "@/features/stock-alerts/components/StockAlert";
+import { reviewsEnabled } from "@/features/reviews/reviews";
+import { ProductReviews } from "@/features/reviews/components/ProductReviews";
+import { RecentlyViewed, TrackViewed } from "@/features/engagement/components/RecentlyViewed";
+import { urlKey } from "@/lib/urls";
+import { downloadsOf } from "@/features/compare/compare";
+import { CompareButton } from "@/features/compare/components/CompareButton";
+import { FitsMachines } from "@/features/fitment/components/FitsMachines";
 import Link from "next/link";
 import type { Category, ProductProjection } from "@commercetools/platform-sdk";
 import { notFound } from "next/navigation";
@@ -25,7 +37,7 @@ import {
   categoryHref,
   productHref,
 } from "@/features/catalog/utils";
-import { taxNote } from "@/features/catalog/utils";
+import { LOCALE, taxNote } from "@/features/catalog/utils";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { productJsonLd } from "@/features/catalog/seo";
@@ -92,6 +104,16 @@ export async function ProductView({ slug, query }: { slug: string; query: Produc
       <Suspense fallback={null}>
         <BelowProduct product={product} trail={trail} categorySlugs={categorySlugs} />
       </Suspense>
+
+      {reviewsEnabled() && (
+        <Suspense fallback={null}>
+          <ProductReviews product={product} />
+        </Suspense>
+      )}
+
+      {/* This browser's own history (localStorage): the same shell for everyone, filled in on the client. */}
+      <TrackViewed item={{ slug: urlKey(slug), sku: product.masterVariant.sku, name, image: product.masterVariant.images?.[0]?.url }} />
+      <RecentlyViewed exclude={urlKey(slug)} />
     </div>
   );
 }
@@ -146,7 +168,7 @@ async function BuyBox({
   trail: Category[];
   categorySlugs: string[];
 }) {
-  const [{ sku }, { context }] = await Promise.all([query, requireBrowseContext()]);
+  const [{ sku }, { context, session }] = await Promise.all([query, requireBrowseContext()]);
   const slug = localize(product.slug);
   const priced = await getProductBySlug(context, slug);
   if (!priced) return <Message type="warning">{`This product isn't sold in ${context.storeName}.`}</Message>;
@@ -164,6 +186,7 @@ async function BuyBox({
       {context.guest && <JsonLd data={productJsonLd(priced, variant, trail, context.supplyChannelId)} />}
       <p className="m-0 -mt-4 font-mono text-sm text-gray-600">SKU {variant.sku}</p>
 
+      {variant.sku && <TrackEvent event={ecommerceEvent("view_item", [variantItem(name, variant, localize(trail.at(-1)?.name))])} />}
       <PriceTag price={variant.price} note={note} size="lg" />
       <TierPrices price={variant.price} />
 
@@ -195,13 +218,18 @@ async function BuyBox({
 
       <p className="m-0 text-sm">
         {stock === undefined ? (
-          <span className="text-gray-600">Availability on request</span>
+          <span className="text-gray-600">{t("pdp.onRequest")}</span>
         ) : stock > 0 ? (
-          <span className="font-semibold text-green-800">In stock · {stock} available</span>
+          <span className="font-semibold text-green-800">{t("pdp.inStock", { count: stock })}</span>
         ) : (
-          <span className="font-semibold text-red-800">Out of stock</span>
+          <span className="font-semibold text-red-800">{t("pdp.outOfStock")}</span>
         )}
       </p>
+      {stock === 0 && variant.sku && (
+        <Suspense fallback={null}>
+          <StockAlert sku={variant.sku} session={session} />
+        </Suspense>
+      )}
 
       {variant.sku && (
         <AddToCartForm
@@ -229,12 +257,43 @@ async function BuyBox({
 
 // The selected variant's attributes; the same for every visitor, but the variant comes from the URL.
 async function Specifications({ product, query }: { product: ProductProjection; query: ProductQuery }) {
-  const specs = specRows(selectedVariant(product, (await query).sku));
-  if (specs.length === 0) return null;
+  const variant = selectedVariant(product, (await query).sku);
+  const specs = specRows(variant);
+  const downloads = downloadsOf(variant.assets, LOCALE);
+  return (
+    <>
+      {variant.sku && (
+        <section aria-labelledby="downloads" className="flex flex-col gap-2">
+          <h2 id="downloads" className="m-0 text-lg font-semibold">
+            {t("pdp.downloads")}
+          </h2>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+            <li>
+              <a href={`/api/spec-sheet/${encodeURIComponent(variant.sku)}`} target="_blank" rel="noopener">
+                {t("pdp.specSheet")}
+              </a>
+            </li>
+            {downloads.map((d) => (
+              <li key={d.url}>
+                <a href={d.url} target="_blank" rel="noopener noreferrer">
+                  {d.name} ({d.kind})
+                </a>
+              </li>
+            ))}
+          </ul>
+          <CompareButton sku={variant.sku} />
+        </section>
+      )}
+      {specs.length > 0 && <SpecTable specs={specs} />}
+    </>
+  );
+}
+
+function SpecTable({ specs }: { specs: { name: string; value: string }[] }) {
   return (
     <section aria-labelledby="specs">
       <h2 id="specs" className="mb-2 mt-0 text-lg font-semibold">
-        Specifications
+        {t("pdp.specifications")}
       </h2>
       <table className="w-full border-collapse text-sm">
         <tbody>
@@ -258,6 +317,9 @@ async function BelowProduct({ product, trail, categorySlugs }: { product: Produc
   const category = trail.at(-1);
   return (
     <>
+      <Suspense fallback={null}>
+        <FitsMachines context={context} productId={product.id} />
+      </Suspense>
       <Suspense fallback={null}>
         <RelatedProducts
           context={context}
@@ -295,9 +357,9 @@ async function RelatedProducts({
       {compatible.length > 0 && (
         <section aria-labelledby="compatible">
           <h2 id="compatible" className="mb-4 mt-0 text-xl font-semibold">
-            Compatible spare parts
+            {t("pdp.compatible")}
           </h2>
-          <Carousel label="Compatible spare parts">
+          <Carousel label={t("pdp.compatible")}>
             {compatible.map((p) => (
               <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={note} />
             ))}
@@ -308,9 +370,9 @@ async function RelatedProducts({
       {moreInCategory.length > 0 && categoryName && (
         <section aria-labelledby="related">
           <h2 id="related" className="mb-4 mt-0 text-xl font-semibold">
-            More in {categoryName}
+            {t("pdp.moreIn", { category: categoryName })}
           </h2>
-          <Carousel label={`More in ${categoryName}`}>
+          <Carousel label={t("pdp.moreIn", { category: categoryName })}>
             {moreInCategory.map((p) => (
               <ProductCard key={p.id} product={p} canOrder={context.canOrder} canQuote={!context.consumer} note={note} />
             ))}

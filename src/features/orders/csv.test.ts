@@ -29,14 +29,28 @@ describe("csvCell", () => {
     expect(csvCell("+1")).toBe("'+1");
     expect(csvCell("@SUM(A1)")).toBe("'@SUM(A1)");
     expect(csvCell(-5)).toBe("'-5");
+    expect(csvCell("  =1+1")).toBe("'  =1+1");
+    expect(csvCell("\n=1")).toBe(`"'\n=1"`);
   });
 });
 
 describe("ordersCsv", () => {
   it("writes one row per order with plain decimal amounts", () => {
     const lines = ordersCsv([order()]).replace("﻿", "").trim().split("\r\n");
-    expect(lines[0]).toBe("Order,Date,Purchase order,Status,Items,Net,Tax,Total,Currency");
-    expect(lines[1]).toBe("ES-1,2026-10-25,PO 7,Open,5,100.00,21.00,121.00,EUR");
+    expect(lines[0]).toBe(
+      "Order,Date,Purchase order,Status,Items,Net,Tax,Total,Currency,Cost centre,Project code,Requested delivery,Order note",
+    );
+    expect(lines[1]).toBe("ES-1,2026-10-25,PO 7,Open,5,100.00,21.00,121.00,EUR,,,,");
+  });
+
+  it("adds the procurement fields, with notes guarded against formulas", () => {
+    const custom = {
+      fields: { costCentre: "CC-1", projectCode: "P/2", requestedDeliveryDate: "2026-12-01", orderNote: '=HYPERLINK("x")' },
+    };
+    const [, row] = ordersCsv([order({ custom } as unknown as Partial<Order>)])
+      .trim()
+      .split("\r\n");
+    expect(row.endsWith(`,CC-1,P/2,2026-12-01,"'=HYPERLINK(""x"")"`)).toBe(true);
   });
 
   it("adds who placed each order for company exports", () => {

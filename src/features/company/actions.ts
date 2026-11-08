@@ -3,6 +3,7 @@
 // Public endpoints for company administration. Each one: signed-in context, rate limit, input validation, then the
 // service, which re-checks the associate's permission live in the selected unit.
 
+import { demoLocked } from "@/features/demo/demo";
 import { refresh } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { tooManyAttempts } from "@/lib/rate-limit";
@@ -29,6 +30,8 @@ async function run(
   saved: string,
 ): Promise<CompanyActionState> {
   const current = await requireBusinessContext();
+  const locked = demoLocked(current.session.email);
+  if (locked) return { error: locked };
   if (await tooManyAttempts(`company:${current.session.customerId}`, 30))
     return { error: "Too many changes. Please wait a few minutes and try again." };
   try {
@@ -75,6 +78,8 @@ export async function acceptInvitationAction(_prev: CompanyActionState, formData
   const code = str(formData, "code");
   if (!INVITE_CODE.test(code)) return { error: "This invitation link is not valid." };
   const { session } = await requireShopContext();
+  const locked = demoLocked(session.email);
+  if (locked) return { error: locked };
   if (await tooManyAttempts(`invite:${session.customerId}`, 20))
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   try {

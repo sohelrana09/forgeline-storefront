@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, type ReactNode } from "react";
-import { PlaceOrderForm } from "@/features/checkout/components/CheckoutForm";
+import { PlaceOrderForm, type ProcurementForm } from "@/features/checkout/components/CheckoutForm";
 import { BankTransferForm } from "@/features/checkout/components/BankTransferForm";
 import { CardPayment } from "@/features/checkout/components/CardPayment";
 
@@ -27,6 +27,7 @@ export function PaymentMethods({
   options,
   cartVersion,
   purchaseOrderNumber,
+  procurement,
   ready,
   paymentOpen,
   children,
@@ -34,6 +35,7 @@ export function PaymentMethods({
   options: PaymentOption[];
   cartVersion: number;
   purchaseOrderNumber?: string;
+  procurement?: ProcurementForm;
   ready: boolean;
   paymentOpen: boolean;
   // The billing address, at the top of the chosen method's body.
@@ -111,7 +113,9 @@ export function PaymentMethods({
           <fieldset disabled={locked} className="m-0 min-w-0 rounded border border-gray-200 bg-white p-4">
             {children}
           </fieldset>
-          {selected === "invoice" && <PlaceOrderForm cartVersion={cartVersion} purchaseOrderNumber={purchaseOrderNumber} ready={ready} />}
+          {selected === "invoice" && (
+            <PlaceOrderForm cartVersion={cartVersion} purchaseOrderNumber={purchaseOrderNumber} procurement={procurement} ready={ready} />
+          )}
           {selected === "bank-transfer" && <BankTransferForm cartVersion={cartVersion} ready={ready} />}
           {firstCheckout && (
             // Mounted for as long as card or PayPal is offered (see above); out of sight and inert while another method is

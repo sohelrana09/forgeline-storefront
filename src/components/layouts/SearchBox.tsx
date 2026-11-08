@@ -1,5 +1,6 @@
 "use client";
 
+import { t } from "@/lib/i18n";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
@@ -96,7 +97,7 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
   const announcement = !showPanel
     ? ""
     : data.total === 0
-      ? "No matching products"
+      ? t("search.none")
       : `${data.total} matching ${data.total === 1 ? "product" : "products"}${data.corrected ? `, showing results for ${data.corrected}` : ""}. Use the arrow keys to choose.`;
 
   return (
@@ -117,7 +118,7 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
         required
         maxLength={100}
         autoComplete="off"
-        placeholder="Search by product name, model or SKU"
+        placeholder={t("search.placeholder")}
         role="combobox"
         aria-expanded={showList}
         aria-controls={listId}
@@ -133,7 +134,9 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
         onKeyDown={onKey}
         className="min-h-11 w-full min-w-0 rounded-l border border-gray-600 bg-white px-3 text-base text-gray-900"
       />
-      <button className="min-h-11 rounded-r bg-orange-700 px-4 text-sm font-semibold text-white hover:bg-orange-800">Search</button>
+      <button className="min-h-11 rounded-r bg-orange-700 px-4 text-sm font-semibold text-white hover:bg-orange-800">
+        {t("search.button")}
+      </button>
 
       <p className="sr-only" role="status">
         {announcement}
@@ -145,7 +148,7 @@ export function SearchBox({ suggestUrl = "/api/search/suggest" }: { suggestUrl?:
         {data?.corrected && (
           <p className="m-0 border-b border-gray-100 px-3 py-2 text-xs text-gray-600">Showing results for &ldquo;{data.corrected}&rdquo;</p>
         )}
-        <ul id={listId} role="listbox" aria-label="Search suggestions" className="m-0 max-h-[70vh] list-none overflow-y-auto p-0">
+        <ul id={listId} role="listbox" aria-label={t("search.suggestions")} className="m-0 max-h-[70vh] list-none overflow-y-auto p-0">
           {options.map((o, i) => {
             const isCategory = i < (data?.categories.length ?? 0);
             if (o === viewAll) {

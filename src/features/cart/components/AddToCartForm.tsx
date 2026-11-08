@@ -1,10 +1,13 @@
 "use client";
 
+import { t } from "@/lib/i18n";
 import { CART_CHANGED } from "@/features/cart/minicart";
 import { addSku } from "@/features/cart/actions";
 import { QuantityInput } from "@/components/ui/QuantityInput";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { checkMessages } from "@/components/ui/PageMessages";
+import { pushEvent } from "@/features/analytics/components/DataLayer";
+import { ecommerceEvent } from "@/features/analytics/events";
 
 // Quantity + Add. Machines above the quote threshold go into the same cart "for quote": the cart then offers a
 // quote request instead of checkout.
@@ -25,15 +28,16 @@ export function AddToCartForm({
   // md: product cards (stacked) · lg: product page · row: table rows (one compact line)
   size?: "md" | "lg" | "row";
 }) {
-  if (!canOrder) return <p className="m-0 text-xs text-gray-500">Only buyers can order.</p>;
-  if (quoteOnly && !canQuote) return <p className="m-0 text-xs text-gray-600">Sold to business customers on quote.</p>;
+  if (!canOrder) return <p className="m-0 text-xs text-gray-500">{t("cart.onlyBuyers")}</p>;
+  if (quoteOnly && !canQuote) return <p className="m-0 text-xs text-gray-600">{t("cart.quoteOnly")}</p>;
   return (
     // Cards (md) are narrow: stack the selector over a full-width button. The PDP (lg) and tables put them side by side.
     // After adding, tell the mini-cart: it reloads the visitor's cart on this event.
     <form
       action={async (formData) => {
-        await addSku(formData);
+        const added = await addSku(formData);
         window.dispatchEvent(new Event(CART_CHANGED));
+        if (added.length > 0) pushEvent(ecommerceEvent("add_to_cart", added));
         checkMessages(); // "You added … to your shopping cart." at the top of the page
       }}
       className={size === "md" ? "flex w-full flex-col gap-2" : "flex items-center gap-3"}
@@ -51,7 +55,7 @@ export function AddToCartForm({
             : "bg-orange-700 text-white hover:bg-orange-800"
         } ${size === "lg" ? "flex-1 text-base" : size === "row" ? "whitespace-nowrap" : "w-full"}`}
       >
-        {quoteOnly ? "Add for quote" : "Add to cart"}
+        {quoteOnly ? t("cart.addForQuote") : t("cart.add")}
       </SubmitButton>
     </form>
   );

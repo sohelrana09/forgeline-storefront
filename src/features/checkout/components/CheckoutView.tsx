@@ -1,3 +1,7 @@
+import { TrackEvent } from "@/features/analytics/components/DataLayer";
+import { ecommerceEvent } from "@/features/analytics/events";
+import { lineItems } from "@/features/analytics/items";
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getActiveCart, paymentOpen } from "@/features/cart/service";
@@ -7,10 +11,12 @@ import { getShippingOptions, orderFromCart, quoteOnlyLines } from "@/features/ch
 import { recoverOrder } from "@/features/order-processing/service";
 import { addressLabel, methodOptions, ownBilling, sameAddress, selectedMethodKey } from "@/features/checkout/utils";
 import { CartSummary } from "@/features/cart/components/CartSummary";
+import { BudgetNotice } from "@/features/spending-limits/components/BudgetNotice";
 import { DeliveryForm } from "@/features/checkout/components/CheckoutForm";
 import { CheckoutItems } from "@/features/checkout/components/CheckoutItems";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import { PaymentStep } from "@/features/checkout/components/PaymentStep";
+import { deliveryWindow, procurementEnabled, readProcurement } from "@/features/checkout/procurement";
 import { CheckoutStatusProvider } from "@/features/checkout/components/CheckoutStatus";
 import { b2cPaymentKinds } from "@/lib/commercetools/checkout-session";
 import { BillingAddress } from "@/features/checkout/components/BillingAddress";
@@ -82,6 +88,7 @@ export async function CheckoutView({
 
   return (
     <div className="flex flex-col gap-6">
+      <TrackEvent event={ecommerceEvent("begin_checkout", lineItems(cart.lineItems))} />
       <h1 className="m-0 text-2xl font-bold">Checkout</h1>
       <div className="flex flex-wrap items-start gap-6">
         <CheckoutStatusProvider>
@@ -130,6 +137,11 @@ export async function CheckoutView({
               cartVersion={cart.version}
               paymentOpen={locked}
               purchaseOrderNumber={cart.purchaseOrderNumber}
+              procurement={
+                !context.consumer && procurementEnabled()
+                  ? { values: readProcurement(cart.custom), ...deliveryWindow(new Date()) }
+                  : undefined
+              }
               ready={ready}
               waitingFor={shippingMethodSet ? undefined : "Choose a shipping method first."}
             />
@@ -138,6 +150,15 @@ export async function CheckoutView({
 
         <aside aria-label="Order summary" className="flex w-full flex-col gap-4 md:sticky md:top-4 md:max-w-sm md:flex-[1_1_320px]">
           <CartSummary cart={cart} title="Order summary" />
+          {!context.consumer && (
+            <Suspense fallback={null}>
+              <BudgetNotice
+                context={context}
+                customerId={session.customerId}
+                orderNet={(cart.taxedPrice?.totalNet ?? cart.totalPrice).centAmount}
+              />
+            </Suspense>
+          )}
           <CheckoutItems cart={cart} />
         </aside>
       </div>

@@ -34,6 +34,7 @@ import { notifyExistingAccount, resetPassword, sendEmailVerification, startPassw
 import { NAME_PATTERN } from "@/features/account/utils";
 import { loginLimits, PASSWORD_RULE, strongEnough } from "@/features/auth/utils";
 import { BREACHED_MESSAGE, isBreached } from "@/features/auth/password";
+import { demoEmails, demoSignInEnabled, isDemoAccount, isDemoRole, type DemoRole } from "@/features/demo/demo";
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") ?? "")
@@ -52,6 +53,28 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 }
 
 const ipKey = async () => `ip:${await clientIp()}`;
+
+// Where each persona starts (the demo's tour).
+const DEMO_START: Record<DemoRole, string> = { buyer: "/account", approver: "/account/approvals", admin: "/account/company" };
+
+// Public endpoint (DEMO_MODE only): "Try as Buyer / Approver / Admin". The server signs in with DEMO_PASSWORD, which
+// never reaches the browser; the visitor only picks a role. Same sign-in as /login (narrowed token, encrypted session).
+export async function signInAsDemo(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const role = formData.get("role");
+  const password = process.env.DEMO_PASSWORD;
+  if (!demoSignInEnabled() || !password || !isDemoRole(role)) return { error: "The demo sign-in isn't available." };
+  // BotID only: a one-click button has no fields to fill, so the form's minimum fill time doesn't apply.
+  if (await isAutomated()) return { error: AUTOMATED_MESSAGE };
+  if (await tooManyAttempts(`demo-signin:${await clientIp()}`, 30))
+    return { error: "Too many attempts. Please wait a few minutes and try again." };
+  const result = await signIn(demoEmails()[role], password);
+  if ("error" in result) {
+    reportEvent("demo_signin_failed", undefined, { role });
+    return { error: "The demo sign-in isn't available right now. Please try again later." };
+  }
+  const next = await mergeGuestCartOnLogin(result);
+  redirect(next === "/" ? DEMO_START[role] : next);
+}
 
 // Password flow with the narrowed scope list, then the encrypted session cookie. Consumers need a confirmed email;
 // business accounts are set up by our sales team and aren't held back. The stores a token may use are only known
@@ -154,6 +177,8 @@ export async function requestPasswordReset(_prev: ForgotPasswordState, formData:
   if (await isAutomated(formData)) return { sent: true };
   // Own counters (not the sign-in ones, so reset requests can't lock someone out of signing in), and the lookup
   // and email run after the response, so its timing doesn't tell whether the account exists.
+  // The demo personas' password is shared and set by the operator: no reset emails for them.
+  if (isDemoAccount(email)) return { sent: true };
   if (!(await tooManyAttempts(`reset-ip:${await clientIp()}`)) && !(await tooManyAttempts(`reset:${email}`, 3))) {
     after(() => startPasswordReset(email).catch((err) => console.error("password reset failed", (err as { body?: unknown })?.body ?? err)));
   }

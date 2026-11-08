@@ -74,6 +74,23 @@ To try the business features (company accounts, quotes, approvals, purchase list
 | **Request a quote** | Machines above a set value go into the cart "for quote". Buyers request a quote, negotiate, and order from the accepted quote. |
 | **Approval rules** | Orders above a threshold wait for an approver in the company. Approvers approve or reject with a reason, and the buyer is notified. |
 | **Order on invoice** | Business checkout with a purchase order (PO) number. |
+| **Procurement details** | Optional cost centre, project code, requested delivery date and order note at checkout, shown on the order, its PDFs and the CSV export ([details](docs/features/procurement-checkout.md); `PROCUREMENT_FIELDS=true`). |
+| **Spending limits** | Monthly or quarterly budgets per company and per buyer. Everyone sees what is left on the cart and at checkout; orders over budget are blocked or flagged ([details](docs/features/spending-limits.md); `SPENDING_LIMITS=true`). |
+| **Recurring orders** | Repeat a past order or a purchase list monthly, quarterly or as the project's schedules allow, at each day's prices. Buyers get a reminder two days before and can pause, skip or cancel ([details](docs/features/recurring-orders.md); `RECURRING_ORDERS=true`). |
+| **Shared carts** | A buyer sends their cart to a colleague who may order. The colleague reviews it, takes it over to change and order it, or sends it back, and both get an email ([details](docs/features/shared-carts.md); `SHARED_CARTS=true`). |
+| **PunchOut** | Buyers shop from their procurement system (cXML or SAP OCI): a fresh cart at their company prices, returned to the system for the requisition ([details](docs/features/punchout.md); `PUNCHOUT=true`, connections via `npm run ct:punchout`). |
+| **Fitment** | Parts show which machines they fit, and a company lists the machines it runs, so category pages narrow to the parts that fit them ([details](docs/features/fitment.md)). |
+| **Spec sheets and compare** | A PDF spec sheet for every product, downloads from product assets, and up to four products side by side at `/compare` ([details](docs/features/product-specs-downloads-compare.md)). |
+| **Company assortments** | Each store sells only its Product Selections, so a company sees its contracted catalog everywhere; `npm run ct:product-selections` lists, checks and sets them ([details](docs/features/product-selections.md)). |
+| **Table view** | Category pages switch between cards and dense rows with SKU, price and quantity, kept in the URL (`?view=table`, [details](docs/features/plp-table-view.md)). |
+| **B2C engagement** | Free-shipping progress in the cart, recently viewed products, reviews by verified buyers (`REVIEWS=true`) and back-in-stock emails (`STOCK_ALERTS=true`) ([details](docs/features/b2c-engagement.md)). |
+| **Express payments** | Apple Pay, Google Pay or PayPal buttons on the cart through commercetools Checkout's express flow; the wallet supplies address and email (`CHECKOUT_EXPRESS=true`, [details](docs/features/express-payments.md)). |
+| **Languages** | One language per deployment (`NEXT_PUBLIC_SITE_LOCALE`): product data, category URLs, money, dates and the main interface text in English, German, Spanish or French ([details](docs/features/i18n.md)). |
+| **Analytics data layer** | GA4 e-commerce events (lists, product views, add to cart, cart, checkout, purchase, search) in `window.dataLayer` without personal data; Google Tag Manager behind a consent banner (`NEXT_PUBLIC_GTM_ID`, [details](docs/features/analytics-datalayer.md)). |
+| **Search at scale** | `CATALOG_SEARCH=product-search` moves search and category filters, counts, sorting and paging to the Product Search API; the in-memory path stays the fallback ([details](docs/features/search-scaling.md)). |
+| **Quality gates** | Accessibility checks (axe, WCAG 2.1 AA) on 31 pages, Lighthouse budgets for speed, page weight and SEO, and optional OpenTelemetry traces of every commercetools call ([details](docs/features/quality-gates.md)). |
+| **Purchase order to cart** | Buyers paste a purchase order or upload its PDF on the quick-order page; Claude reads the lines into the quick-order box for them to check and add ([details](docs/features/ai-po-to-cart.md)). |
+| **Demo personas** | For a public demo: "Try as Buyer / Approver / Admin" without an account, a demo banner, and a nightly reset of the personas' carts, quotes, approvals, lists, budgets and recurring orders ([details](docs/features/demo-personas.md)). |
 | **Order documents** | Download an order confirmation or invoice as PDF, and export order history (own or company-wide) as CSV. |
 | **Company-shared lists** | Buyers keep purchase lists for the whole company; what colleagues may see or change follows their role. |
 | **Company area** | Admins see the company profile, users, roles and permissions, company structure, approval rules and company-wide orders. What each person sees follows their role. |
@@ -209,7 +226,20 @@ All settings live in `.env` (never commit it). `.env.example` documents every va
 | `NEXT_SANITY_PROJECT_ID`, `NEXT_SANITY_DATASET`, `SANITY_API_READ_TOKEN`, `SANITY_API_WRITE_TOKEN` | Optional. Sanity for content pages, blocks and the blog (Studio at `/studio`); the read token powers draft preview, the write token only the demo blog script. Without a project id there are no content pages and the blog is off. |
 | `STUDIO_URL` | Optional. A Studio deployed on its own domain (`npx sanity deploy`), recommended for production: `/studio` redirects there and only that origin may preview the pages. See [docs/sanity-studio.md](docs/sanity-studio.md). |
 | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Sends emails (sign-up, password reset, approvals) through Resend; without them, development prints emails to the server log. |
-| `CATALOG_SEARCH` | Optional. `product-search` uses the commercetools Product Search API once it is activated; otherwise search uses a built-in index. |
+| `PROCUREMENT_FIELDS` | Optional. `true` asks business buyers for cost centre, project code, requested delivery date and an order note at checkout. Run `npm run ct:order-approval-type -- --yes` first. |
+| `SPENDING_LIMITS` | Optional. `true` switches on company and buyer budgets (`/account/company/budgets`). |
+| `RECURRING_ORDERS` | Optional. `true` switches on recurring orders (native commercetools Recurring Orders; the runtime client needs `manage_recurring_orders` and `view_recurrence_policies`). |
+| `SHARED_CARTS` | Optional. `true` lets buyers send their cart to a colleague for review (`/account/shared-carts`). |
+| `CHECKOUT_EXPRESS` | Optional. `true` shows wallet buttons on the cart (needs a Checkout payment switch and an express integration). |
+| `NEXT_PUBLIC_SITE_LOCALE` | Optional. The storefront language, read at build time: `en-US` (default), `en-GB`, `de-DE`, `es-ES`, `fr-FR`. |
+| `NEXT_PUBLIC_GTM_ID` | Optional. A Google Tag Manager container id; adds a consent banner and loads the container after the visitor accepts. |
+| `REVIEWS` | Optional. `true` shows reviews on product pages and lets verified buyers write them (needs `ct:review-states` and two scopes). |
+| `STOCK_ALERTS` | Optional. `true` offers "Email me when it's back" on out-of-stock products. |
+| `PUNCHOUT` | Optional. `true` opens the PunchOut endpoints (`/api/punchout/*`) and the `/punchout` cart. |
+| `CATALOG_SEARCH` | Optional. `product-search` uses the commercetools Product Search API once it is activated, for search and for category filters, counts, sorting and paging ([details](docs/features/search-scaling.md)); otherwise both run in memory. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional. An OTLP/HTTP collector; sends a trace span per commercetools call (route templates only, no ids, emails or query values). `OTEL_EXPORTER_OTLP_HEADERS` for its API key ([details](docs/features/quality-gates.md)). |
+| `AI_PO_TO_CART`, `ANTHROPIC_API_KEY` | Optional. Both set: signed-in buyers can have Claude read a purchase order (PDF or text) into the quick-order box. The key is server-only; uploads aren't stored ([details](docs/features/ai-po-to-cart.md)). |
+| `DEMO_MODE`, `DEMO_PASSWORD` | Optional, for a demo deployment only. Persona sign-in on `/login`, a demo banner and the nightly reset (`/api/cron/demo-reset`). `DEMO_BUYER_EMAIL`, `DEMO_APPROVER_EMAIL`, `DEMO_ADMIN_EMAIL` pick the personas ([details](docs/features/demo-personas.md)). |
 
 **Hosting region:** keep the storefront next to your commercetools region, because every page talks to the API. `vercel.json` pins Vercel functions to `cle1` (Cleveland), beside commercetools' AWS us-east-2. If your project is in another region, change it, for example to `fra1` for europe-west1. From far away, each API call adds a few hundred milliseconds.
 
@@ -224,6 +254,7 @@ Store prices: the sample stores have no countries set, so the mapping from store
 | `npm run typecheck` / `npm run lint` | Quality gates. |
 | `npm run format` / `npm run format:check` | Prettier (2 spaces, width 140; `.editorconfig` for editors). |
 | `npm test` | Unit tests (Vitest). |
+| `npm run lhci` | Lighthouse CI against a production build on :3100 (`npm run build` first): speed, page weight, accessibility and SEO budgets from `lighthouserc.json`. |
 | `npm run setup` | One-command setup: `.env`, both API clients, demo sign-ins and demo data (`-- --check` reports only). |
 | `npm run test:e2e` | Browser tests (Playwright): guest flows (read-only), plus signed-in buyer, approver and admin flows when `.env.demo` has the demo password. Run `npx playwright install chromium` once. The guest tests also run every night against the live demo (`.github/workflows/e2e.yml`). |
 | `npm run ct:hello` | Smoke test: credentials, project, first products and business units. |
@@ -263,11 +294,11 @@ docs/images/       screenshots
 
 ## Roadmap
 
-Done: company switcher, customer sign-in, quick order with CSV upload, storefront pages, content management, quotes, guest cart, My account, company area, B2C accounts, SEO, image gallery, one-page checkout, search autocomplete, homepage banners, purchase lists (personal and company-shared), approval rules, clean URLs, order documents (PDF, CSV), cached pages for every visitor, signed-in browser tests, one-command setup.
+Done: company switcher, customer sign-in, quick order with CSV upload, storefront pages, content management, quotes, guest cart, My account, company area, B2C accounts, SEO, image gallery, one-page checkout, procurement details at checkout, spending limits, recurring orders, shared carts, PunchOut (cXML and OCI), fitment ("My equipment"), spec sheets, downloads and compare, company assortments, category table view, free-shipping bar, recently viewed, reviews, back-in-stock alerts, express payments, one language per deployment, analytics data layer with consent, category listings on the Product Search API, accessibility and Lighthouse checks, OpenTelemetry traces, purchase orders read by Claude, demo personas with a nightly reset, search autocomplete, homepage banners, purchase lists (personal and company-shared), approval rules, clean URLs, order documents (PDF, CSV), cached pages for every visitor, signed-in browser tests, one-command setup.
 
 Next:
 - Card payments by default (a direct payment provider such as Stripe, or commercetools Checkout).
-- More B2B features, for example recurring orders, spending limits per buyer and shared carts.
+- More B2B and B2C features (in progress on `feature/b2b-b2c-expansion`, see `docs/features/`).
 
 Ideas and pull requests are welcome, see [Contributing](#contributing).
 
@@ -283,7 +314,7 @@ No. Forgeline is plain Next.js and can be hosted anywhere Next.js runs, for exam
 Yes. The storefront reads whatever is in your project. Check `STORE_PRICING` for your stores, and the category menu follows your Merchant Center category tree.
 
 **How big a catalog does it handle?**
-Out of the box, search and the category filters run in memory on each server, because commercetools' search APIs are off in a new project. That is fast up to about 500 products per category and a few thousand in all. For a bigger catalog, activate the Product Search API in Merchant Center and set `CATALOG_SEARCH=product-search`: search and suggestions then come from commercetools. Category pages with filters still load up to 500 products per category, so very large categories need their filters moved to the Product Search API too.
+Out of the box, search and the category filters run in memory on each server, because commercetools' search APIs are off in a new project. That is fast up to about 500 products per category and a few thousand in all. For a bigger catalog, activate the Product Search API in Merchant Center and set `CATALOG_SEARCH=product-search`: search and suggestions then come from commercetools. Category pages then filter, count, sort and page through the Product Search API as well, with the same filters and facets ([details](docs/features/search-scaling.md)).
 
 **Is it production-ready?**
 It is a reference build with security in mind (narrowed customer tokens, server-only credentials, rate limits, encrypted session cookies, a strict Content-Security-Policy). Before going live:

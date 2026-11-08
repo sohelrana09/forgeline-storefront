@@ -1,0 +1,59 @@
+name: Quality gates
+
+# Lighthouse budgets (home, category, product, cart) and WCAG 2.1 AA checks (axe) on a production build of this
+# commit. Any budget or accessibility regression fails the run. docs/features/quality-gates.md.
+# The build prerenders from commercetools, so like the CI build job it runs when the repository variable
+# CI_BUILD=true and the read-only client's secrets are set. The browser tests stay read-only (guest pages).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    if: vars.CI_BUILD == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SITE_URL: http://localhost:3100
+      SESSION_SECRET: ci-only-session-secret-not-used-anywhere
+      CTP_PROJECT_KEY: ${{ secrets.CTP_PROJECT_KEY }}
+      CTP_CLIENT_ID: ${{ secrets.CTP_CLIENT_ID }}
+      CTP_CLIENT_SECRET: ${{ secrets.CTP_CLIENT_SECRET }}
+      CTP_AUTH_URL: ${{ secrets.CTP_AUTH_URL }}
+      CTP_API_URL: ${{ secrets.CTP_API_URL }}
+      CTP_SCOPES: ${{ secrets.CTP_SCOPES }}
+      CTP_STOREFRONT_CLIENT_ID: ${{ secrets.CTP_STOREFRONT_CLIENT_ID }}
+      CTP_STOREFRONT_CLIENT_SECRET: ${{ secrets.CTP_STOREFRONT_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      # Lighthouse starts the built server itself (lighthouserc.json), runs the runner's Chrome, and fails on any
+      # assertion.
+      - run: npm run lhci
+      # Accessibility of every guest page against the same build.
+      - name: Accessibility (axe)
+        run: |
+          npx next start -p 3100 &
+          curl --retry 30 --retry-delay 2 --retry-all-errors -sf -o /dev/null http://localhost:3100/
+          npx playwright test e2e/accessibility.spec.ts --project=chromium
+        env:
+          E2E_BASE_URL: http://localhost:3100
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: quality-reports
+          path: |
+            .lighthouseci/
+            test-results/
+          retention-days: 14

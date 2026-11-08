@@ -5,6 +5,7 @@ import { startTransition, useActionState, useEffect, useRef, type FormEvent } fr
 import { chooseDelivery, placeOrderAction, type DeliveryState, type PlaceOrderState } from "@/features/checkout/actions";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import type { MethodOption } from "@/features/checkout/utils";
+import { NOTE_MAX, type Procurement } from "@/features/checkout/procurement";
 import { useCheckoutBusy, useReportBusy } from "@/features/checkout/components/CheckoutStatus";
 import { FormMessage } from "@/components/ui/PageMessages";
 
@@ -134,10 +135,13 @@ export function MethodTable({
 export function PlaceOrderForm({
   cartVersion,
   purchaseOrderNumber,
+  procurement,
   ready,
 }: {
   cartVersion: number;
   purchaseOrderNumber?: string;
+  // Present when PROCUREMENT_FIELDS is on: the cart's values and the delivery date window.
+  procurement?: ProcurementForm;
   ready: boolean;
 }) {
   const [state, action, pending] = useActionState(placeOrderAction, {} as PlaceOrderState);
@@ -155,9 +159,45 @@ export function PlaceOrderForm({
           className="min-h-11 rounded border border-gray-300 px-3 font-normal"
         />
       </label>
+      {procurement && <ProcurementFields {...procurement} />}
       <FormMessage state={state} error={state.error} />
       <PlaceOrderButton pending={pending} ready={ready} />
     </form>
+  );
+}
+
+export type ProcurementForm = { values: Procurement; min: string; max: string };
+
+// Cost centre, project code, requested delivery date and order note (features/checkout/procurement.ts), all optional.
+function ProcurementFields({ values, min, max }: ProcurementForm) {
+  const input = "min-h-11 rounded border border-gray-300 px-3 font-normal";
+  return (
+    <fieldset className="m-0 grid gap-3 border-0 p-0 sm:grid-cols-2">
+      <legend className="mb-1 text-sm font-semibold">Procurement details (optional)</legend>
+      <label className="flex flex-col gap-1 text-sm font-semibold">
+        Cost centre
+        <input name="costCentre" maxLength={40} defaultValue={values.costCentre} className={input} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold">
+        Project code
+        <input name="projectCode" maxLength={40} defaultValue={values.projectCode} className={input} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold">
+        Requested delivery date
+        <input type="date" name="requestedDeliveryDate" min={min} max={max} defaultValue={values.requestedDeliveryDate} className={input} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold sm:col-span-2">
+        Order note
+        <textarea
+          name="orderNote"
+          maxLength={NOTE_MAX}
+          rows={3}
+          defaultValue={values.orderNote}
+          placeholder="Delivery instructions, contact on site"
+          className="rounded border border-gray-300 px-3 py-2 font-normal"
+        />
+      </label>
+    </fieldset>
   );
 }
 

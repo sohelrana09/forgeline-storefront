@@ -1,3 +1,6 @@
+import { TrackEvent } from "@/features/analytics/components/DataLayer";
+import { ecommerceEvent } from "@/features/analytics/events";
+import { lineItems } from "@/features/analytics/items";
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,6 +10,12 @@ import { nextStep, unitPriceAt } from "@/features/catalog/tiers";
 import { formatMoney } from "@/lib/utils";
 import { AddToListPanel } from "@/features/purchase-lists/components/AddToListPanel";
 import { CartSummary } from "@/features/cart/components/CartSummary";
+import { BudgetNotice } from "@/features/spending-limits/components/BudgetNotice";
+import { SharePanel } from "@/features/shared-carts/components/SharePanel";
+import { FreeShippingBar } from "@/features/engagement/components/FreeShippingBar";
+import { ExpressCheckout } from "@/features/express-payments/components/ExpressCheckout";
+import { expressEnabled } from "@/features/express-payments/express";
+import { checkoutPaymentsEnabled } from "@/lib/commercetools/checkout-session";
 import { DiscountCodes } from "@/features/cart/components/DiscountCodes";
 import { RequestQuoteForm } from "@/features/quotes/components/RequestQuoteForm";
 import { CmsBlocks } from "@/features/cms/components/CmsBlocks";
@@ -94,6 +103,7 @@ export async function CartView({
   return (
     <div className="flex flex-col gap-6">
       <MergeBanner merge={merge} context={context} />
+      <TrackEvent event={ecommerceEvent("view_cart", lineItems(cart.lineItems))} />
       <h1 className="m-0 text-2xl font-bold">{context.guest || context.consumer ? "Cart" : `Cart · ${context.businessUnitName}`}</h1>
       {locked && (
         <Message type="warning" link={{ href: "/checkout", label: "Go to checkout" }}>
@@ -167,7 +177,27 @@ export async function CartView({
 
         <div className="flex w-full flex-col gap-4 md:max-w-sm md:flex-[1_1_300px]">
           <CartSummary cart={cart} />
+          <Suspense fallback={null}>
+            <FreeShippingBar context={context} cart={cart} />
+          </Suspense>
+          {(context.consumer || context.guest) && expressEnabled() && checkoutPaymentsEnabled() && quoteLines.length === 0 && !locked && (
+            <ExpressCheckout />
+          )}
+          {context.canOrder && !context.consumer && !context.guest && cart.customerId && (
+            <Suspense fallback={null}>
+              <BudgetNotice
+                context={context}
+                customerId={cart.customerId}
+                orderNet={(cart.taxedPrice?.totalNet ?? cart.totalPrice).centAmount}
+              />
+            </Suspense>
+          )}
           {context.canOrder && <DiscountCodes cart={cart} locked={locked} />}
+          {!context.consumer && !context.guest && cart.customerId && (
+            <Suspense fallback={null}>
+              <SharePanel context={context} cart={cart} customerId={cart.customerId} />
+            </Suspense>
+          )}
           <Suspense fallback={null}>
             <AddToListPanel context={context} kind="cart" />
           </Suspense>

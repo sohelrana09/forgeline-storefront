@@ -3,6 +3,7 @@ import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { RESERVED_SEGMENTS, isLocalPath } from "@/lib/urls";
 import { siteUrl } from "@/lib/site-url";
+import { analyticsContainer } from "@/features/analytics/config";
 import { newNonce, noncePolicy, shellPolicy, studioOrigin, studioPolicy, type PolicyOptions } from "@/lib/csp";
 import { resolvePath, type UrlIndex, type UrlTarget } from "@/features/urls/url-index";
 
@@ -28,6 +29,7 @@ const POLICY: PolicyOptions = {
   reportUri: process.env.CSP_REPORT_URI,
   paypal: process.env.CHECKOUT_PAYPAL === "true",
   braintree: process.env.CHECKOUT_BRAINTREE === "true",
+  analytics: Boolean(analyticsContainer()),
 };
 
 // Catalog URLs: not the app's own routes, not files (catalog URL keys never contain a dot). Old /c/, /p/ and /pages/

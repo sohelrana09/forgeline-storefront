@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import type { Category, ProductProjection } from "@commercetools/platform-sdk";
+import type { Category, ProductProjection, ProductSearchRequest } from "@commercetools/platform-sdk";
 import { apiRoot } from "@/lib/commercetools/client";
 import { staleWhileRevalidate } from "@/lib/memo";
 import { cacheFor, TAGS } from "@/lib/cache";
@@ -8,6 +8,14 @@ import { priceSelection, pricingKey, pricingKeyId, type PricingKey } from "@/fea
 import { toListProduct, allVariants, categoryHref, localize, LOCALE, specRows } from "@/features/catalog/utils";
 import { codeWords, rank, words, type SearchEntry } from "@/features/catalog/search";
 import { productSearchEnabled, productSearchRequest } from "@/features/catalog/product-search";
+import {
+  listingFromSearch,
+  listingSearchRequest,
+  type AttributeLabels,
+  type ListingSearchInput,
+  type ListingSearchResponse,
+  type ListingSearchResult,
+} from "@/features/catalog/listing-search";
 import { companyBasePrices, withCompanyPrice, withCompanyPrices } from "@/features/company-pricing/service";
 
 // Catalog reads with the admin client, price-selected for the buyer's store/channel/country.
@@ -163,6 +171,18 @@ export async function getProductContent(slug: string): Promise<ProductProjection
   const { body } = await apiRoot
     .productProjections()
     .get({ queryArgs: { where: `slug(${LOCALE}="${slug}")`, limit: 1 } })
+    .execute();
+  return body.results[0];
+}
+
+// The product with this SKU, without a price (spec sheets): shared by everyone, like getProductContent.
+export async function getProductContentBySku(sku: string): Promise<ProductProjection | undefined> {
+  "use cache: remote";
+  cacheFor("prices", TAGS.catalog);
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(sku)) return undefined;
+  const { body } = await apiRoot
+    .productProjections()
+    .get({ queryArgs: { where: `masterVariant(sku = "${sku}") or variants(sku = "${sku}")`, limit: 1 } })
     .execute();
   return body.results[0];
 }
@@ -419,5 +439,57 @@ async function productSlugs(key: PricingKey): Promise<{ slug: string; lastModifi
     out.push(...results.map((p) => ({ slug: localize(p.slug), lastModified: p.lastModifiedAt })));
     if (results.length < PAGE) return out;
     last = results.at(-1)?.id;
+  }
+}
+
+// ---------- Category listings through the Product Search API (CATALOG_SEARCH=product-search) ----------
+// docs/features/search-scaling.md. The in-memory listing (getAllProductsInCategories + layer()) stays the default and
+// the fallback: when the flag is off, after a failure (5 minutes' rest, shared with search), and for units priced by
+// an external price service (Product Search filters and sorts by the web prices, which those units don't pay).
+
+// Enum and lenum labels by lower-case key, for the facets (the API returns keys only). Product types change rarely.
+async function attributeLabels(): Promise<AttributeLabels> {
+  "use cache: remote";
+  cacheFor("structure", TAGS.catalog);
+  const { body } = await apiRoot
+    .productTypes()
+    .get({ queryArgs: { limit: 100 } })
+    .execute();
+  const labels: AttributeLabels = {};
+  for (const type of body.results)
+    for (const a of type.attributes ?? []) {
+      if (a.name !== "mobility" && a.name !== "color") continue;
+      const values = (a.type as { values?: { key: string; label: string | Record<string, string> }[] }).values ?? [];
+      const map = (labels[a.name] ??= {});
+      for (const v of values) map[v.key.toLowerCase()] = typeof v.label === "string" ? v.label : localize(v.label);
+    }
+  return labels;
+}
+
+export type ListingSearchArgs = Omit<ListingSearchInput, "storeId" | "currency" | "channelId" | "locale">;
+
+export async function searchCategoryListing(
+  ctx: PricingKey,
+  args: ListingSearchArgs,
+): Promise<(ListingSearchResult & { products: ProductProjection[] }) | undefined> {
+  if (!productSearchEnabled() || ctx.externalPriceCompany || Date.now() - productSearchFailedAt < PRODUCT_SEARCH_RETRY_MS) return undefined;
+  try {
+    const [id, labels] = await Promise.all([storeId(ctx.storeKey), attributeLabels()]);
+    const input: ListingSearchInput = { ...args, storeId: id, currency: ctx.currency, channelId: ctx.channelId, locale: LOCALE };
+    const body = listingSearchRequest(input);
+    // A filter value that can't match (an unknown child category or machine): an empty listing, no call.
+    if (!body) return { ...listingFromSearch({ total: 0, results: [] }, input, labels), products: [] };
+    const { body: res } = await apiRoot
+      .products()
+      .search()
+      .post({ body: body as unknown as ProductSearchRequest })
+      .execute();
+    const result = listingFromSearch(res as unknown as ListingSearchResponse, input, labels);
+    // The page's products at the visitor's prices (the search returns ids only), in the search's order.
+    return { ...result, products: await getProductsByIds(ctx, result.ids) };
+  } catch (err) {
+    productSearchFailedAt = Date.now();
+    console.error("Product Search listing failed, using the in-memory listing for 5 minutes", (err as { body?: unknown })?.body ?? err);
+    return undefined;
   }
 }

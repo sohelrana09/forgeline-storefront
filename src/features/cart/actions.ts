@@ -10,15 +10,17 @@ import { CartLockedError } from "@/features/cart/payment-lock";
 import { localize } from "@/features/catalog/utils";
 import { actorKey, requireBrowseContext } from "@/features/business-units/context";
 import { addParsedLines } from "@/features/quick-order/service";
+import type { QuickOrderState } from "@/features/quick-order/types";
 import { flash } from "@/lib/flash";
 import { cartCookie, cookieOptions } from "@/features/auth/session";
 
 // Public endpoint: one "Add to cart" button (single SKU line).
-export async function addSku(formData: FormData) {
+// Returns what was added (SKU, name, quantity, unit price), for the analytics data layer.
+export async function addSku(formData: FormData): Promise<QuickOrderState["added"]> {
   const sku = String(formData.get("sku") ?? "");
   const quantity = Number(formData.get("quantity") || 1);
   // Build exactly one line from validated parts so form data can't inject extra lines.
-  if (!/^[A-Za-z0-9._-]+$/.test(sku) || !Number.isInteger(quantity)) return;
+  if (!/^[A-Za-z0-9._-]+$/.test(sku) || !Number.isInteger(quantity)) return [];
   const result = await addParsedLines(`${sku}, ${quantity}`);
   // Page messages: "You added X to your shopping cart." or why it wasn't added.
   for (const line of result.added) {
@@ -28,6 +30,7 @@ export async function addSku(formData: FormData) {
     );
   }
   for (const error of result.errors) await flash("error", `${error.reason}.`.replace(/\.\.$/, "."));
+  return result.added;
 }
 
 // Public endpoint: a signed-in buyer on a new device has no cart cookie (or a stale one), so every page looked up their

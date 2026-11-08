@@ -31,7 +31,7 @@ export function Pagination({
           ‹ Previous
         </Link>
       ) : (
-        <span className={`${box} text-gray-400`} aria-hidden="true">
+        <span className={`${box} text-gray-500`} aria-hidden="true">
           ‹ Previous
         </span>
       )}
@@ -55,7 +55,7 @@ export function Pagination({
           Next ›
         </Link>
       ) : (
-        <span className={`${box} text-gray-400`} aria-hidden="true">
+        <span className={`${box} text-gray-500`} aria-hidden="true">
           Next ›
         </span>
       )}

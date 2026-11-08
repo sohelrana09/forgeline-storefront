@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { localize } from "@/features/catalog/utils";
@@ -44,7 +45,7 @@ export async function ApprovalView({ session, context, id }: { session: Session;
           <StateBadge state={approval.status} map={APPROVAL_STATES} />
         </div>
         <p className="m-0 text-sm text-gray-600">
-          Requested {new Date(order.createdAt).toLocaleString("en-GB")} by {nameOf(order.customerId)}
+          Requested {new Date(order.createdAt).toLocaleString(dateLocale())} by {nameOf(order.customerId)}
           {order.purchaseOrderNumber && ` · PO ${order.purchaseOrderNumber}`} ·{" "}
           {formatMoney(order.taxedPrice?.totalGross ?? order.totalPrice)}
         </p>
@@ -61,12 +62,12 @@ export async function ApprovalView({ session, context, id }: { session: Session;
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-gray-700">
           {approval.approvals.map((a) => (
             <li key={`${a.by}-${a.at}`}>
-              Approved by {nameOf(a.by)} on {new Date(a.at).toLocaleString("en-GB")}
+              Approved by {nameOf(a.by)} on {new Date(a.at).toLocaleString(dateLocale())}
             </li>
           ))}
           {approval.rejection && (
             <li>
-              Rejected by {nameOf(approval.rejection.by)} on {new Date(approval.rejection.at).toLocaleString("en-GB")}:{" "}
+              Rejected by {nameOf(approval.rejection.by)} on {new Date(approval.rejection.at).toLocaleString(dateLocale())}:{" "}
               <q>{approval.rejection.reason}</q>{" "}
               {order.orderState === "Cancelled" ? "The order was cancelled." : "Cancelling the order is still pending."}
             </li>

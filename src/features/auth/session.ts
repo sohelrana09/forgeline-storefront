@@ -90,6 +90,10 @@ function unseal<T>(name: string, value: string | undefined): T | undefined {
 
 export const sealSession = (session: Session) => seal(SESSION_COOKIE, session);
 
+// For other sealed cookies (the PunchOut session): the cookie name is the AAD, so one cookie can't stand in for another.
+export const sealCookie = (name: string, value: object) => seal(name, value);
+export const unsealCookie = <T>(name: string, value: string | undefined) => unseal<T>(name, value);
+
 // Writes the session cookie: 30 days with a refresh token (renewed on every save), else until the token expires.
 // Server Actions and Route Handlers only.
 export async function saveSession(session: Session) {

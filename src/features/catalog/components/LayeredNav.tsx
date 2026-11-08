@@ -1,5 +1,7 @@
 "use client";
 
+import { t } from "@/lib/i18n";
+import { siteLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
@@ -23,12 +25,25 @@ export function CatalogNav({ children }: { children: ReactNode }) {
 }
 
 // A filter or "remove filter" link: in place with JavaScript, a normal link without (or with a modifier key).
-export function NavLink({ href, className, children, label }: { href: string; className?: string; children: ReactNode; label?: string }) {
+export function NavLink({
+  href,
+  className,
+  children,
+  label,
+  current,
+}: {
+  href: string;
+  className?: string;
+  children: ReactNode;
+  label?: string;
+  current?: boolean;
+}) {
   const nav = useNav();
   return (
     <a
       href={href}
       aria-label={label}
+      aria-current={current ? "true" : undefined}
       className={className}
       onClick={(e) => {
         if (!nav || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -117,7 +132,7 @@ export function SortToolbar({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <label className="flex items-center gap-2">
-        Sort By
+        {t("plp.sortBy")}
         <select
           name="sort"
           defaultValue={field}
@@ -144,7 +159,7 @@ export function SortToolbar({
         </NavLink>
       )}
       <label className="flex items-center gap-2">
-        Show
+        {t("plp.show")}
         <select
           name="limit"
           defaultValue={limit}
@@ -160,10 +175,10 @@ export function SortToolbar({
             </option>
           ))}
         </select>
-        per page
+        {t("plp.perPage")}
       </label>
       <noscript>
-        <button className="min-h-11 rounded bg-gray-900 px-4 font-semibold text-white">Apply</button>
+        <button className="min-h-11 rounded bg-gray-900 px-4 font-semibold text-white">{t("plp.apply")}</button>
       </noscript>
     </form>
   );
@@ -197,7 +212,7 @@ export function PriceSlider({
   useEffect(() => () => clearTimeout(commit.current), []);
   const step = Math.max(1, 10 ** Math.max(0, Math.floor(Math.log10(Math.max(max - min, 1))) - 2));
   const money = (n: number) =>
-    new Intl.NumberFormat("en", { style: "currency", currency: currencyCode, maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat(siteLocale(), { style: "currency", currency: currencyCode, maximumFractionDigits: 0 }).format(n);
   const pct = (n: number) => ((n - min) / Math.max(max - min, 1)) * 100;
 
   const apply = (next: { from: number; to: number }) => {
@@ -251,7 +266,7 @@ export function PriceSlider({
           className={thumb}
         />
       </div>
-      <div className="flex justify-between text-xs text-gray-500">
+      <div className="flex justify-between text-xs text-gray-600">
         <span>{money(min)}</span>
         <span>{money(max)}</span>
       </div>
@@ -284,7 +299,7 @@ export function PriceSlider({
               className="h-9 w-20 rounded border border-gray-300 px-2"
             />
           </label>
-          <button className="h-9 rounded bg-gray-900 px-3 font-semibold text-white">Apply</button>
+          <button className="h-9 rounded bg-gray-900 px-3 font-semibold text-white">{t("plp.apply")}</button>
         </form>
       </noscript>
     </div>

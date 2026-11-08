@@ -68,6 +68,7 @@ type Order = {
   orderNumber?: string;
   paymentState?: string;
   inventoryMode?: string;
+  custom?: { fields: Record<string, unknown> };
   paymentInfo?: { payments: { id: string; obj?: { paymentStatus?: { interfaceCode?: string } } }[] };
   lineItems: { id: string; quantity: number; variant: { sku?: string }; supplyChannel?: { id: string } }[];
 };
@@ -164,4 +165,33 @@ export async function deleteTestCart(id: string) {
   const cart = await ct<{ version: number; cartState: string }>(`/carts/${encodeURIComponent(id)}`);
   if (cart.cartState === "Ordered") return;
   await ct(`/carts/${encodeURIComponent(id)}?version=${cart.version}`, { method: "DELETE" });
+}
+
+// Recurring orders a test set up for the buyer (features/recurring-orders): cancelled if still running, then deleted
+// with their blueprint cart. Needs manage_recurring_orders on the cleanup client.
+type RecurringOrder = { id: string; version: number; recurringOrderState: string; cart: { id: string } };
+export async function recurringOrdersOf(customerId: string): Promise<RecurringOrder[]> {
+  const where = encodeURIComponent(`customer(id="${customerId}")`);
+  return (await ct<{ results: RecurringOrder[] }>(`/recurring-orders?where=${where}&limit=100`)).results;
+}
+export async function deleteTestRecurringOrder(id: string) {
+  let r = await ct<RecurringOrder>(`/recurring-orders/${encodeURIComponent(id)}`);
+  if (r.recurringOrderState !== "Canceled" && r.recurringOrderState !== "Expired") {
+    r = await ct<RecurringOrder>(`/recurring-orders/${encodeURIComponent(id)}`, {
+      method: "POST",
+      body: { version: r.version, actions: [{ action: "setRecurringOrderState", recurringOrderState: { type: "canceled" } }] },
+    });
+  }
+  await ct(`/recurring-orders/${encodeURIComponent(id)}?version=${r.version}`, { method: "DELETE" });
+  await deleteTestCart(r.cart.id).catch(() => undefined);
+}
+
+// A demo associate's customer id, from their latest order (the cleanup client can read orders, not customers).
+export async function customerIdByEmail(customerEmail: string): Promise<string> {
+  const where = `customerEmail="${customerEmail.replace(/"/g, "")}"`;
+  const { results } = await ct<{ results: { customerId?: string }[] }>(
+    `/orders?where=${encodeURIComponent(where)}&sort=${encodeURIComponent("createdAt desc")}&limit=1`,
+  );
+  if (!results[0]?.customerId) throw new Error(`No earlier order of ${customerEmail}`);
+  return results[0].customerId;
 }

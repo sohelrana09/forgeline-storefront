@@ -5,6 +5,8 @@ import { getSession } from "@/features/auth/session";
 import { AuthShell } from "@/features/auth/components/AuthShell";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { Message } from "@/components/ui/Message";
+import { DemoSwitcher } from "@/features/demo/components/DemoSwitcher";
+import { demoSignInEnabled } from "@/features/demo/demo";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -29,6 +31,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
       }
     >
+      {demoSignInEnabled() && <DemoSwitcher />}
       <h2 className="mb-1 mt-0 text-lg font-semibold">Registered customers</h2>
       <p className="mb-4 mt-0 text-sm text-gray-600">If you have an account, sign in with your email address.</p>
       {reset === "1" && <Message type="success">Your password was changed. Sign in with the new password.</Message>}

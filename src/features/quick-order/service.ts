@@ -85,7 +85,15 @@ export async function addParsedLines(input: string): Promise<QuickOrderState> {
 
   refresh();
   return {
-    added: addable.map((l) => ({ ...l, name: skus.get(l.sku)!.name, quoteOnly: Boolean(skus.get(l.sku)!.quoteOnly) })),
+    added: addable.map((l) => {
+      const info = skus.get(l.sku)!;
+      const price = info.price && {
+        centAmount: info.price.centAmount,
+        fractionDigits: info.price.fractionDigits,
+        currencyCode: info.price.currencyCode,
+      };
+      return { ...l, name: info.name, quoteOnly: Boolean(info.quoteOnly), ...(price && { price }) };
+    }),
     errors,
     // Keep only the lines that failed in the box, so the buyer can fix them.
     submitted: errors

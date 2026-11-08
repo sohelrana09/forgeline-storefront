@@ -32,18 +32,36 @@ export const RUNTIME_SCOPES = [
   "manage_products",
 ] as const;
 
-export const runtimeScopes = (projectKey: string) => RUNTIME_SCOPES.map((s) => `${s}:${projectKey}`).join(" ");
+// Scopes only an optional feature (docs/features/) needs, by the env flag that switches it on. A feature that is off
+// asks for nothing, so a shop without it keeps the narrower client.
+export const FEATURE_SCOPES: Record<string, readonly string[]> = {
+  // Native commercetools Recurring Orders and the recurrence policies they follow (features/recurring-orders).
+  RECURRING_ORDERS: ["manage_recurring_orders", "view_recurrence_policies"],
+  // Product reviews: verified buyers write them, approved ones show on the product page (features/reviews).
+  REVIEWS: ["manage_reviews", "view_states"],
+};
+
+// RUNTIME_SCOPES plus those of every feature switched on in `env` ("true").
+export function requiredScopes(env: Record<string, string | undefined>): string[] {
+  const extra = Object.entries(FEATURE_SCOPES).flatMap(([flag, scopes]) => (env[flag] === "true" ? scopes : []));
+  return [...new Set([...RUNTIME_SCOPES, ...extra])];
+}
+
+export const runtimeScopes = (projectKey: string, env: Record<string, string | undefined> = {}) =>
+  requiredScopes(env)
+    .map((s) => `${s}:${projectKey}`)
+    .join(" ");
 
 // A client's scopes (as a token lists them, without ":<project>") against RUNTIME_SCOPES. A Manage scope covers its
 // View scope, and view_products (published and staged) covers view_published_products. `missing`: what the shop
 // would be refused; `extra`: rights it doesn't need (each one widens what a leak can do).
-export function compareScopes(granted: string[]): { missing: string[]; extra: string[] } {
+export function compareScopes(granted: string[], required: readonly string[] = RUNTIME_SCOPES): { missing: string[]; extra: string[] } {
   const has = new Set(granted);
   const covers = (s: string) =>
     has.has(s) ||
     (s.startsWith("view_") && has.has(s.replace("view_", "manage_"))) ||
     (s === "view_published_products" && has.has("view_products"));
-  const allowed = new Set<string>([...RUNTIME_SCOPES, "view_products"]);
-  for (const s of RUNTIME_SCOPES) if (s.startsWith("manage_")) allowed.add(s.replace("manage_", "view_"));
-  return { missing: RUNTIME_SCOPES.filter((s) => !covers(s)), extra: granted.filter((s) => !allowed.has(s)).sort() };
+  const allowed = new Set<string>([...required, "view_products"]);
+  for (const s of required) if (s.startsWith("manage_")) allowed.add(s.replace("manage_", "view_"));
+  return { missing: required.filter((s) => !covers(s)), extra: granted.filter((s) => !allowed.has(s)).sort() };
 }

@@ -150,3 +150,30 @@ describe("catalogHref", () => {
     expect(catalogHref("/excavators", { filters: {}, sort: "name-asc", limit: 24 })).toBe("/excavators");
   });
 });
+
+describe("fits filter", () => {
+  const product = (id: string) =>
+    ({ id, name: { en: id }, categories: [], masterVariant: { attributes: [] }, variants: [], createdAt: "" }) as never;
+  const fits = { options: [{ slug: "ab-100", name: "Alpha loader", ids: new Set(["p1"]) }], shown: ["ab-100"] };
+  it("keeps the parts that fit the machine and offers the company's machines as a facet", () => {
+    const all = [product("p1"), product("p2")];
+    expect(layer(all, {}, "name-asc", [], fits).facets.find((f) => f.key === "fits")?.options).toEqual([
+      { value: "ab-100", label: "Alpha loader", count: 1 },
+    ]);
+    const narrowed = layer(all, parseFilters({ fits: "ab-100" }), "name-asc", [], fits);
+    expect(narrowed.products.map((p) => p.id)).toEqual(["p1"]);
+    expect(narrowed.applied).toEqual([{ key: "fits", label: "Fits", value: "ab-100", valueLabel: "Alpha loader" }]);
+    expect(layer(all, { fits: "unknown" }, "name-asc", [], fits).products).toEqual([]);
+  });
+});
+
+describe("view", () => {
+  it("reads ?view=table and keeps it in links, leaving the grid default out", async () => {
+    const { parseView } = await import("@/features/catalog/layered");
+    expect(parseView("table")).toBe("table");
+    expect(parseView(["x"])).toBe("grid");
+    const state = { filters: { color: "red" }, sort: "name-asc" as const, limit: 24, page: 2, view: "table" as const };
+    expect(catalogHref("/loaders", state, { sort: "price-asc" })).toBe("/loaders?color=red&sort=price-asc&view=table");
+    expect(catalogHref("/loaders", state, { view: "grid" })).toBe("/loaders?color=red&page=2");
+  });
+});

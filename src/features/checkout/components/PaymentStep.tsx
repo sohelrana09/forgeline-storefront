@@ -6,6 +6,7 @@ import { checkoutRegion } from "@/lib/commercetools/checkout-session";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import { Message } from "@/components/ui/Message";
 import { PaymentMethods, type PaymentKind, type PaymentOption } from "@/features/checkout/components/PaymentMethods";
+import type { ProcurementForm } from "@/features/checkout/components/CheckoutForm";
 
 export type { PaymentKind };
 
@@ -33,6 +34,7 @@ export async function PaymentStep({
   billing,
   cartVersion,
   purchaseOrderNumber,
+  procurement,
   ready,
   waitingFor,
   paymentOpen = false,
@@ -41,6 +43,7 @@ export async function PaymentStep({
   billing: ReactNode;
   cartVersion: number;
   purchaseOrderNumber?: string;
+  procurement?: ProcurementForm;
   ready: boolean;
   waitingFor?: string;
   // The cart is locked: a card or PayPal payment was opened for it (features/cart/payment-lock.ts).
@@ -67,6 +70,7 @@ export async function PaymentStep({
           options={options}
           cartVersion={cartVersion}
           purchaseOrderNumber={purchaseOrderNumber}
+          procurement={procurement}
           ready={ready}
           paymentOpen={paymentOpen}
         >

@@ -1,3 +1,4 @@
+import { localizeIn } from "@/lib/i18n";
 import "server-only";
 import type { BusinessUnit, Permission, Store } from "@commercetools/platform-sdk";
 import { cache } from "react";
@@ -59,7 +60,7 @@ function toContext(bu: BusinessUnit, { stores, rolePermissions }: Shared): Buyin
     unitType: bu.unitType,
     parentKey: bu.parentUnit?.key,
     storeKey: store.key,
-    storeName: store.name?.["en-US"] ?? store.key,
+    storeName: localizeIn(store.name) || store.key,
     channelId: channel.id,
     channelKey: channel.obj?.key,
     supplyChannelId: store.supplyChannels?.[0]?.id,
@@ -177,7 +178,7 @@ async function loadGuestContext(): Promise<BuyerContext> {
     businessUnitName: "Guest",
     unitType: "Company",
     storeKey: store.key,
-    storeName: store.name?.["en-US"] ?? store.key,
+    storeName: localizeIn(store.name) || store.key,
     channelId: channel.id,
     channelKey: channel.obj?.key,
     supplyChannelId: store.supplyChannels?.[0]?.id,

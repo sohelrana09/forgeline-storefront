@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import type { BaseAddress } from "@commercetools/platform-sdk";
 
 // Address as display lines: name/company, street, postcode + city, region, country, phone.
@@ -16,7 +17,7 @@ export function addressLines(a: BaseAddress): string[] {
   ].filter((l): l is string => Boolean(l));
 }
 
-const regionNames = new Intl.DisplayNames(["en-GB"], { type: "region" });
+const regionNames = new Intl.DisplayNames([dateLocale()], { type: "region" });
 export const countryName = (code: string) => regionNames.of(code) ?? code;
 
 export const NAME_MAX = 60;

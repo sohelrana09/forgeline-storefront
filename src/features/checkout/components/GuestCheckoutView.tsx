@@ -1,3 +1,6 @@
+import { TrackEvent } from "@/features/analytics/components/DataLayer";
+import { ecommerceEvent } from "@/features/analytics/events";
+import { lineItems } from "@/features/analytics/items";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getActiveCart, paymentOpen } from "@/features/cart/service";
@@ -45,6 +48,7 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
 
   return (
     <div className="flex flex-col gap-6">
+      <TrackEvent event={ecommerceEvent("begin_checkout", lineItems(cart.lineItems))} />
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="m-0 text-2xl font-bold">Checkout</h1>
         <p className="m-0 text-sm text-gray-700">

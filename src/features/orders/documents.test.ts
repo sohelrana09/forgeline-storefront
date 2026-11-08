@@ -92,6 +92,26 @@ describe("orderDocument", () => {
   });
 });
 
+describe("orderDocument procurement fields", () => {
+  const custom = {
+    type: { typeId: "type", id: "t" },
+    fields: { costCentre: "CC-100", projectCode: "PRJ-7", requestedDeliveryDate: "2026-12-01", orderNote: "Gate 4\n\nCall Ana" },
+  };
+  it("lists cost centre, project code and the requested day, and the note as the buyer's", () => {
+    const doc = orderDocument(order({ custom } as Partial<Order>), "confirmation", { payment: "invoice" });
+    expect(Object.fromEntries(doc.meta)).toMatchObject({
+      "Cost centre": "CC-100",
+      "Project code": "PRJ-7",
+      "Requested delivery": "01 Dec 2026",
+    });
+    expect(doc.notes[0]).toBe("Buyer's note: Gate 4 Call Ana");
+  });
+  it("draws them into the PDF", async () => {
+    const bytes = await renderOrderPdf(orderDocument(order({ custom } as Partial<Order>), "confirmation", { payment: "invoice" }));
+    expect(bytes.length).toBeGreaterThan(1000);
+  });
+});
+
 describe("renderOrderPdf", () => {
   it("draws a PDF, breaking long orders onto more pages", async () => {
     const many = order({ lineItems: Array.from({ length: 80 }, (_, i) => line(i)) as unknown as Order["lineItems"] });

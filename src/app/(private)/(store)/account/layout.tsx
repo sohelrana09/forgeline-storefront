@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { requireShopContext } from "@/features/business-units/context";
 import { AccountNav } from "@/features/account/components/AccountNav";
 import { can } from "@/features/company/utils";
+import { spendingLimitsEnabled } from "@/features/spending-limits/budget";
+import { recurringOrdersEnabled } from "@/features/recurring-orders/schedule";
+import { sharedCartsEnabled } from "@/features/shared-carts/share";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -15,6 +18,12 @@ export default async function AccountLayout({ children }: { children: React.Reac
           business={!context.consumer}
           approver={can(context, "UpdateApprovalFlows")}
           ruleManager={can(context, "CreateApprovalRules") || can(context, "UpdateApprovalRules")}
+          optional={[
+            ...(spendingLimitsEnabled() ? ["/account/company/budgets"] : []),
+            ...(recurringOrdersEnabled() ? ["/account/recurring-orders"] : []),
+            // Only for those who may review colleagues' carts (the page re-checks live).
+            ...(sharedCartsEnabled() && can(context, "ViewOthersCarts") ? ["/account/shared-carts"] : []),
+          ]}
         />
       </aside>
       <div className="min-w-0 flex-[999_1_600px]">{children}</div>

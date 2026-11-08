@@ -298,3 +298,21 @@ export function AccountSkeleton() {
     </Loading>
   );
 }
+
+// Compare: a heading and a table of up to four product columns.
+export function CompareSkeleton() {
+  return (
+    <Loading label="Loading the comparison">
+      <Crumbs />
+      <Heading width="w-56" />
+      <Panel className="grid grid-cols-[10rem_repeat(3,1fr)] gap-4 p-5">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="flex flex-col gap-3">
+            {i > 0 && <div className={`aspect-square w-full ${soft}`} />}
+            <Lines count={6} />
+          </div>
+        ))}
+      </Panel>
+    </Loading>
+  );
+}

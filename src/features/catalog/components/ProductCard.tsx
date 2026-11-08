@@ -24,7 +24,8 @@ export function ProductCard({
   const href = productHref(product.slug);
   return (
     <article className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-4">
-      <Link href={href} prefetch={false} className="block">
+      {/* The picture repeats the name link below: one link per product for keyboard and screen reader users. */}
+      <Link href={href} prefetch={false} className="block" aria-hidden="true" tabIndex={-1}>
         {image ? (
           <Image
             src={image.url}

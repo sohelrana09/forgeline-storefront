@@ -8,6 +8,8 @@ import { categoryMenu, getCategoryTree } from "@/features/catalog/service";
 import { currentBrowseContext, type BrowseContext } from "@/features/business-units/context";
 import { getGuestContext } from "@/features/business-units/service";
 import { SiteHeader } from "@/components/layouts/SiteHeader";
+import { DemoBanner } from "@/features/demo/components/DemoBanner";
+import { demoEnabled } from "@/features/demo/demo";
 import { SiteFooter } from "@/components/layouts/SiteFooter";
 import { AccountLinks } from "@/components/layouts/AccountLinks";
 import { MiniCartPlaceholder } from "@/components/layouts/MiniCartBadge";
@@ -30,6 +32,7 @@ export async function SiteChrome({ children, lenient = false }: { children: Reac
   const [tree, pages] = await Promise.all([getCategoryTree(), getPages().catch(() => [])]);
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-800">
+      {demoEnabled() && <DemoBanner />}
       <SiteHeader
         context={
           <Suspense>

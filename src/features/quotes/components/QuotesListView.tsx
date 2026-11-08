@@ -1,3 +1,4 @@
+import { dateLocale } from "@/lib/i18n";
 import Link from "next/link";
 import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
@@ -7,7 +8,7 @@ import { QUOTE_REQUEST_STATES, QUOTE_STATES, isExpired, shortRef } from "@/featu
 import { formatMoney } from "@/lib/utils";
 import { StateBadge } from "@/components/ui/StateBadge";
 
-const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
+const date = (iso: string) => new Date(iso).toLocaleDateString(dateLocale());
 
 // Two grids, each with its own page and size in the URL: quotes (?page, ?limit) and requests (?rpage, ?rlimit).
 export type QuoteListParams = { page?: string; limit?: string; rpage?: string; rlimit?: string };

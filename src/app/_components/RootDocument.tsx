@@ -1,3 +1,6 @@
+import { language } from "@/lib/i18n";
+import { Analytics } from "@/features/analytics/components/Analytics";
+import { analyticsContainer } from "@/features/analytics/config";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
@@ -28,9 +31,14 @@ export const rootMetadata: Metadata = {
 };
 
 export function RootDocument({ children }: { children: React.ReactNode }) {
+  // The tag manager and its consent banner, only when a container is configured (docs/features/analytics-datalayer.md).
+  const container = analyticsContainer();
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+    <html lang={language()}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
+        {container && <Analytics containerId={container} />}
+      </body>
     </html>
   );
 }

@@ -11,4 +11,5 @@ export const PRIVATE_SEGMENTS = new Set([
   "reset-password",
   "verify-email",
   "no-access",
+  "punchout",
 ]);

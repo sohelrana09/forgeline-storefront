@@ -14,7 +14,7 @@ export function PriceTag({ price, note, size = "md" }: { price?: Price; note?: s
       ) : (
         <span className={`${big} font-bold`}>{formatMoney(price.value)}</span>
       )}
-      {note && <span className="block text-xs text-gray-500">{note}</span>}
+      {note && <span className="block text-xs text-gray-600">{note}</span>}
     </div>
   );
 }

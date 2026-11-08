@@ -1,5 +1,7 @@
 import "server-only";
-import type { BaseAddress, Cart, MyCartUpdateAction, Order } from "@commercetools/platform-sdk";
+import type { BaseAddress, Cart, CartUpdateAction, MyCartUpdateAction, Order } from "@commercetools/platform-sdk";
+import { procurementActions, type Procurement } from "@/features/checkout/procurement";
+import { checkOrderBudget } from "@/features/spending-limits/service";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
 import {
@@ -119,7 +121,7 @@ async function repriced(auth: CartAuth, ctx: PricingContext, cart: Cart): Promis
 
 export const PO_PATTERN = /^[A-Za-z0-9 ._/#-]{1,35}$/;
 
-// Places the buyer's cart as an order. The PO number can't be set through /me endpoints, so the admin client sets
+// Places the buyer's cart as an order. The PO number (and the procurement fields) can't be set through /me endpoints, so the admin client sets
 // it on the cart, but only after the customer token has just read that same cart (proving ownership, unit, store).
 export async function placeOrder(
   session: Session,
@@ -127,6 +129,8 @@ export async function placeOrder(
   cartId: string,
   expectedVersion: number,
   purchaseOrderNumber: string,
+  // Procurement fields (features/checkout/procurement.ts), already validated; undefined when the feature is off.
+  procurement?: Procurement,
 ) {
   const cart = await getActiveCart(session, cartId, ctx);
   if (!cart) throw new CheckoutError("Your cart is no longer open.");
@@ -139,18 +143,24 @@ export async function placeOrder(
   }
 
   const fresh = await repriced(session, ctx, cart);
+  // Spending budgets (features/spending-limits), on the repriced net total: block mode refuses, warn mode lets the
+  // order through and the caller tells the buyer.
+  const budget = await checkOrderBudget(ctx, session.customerId, fresh.taxedPrice?.totalNet ?? fresh.totalPrice);
+  if (budget.decision === "block") throw new CheckoutError(budget.message);
   let version = fresh.version;
-  if (purchaseOrderNumber !== (fresh.purchaseOrderNumber ?? "")) {
+  // PO number and procurement fields in one update, by the admin client (the /me endpoints can't set either).
+  const actions: CartUpdateAction[] = [
+    ...(purchaseOrderNumber !== (fresh.purchaseOrderNumber ?? "")
+      ? [{ action: "setPurchaseOrderNumber" as const, purchaseOrderNumber: purchaseOrderNumber || undefined }]
+      : []),
+    ...(procurement ? procurementActions(fresh.custom, procurement) : []),
+  ];
+  if (actions.length > 0) {
     const { body } = await apiRoot
       .inStoreKeyWithStoreKeyValue({ storeKey: ctx.storeKey })
       .carts()
       .withId({ ID: fresh.id })
-      .post({
-        body: {
-          version,
-          actions: [{ action: "setPurchaseOrderNumber", purchaseOrderNumber: purchaseOrderNumber || undefined }],
-        },
-      })
+      .post({ body: { version, actions } })
       .execute();
     if (gross(body) !== gross(fresh)) throw new CheckoutError(PRICES_CHANGED);
     version = body.version;
@@ -163,7 +173,7 @@ export async function placeOrder(
     .orders()
     .post({ body: { id: fresh.id, version } })
     .execute();
-  return order;
+  return { order, budgetWarning: budget.decision === "warn" ? budget.message : undefined };
 }
 
 // ---------- Card payments (commercetools Checkout, Payment Only) for consumers and guests ----------
@@ -262,17 +272,23 @@ export async function holdCardPayment(auth: CartAuth, ctx: PricingContext, cartI
 // The same check commercetools makes when it creates the order, made before the buyer pays. Orders can still take the
 // last unit between here and there; then Checkout refuses or the money comes back as an orphan payment alert.
 async function checkStock(cart: Cart) {
-  if (cart.inventoryMode !== "ReserveOnOrder") return;
+  const short = await cartShortfalls(cart);
+  if (short.length > 0) throw new CheckoutError(outOfStockMessage(short));
+}
+
+// SKUs of a cart that its supply channel can't cover now (none for carts that don't reserve stock). Also used
+// before a recurring order runs (features/recurring-orders).
+export async function cartShortfalls(cart: Cart): Promise<string[]> {
+  if (cart.inventoryMode !== "ReserveOnOrder") return [];
   const lines = cart.lineItems.flatMap((l) =>
     l.variant.sku && l.supplyChannel ? [{ sku: l.variant.sku, channel: l.supplyChannel.id, quantity: l.quantity }] : [],
   );
-  if (lines.length === 0) return;
+  if (lines.length === 0) return [];
   const { body } = await apiRoot
     .inventory()
     .get({ queryArgs: { where: `sku in (${[...new Set(lines.map((l) => str(l.sku)))].join(", ")})`, limit: 500 } })
     .execute();
-  const short = shortfalls(lines, body.results);
-  if (short.length > 0) throw new CheckoutError(outOfStockMessage(short));
+  return shortfalls(lines, body.results);
 }
 
 // The buyer cancels the open payment: the lock on their own cart (read with their token) goes, so it can change again.

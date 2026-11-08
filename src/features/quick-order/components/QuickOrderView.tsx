@@ -5,6 +5,7 @@ import { isQuoteOnly, localize, taxNote } from "@/features/catalog/utils";
 import { getCatalogPage } from "@/features/catalog/service";
 import { QuickOrderForm } from "@/features/quick-order/components/QuickOrderForm";
 import { getSession } from "@/features/auth/session";
+import { poImportEnabled } from "@/features/po-import/po";
 import { listNames } from "@/features/purchase-lists/service";
 import { PriceTag } from "@/features/catalog/components/PriceTag";
 import { AddToCartForm } from "@/features/cart/components/AddToCartForm";
@@ -46,7 +47,7 @@ export async function QuickOrderView({ context, page: requestedPage = 1 }: { con
                   ? "Lines go into your cart."
                   : `Lines go into your ${context.businessUnitName} cart.`}
             </p>
-            <QuickOrderForm lists={lists} />
+            <QuickOrderForm lists={lists} poImport={poImportEnabled() && !context.guest} />
           </>
         ) : (
           <p className="m-0 text-sm text-gray-600">

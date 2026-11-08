@@ -11,6 +11,8 @@ const GROUPS = [
       { href: "/account/orders", label: "My orders" },
       { href: "/account/quotes", label: "My quotes" },
       { href: "/account/purchase-lists", label: "Purchase lists" },
+      { href: "/account/recurring-orders", label: "My recurring orders" },
+      { href: "/account/shared-carts", label: "Carts shared with me" },
       { href: "/account/addresses", label: "Address book" },
       { href: "/account/information", label: "Account information" },
     ],
@@ -24,6 +26,8 @@ const GROUPS = [
       { href: "/account/company/structure", label: "Company structure" },
       { href: "/account/approvals", label: "Order approvals" },
       { href: "/account/company/approval-rules", label: "Approval rules" },
+      { href: "/account/company/budgets", label: "Budgets" },
+      { href: "/account/company/equipment", label: "My equipment" },
     ],
   },
 ];
@@ -35,7 +39,13 @@ const BUSINESS_ONLY = new Set([
   "/account/company/structure",
   "/account/approvals",
   "/account/company/approval-rules",
+  "/account/company/budgets",
+  "/account/company/equipment",
+  "/account/recurring-orders",
+  "/account/shared-carts",
 ]);
+// Links of optional features (docs/features/), shown only when the layout says the feature is on.
+const OPTIONAL = new Set(["/account/company/budgets", "/account/recurring-orders", "/account/shared-carts"]);
 
 // Account sidebar. The current section stays highlighted on its detail pages too (an order, a quote).
 // `business`: a company buyer (quotes and the Company group); consumers see their personal sections only.
@@ -44,16 +54,20 @@ export function AccountNav({
   business,
   approver = false,
   ruleManager = false,
+  optional = [],
 }: {
   business: boolean;
   approver?: boolean;
   ruleManager?: boolean;
+  // Hrefs of optional features that are switched on.
+  optional?: string[];
 }) {
   const pathname = usePathname();
   const allowed = (href: string) =>
     (business || !BUSINESS_ONLY.has(href)) &&
     (href !== "/account/approvals" || approver) &&
-    (href !== "/account/company/approval-rules" || ruleManager);
+    (href !== "/account/company/approval-rules" || ruleManager) &&
+    (!OPTIONAL.has(href) || optional.includes(href));
   const groups = GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => allowed(l.href)) })).filter((g) => g.links.length > 0);
   const ALL = groups.flatMap((g) => g.links.map((l) => l.href));
   // The longest matching link wins, so /account/company/users highlights "Company users", not "Company profile".

@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 test("the cart icon opens the minicart and Esc closes it", async ({ page }) => {
   await page.goto("/");
-  const toggle = page.getByRole("link", { name: /^Cart, 0 items/ });
+  const toggle = page.getByRole("link", { name: /^My cart\s*Empty\s*, 0 items$/ });
   await toggle.click();
   const panel = page.getByRole("dialog", { name: "Shopping cart" });
   await expect(panel).toBeVisible();
@@ -18,7 +18,7 @@ test("the cart icon opens the minicart and Esc closes it", async ({ page }) => {
 
 test("the minicart closes on a click outside", async ({ page }) => {
   await page.goto("/quick-order");
-  await page.getByRole("link", { name: /^Cart, / }).click();
+  await page.getByRole("link", { name: /^My cart.*, \d+ items?$/ }).click();
   const panel = page.getByRole("dialog", { name: "Shopping cart" });
   await expect(panel).toBeVisible();
   await page.locator("main").click({ position: { x: 10, y: 10 } });

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteLogo } from "@/components/layouts/SiteLogo";
 import { PageMessages } from "@/components/ui/PageMessages";
+import { DemoBanner } from "@/features/demo/components/DemoBanner";
+import { demoEnabled } from "@/features/demo/demo";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -10,6 +12,7 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
+      {demoEnabled() && <DemoBanner />}
       <header className="bg-gray-900 text-gray-50">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-8">
           <SiteLogo />

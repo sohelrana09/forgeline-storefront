@@ -1,4 +1,10 @@
+import { TrackPurchase } from "@/features/analytics/components/DataLayer";
+import { purchaseEvent } from "@/features/analytics/events";
+import { orderInput } from "@/features/analytics/items";
+import { dateLocale } from "@/lib/i18n";
 import Link from "next/link";
+import { Suspense } from "react";
+import { RecurringEntry } from "@/features/recurring-orders/components/RecurringEntry";
 import { notFound } from "next/navigation";
 import { localize } from "@/features/catalog/utils";
 import { getOrderForViewer, orderReference } from "@/features/orders/service";
@@ -18,7 +24,8 @@ import type { Session } from "@/features/auth/session";
 import type { BuyerContext } from "@/features/business-units/types";
 import { productHref } from "@/features/catalog/utils";
 import { Message } from "@/components/ui/Message";
-import { invoiceAvailable } from "@/features/orders/documents";
+import { calendarDay, invoiceAvailable } from "@/features/orders/documents";
+import { hasProcurement, procurementRows, readProcurement } from "@/features/checkout/procurement";
 import { DownloadButton } from "@/components/ui/DownloadButton";
 
 // Order view: status and actions, items ordered, totals, then order information (addresses,
@@ -53,6 +60,7 @@ export async function OrderView({
     ? undefined
     : (members.find((m) => m.customerId === order.customerId)?.name ?? order.customerEmail ?? "a former user");
   const ref = orderReference(order);
+  const procurement = readProcurement(order.custom);
   const invoice = invoiceAvailable(order, approval?.status);
   const isNew = isRecent(order.createdAt, 10 * 60 * 1000);
 
@@ -61,6 +69,8 @@ export async function OrderView({
       <Breadcrumbs
         items={[{ label: "My account", href: "/account" }, { label: "My orders", href: "/account/orders" }, { label: `Order ${ref}` }]}
       />
+      {/* Only the buyer's own new order: a colleague or approver opening it isn't a purchase. */}
+      {mine && isNew && <TrackPurchase id={order.id} createdAt={order.createdAt} event={purchaseEvent(orderInput(order))} />}
       {poFailed && !order.purchaseOrderNumber && (
         <Message type="warning">
           Your order was placed, but the PO number couldn&apos;t be saved. Please send it to our sales team with the order reference.
@@ -98,7 +108,7 @@ export async function OrderView({
             {approval && <StateBadge state={approval.status} map={APPROVAL_STATES} />}
           </div>
           <p className="m-0 text-sm text-gray-600">
-            Placed {new Date(order.createdAt).toLocaleString("en-GB")}
+            Placed {new Date(order.createdAt).toLocaleString(dateLocale())}
             {placedBy && ` by ${placedBy}`}
             {order.purchaseOrderNumber && ` · PO ${order.purchaseOrderNumber}`}
             {order.quote && (
@@ -132,6 +142,12 @@ export async function OrderView({
         </div>
       </div>
 
+      {context.canOrder && mine && (
+        <Suspense fallback={null}>
+          <RecurringEntry context={context} sourceKind="order" sourceId={order.id} />
+        </Suspense>
+      )}
+
       {approval && (
         <section aria-labelledby="approval" className="flex flex-col gap-2 rounded-md border border-gray-200 bg-white p-5 text-sm">
           <h2 id="approval" className="m-0 text-lg font-semibold">
@@ -145,12 +161,12 @@ export async function OrderView({
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-gray-700">
             {approval.approvals.map((a) => (
               <li key={`${a.by}-${a.at}`}>
-                Approved by {nameOf(a.by)} on {new Date(a.at).toLocaleString("en-GB")}
+                Approved by {nameOf(a.by)} on {new Date(a.at).toLocaleString(dateLocale())}
               </li>
             ))}
             {approval.rejection && (
               <li>
-                Rejected by {nameOf(approval.rejection.by)} on {new Date(approval.rejection.at).toLocaleString("en-GB")}:{" "}
+                Rejected by {nameOf(approval.rejection.by)} on {new Date(approval.rejection.at).toLocaleString(dateLocale())}:{" "}
                 <q>{approval.rejection.reason}</q>{" "}
                 {order.orderState === "Cancelled" ? "The order was cancelled." : "Cancelling the order is still pending."}
               </li>
@@ -224,6 +240,16 @@ export async function OrderView({
             </p>
             {order.purchaseOrderNumber && <p className="m-0">Purchase order: {order.purchaseOrderNumber}</p>}
           </InfoBlock>
+          {hasProcurement(procurement) && (
+            <InfoBlock title="Procurement details">
+              {procurementRows(procurement, calendarDay).map(([label, value]) => (
+                <p key={label} className="m-0">
+                  {label}: {value}
+                </p>
+              ))}
+              {procurement.orderNote && <p className="m-0 whitespace-pre-line">Note: {procurement.orderNote}</p>}
+            </InfoBlock>
+          )}
         </div>
       </section>
 
