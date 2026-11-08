@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkoutLookCss, flatMethodCss, methodOfValue } from "@/features/checkout/checkout-method";
+import { buildingCss, checkoutLookCss, flatMethodCss, methodOfValue, methodReadySelector } from "@/features/checkout/checkout-method";
 
 describe("methodOfValue", () => {
   it("reads the method from Checkout's radio value", () => {
@@ -36,5 +36,21 @@ describe("checkoutLookCss", () => {
     expect(css).toContain('#pay [data-ctc] [data-testid="checkout"] button {');
     expect(css).toContain("text-transform: none");
     expect(css.split("\n").every((rule) => rule.startsWith("#pay "))).toBe(true);
+  });
+});
+
+describe("methodReadySelector", () => {
+  it("waits for the card fields' frames in the card method's body", () => {
+    expect(methodReadySelector("card")).toBe('section[data-testid="payment-step"] div[data-test^="card-"] iframe');
+  });
+
+  it("waits for PayPal's button frame", () => {
+    expect(methodReadySelector("paypal")).toBe('iframe[name^="__zoid__paypal_buttons"]');
+  });
+});
+
+describe("buildingCss", () => {
+  it("hides Checkout's container until the scope is marked shown", () => {
+    expect(buildingCss("[data-x]")).toBe("[data-x]:not([data-shown]) [data-ctc] { height: 0; overflow: hidden; visibility: hidden; }");
   });
 });

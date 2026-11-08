@@ -12,6 +12,7 @@ import {
   applyDelivery,
   cancelCardPayment as releaseCardPayment,
   CheckoutError,
+  holdCardPayment as holdPayment,
   paidOrder,
   placeBankTransferOrder,
   placeOrder,
@@ -119,7 +120,7 @@ export async function placeOrderAction(_prev: PlaceOrderState, formData: FormDat
 
 // ---------- Card payments (consumers and guests) ----------
 
-// `soft`: the session holds a soft lock (opened by selecting PayPal; features/cart/payment-lock.ts).
+// `soft`: the session holds a soft lock (opened by selecting card or PayPal; features/cart/payment-lock.ts).
 export type CardPaymentState = { error?: string; session?: CheckoutSession; reviewedCentAmount?: number; soft?: boolean };
 
 // Public endpoint: opens a commercetools Checkout session for the caller's own B2C cart. Business buyers order on
@@ -163,6 +164,22 @@ export async function cancelCardPayment(): Promise<void> {
     else console.error("card payment cancel failed", (err as { body?: unknown })?.body ?? err);
   }
   refreshPages();
+}
+
+// Public endpoint: the buyer pressed Checkout's pay button, so the soft lock that selecting card or PayPal opened
+// becomes a full one (the cart can't change while they pay). Best effort: the payment goes on either way.
+export async function holdCardPayment(sessionId: string): Promise<void> {
+  if (typeof sessionId !== "string" || sessionId.length > 100) return;
+  const browse = await requireBrowseContext();
+  const { auth, context, cartId } = browse;
+  if (!auth || !cartId || !(context.consumer || context.guest)) return;
+  if (await tooManyAttempts(`pay-hold:${actorKey(browse)}`, 40)) return;
+  try {
+    await holdPayment(auth, context, cartId, sessionId);
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("card payment hold failed", (err as { body?: unknown })?.body ?? err);
+  }
 }
 
 // Public endpoint: called by the payment component once Checkout reports the order. Trusts nothing from the

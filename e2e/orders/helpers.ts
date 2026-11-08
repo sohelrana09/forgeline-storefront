@@ -46,12 +46,11 @@ export async function removeFromCart(page: Page, product = PART) {
   }
 }
 
-// Which payment the checkout offers this customer: the server decides (B2C_CARD_PAYMENTS, B2C_BANK_TRANSFER). Step 3 shows its button
-// only once the delivery details are saved, so call this after that.
-export const PAY_BUTTON = /^Pay by card$/;
-
+// Which payment the checkout offers this customer: the server decides (B2C_CARD_PAYMENTS, B2C_BANK_TRANSFER). Card is
+// listed first when it is on, and selected: its form opens on its own once the delivery details are saved (no "Pay by
+// card" click), so this looks for the method itself. Call it after saving the delivery details.
 export async function offersCard(page: Page) {
-  const card = page.getByRole("button", { name: PAY_BUTTON });
+  const card = page.getByText("Credit or debit card", { exact: true });
   await expect(card.or(page.getByRole("button", { name: "Place order" }))).toBeVisible();
   return card.isVisible();
 }

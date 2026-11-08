@@ -2,11 +2,25 @@
 
 import { useRouter } from "next/navigation";
 import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { cancelCardPayment, finishCardPayment, startCardPayment, type CardPaymentState } from "@/features/checkout/actions";
+import {
+  cancelCardPayment,
+  finishCardPayment,
+  holdCardPayment,
+  startCardPayment,
+  type CardPaymentState,
+} from "@/features/checkout/actions";
 import { useCheckoutBusy } from "@/features/checkout/components/CheckoutStatus";
 import { FormMessage } from "@/components/ui/PageMessages";
 import { Message } from "@/components/ui/Message";
-import { checkoutLookCss, flatMethodCss, pickCheckoutMethod, type CheckoutMethod } from "@/features/checkout/checkout-method";
+import {
+  buildingCss,
+  CHECKOUT_PAY_BUTTON,
+  checkoutLookCss,
+  flatMethodCss,
+  methodReadySelector,
+  pickCheckoutMethod,
+  type CheckoutMethod,
+} from "@/features/checkout/checkout-method";
 
 // Card payment through commercetools Checkout (Payment Only). The server opens a session for the cart the buyer
 // reviewed; the SDK renders the Application's payment methods inline (the data-ctc element), takes the payment
@@ -15,14 +29,21 @@ import { checkoutLookCss, flatMethodCss, pickCheckoutMethod, type CheckoutMethod
 // payment-lock.ts). Paying continues the same payment; cancelling removes the lock so the buyer can change the cart.
 // `method`: the buyer's choice in the storefront's own list (PayPal or card). Checkout lists every method it has, so it
 // is made to show only that one (features/checkout/checkout-method.ts); switching keeps the same session.
-// `auto` (PayPal): PayPal's button only exists inside a Checkout session, so the session opens as soon as PayPal is
-// chosen and the cart is ready, with a soft lock that cart changes remove. When the buyer edits steps 1-2 or the billing
-// address, `onReset` closes it (the parent mounts a fresh one); once saved, a new session opens for the new total.
+// The card fields and PayPal's button only exist inside a Checkout session, so the session opens as soon as card or
+// PayPal is chosen and the cart is ready, with a soft lock that cart changes remove: the form is there when the buyer
+// gets to it, without a click first. When the buyer edits steps 1-2 or the billing address, `onReset` closes it (the
+// parent mounts a fresh one); once saved, a new session opens for the new total.
+// Speed: Checkout builds its form in the browser through several services (its config, the connectors' config, the
+// card connector's payment), so the SDK is fetched as soon as this mounts, and PaymentStep preconnects to Checkout's
+// hosts. A loading line shows until the chosen method's fields or button are there.
 // How long Checkout's script may take to load before the buyer is told card payment is unavailable.
 const CHECKOUT_LOAD_MS = 15_000;
 // How long a late script still clears that message.
 const CHECKOUT_WATCH_MS = 3 * 60_000;
 const CHECKOUT_UNAVAILABLE = "Online payment is unavailable right now. Please try again later.";
+// Checkout's form is shown after this even when the chosen method's fields weren't recognised (its markup changed).
+const SHOW_ANYWAY_MS = 12_000;
+const LOADING = { card: "Loading the secure card form…", paypal: "Loading PayPal…" };
 
 export function CardPayment({
   cartVersion,
@@ -30,7 +51,6 @@ export function CardPayment({
   paymentOpen = false,
   payLabel,
   method,
-  auto = false,
   onReset,
   onLock,
 }: {
@@ -39,8 +59,6 @@ export function CardPayment({
   paymentOpen?: boolean;
   payLabel: string;
   method: CheckoutMethod;
-  // Opens the session without a click (PayPal).
-  auto?: boolean;
   // Asks for a fresh component: the buyer is changing the cart under a soft session.
   onReset?: () => void;
   // Told when a payment is being opened or is open with a full lock, and when it no longer is.
@@ -65,13 +83,20 @@ export function CardPayment({
 
   // Whether the session being opened, or the one open, holds only a soft lock.
   const [startingSoft, setStartingSoft] = useState(false);
-  const soft = state.session ? Boolean(state.soft) : startingSoft;
+  // The buyer pressed Checkout's pay button in a soft session: the lock is now full (holdCardPayment).
+  const [held, setHeld] = useState(false);
+  const soft = state.session ? Boolean(state.soft) && !held : startingSoft;
   const open = starting || Boolean(state.session);
   useEffect(() => onLock?.(open && !soft), [open, soft, onLock]);
 
-  // PayPal: open the session once per cart version the buyer has saved, so its button shows without a click.
+  // Fetched now, not once the session is open: one step less on the way to the form.
+  useEffect(() => {
+    import("@commercetools/checkout-browser-sdk").catch(() => undefined);
+  }, []);
+
+  // Open the session once per cart version the buyer has saved, so the form shows without a click.
   const opened = useRef<number>(undefined);
-  const opening = auto && ready && !busy && !state.session;
+  const opening = ready && !busy && !state.session;
   useEffect(() => {
     if (!opening || starting || opened.current === cartVersion) return;
     opened.current = cartVersion;
@@ -92,15 +117,36 @@ export function CardPayment({
   // Checkout's own list follows the buyer's choice; it is hidden only once the chosen method was found there.
   const ctc = useRef<HTMLDivElement>(null);
   const [picked, setPicked] = useState<CheckoutMethod>();
+  // The chosen method's fields or button are there: Checkout's form comes into view.
+  const [shown, setShown] = useState(false);
   useEffect(() => {
     const root = ctc.current;
     if (!root) return;
-    const pick = () => setPicked(pickCheckoutMethod(root, method) ? method : undefined);
+    const pick = () => {
+      setPicked(pickCheckoutMethod(root, method) ? method : undefined);
+      if (root.querySelector(methodReadySelector(method))) setShown(true);
+    };
     pick();
     const watch = new MutationObserver(pick);
     watch.observe(root, { childList: true, subtree: true });
     return () => watch.disconnect();
   }, [method]);
+
+  // Pressing Checkout's pay button turns the soft lock into a full one, as "Pay by card" does: the cart holds while
+  // the buyer pays. PayPal's button is a frame, so a PayPal payment keeps the soft lock (changes are refused anyway
+  // once its payment is running).
+  const softSessionId = state.session && state.soft ? state.session.sessionId : undefined;
+  useEffect(() => {
+    const root = ctc.current;
+    if (!root || !softSessionId) return;
+    const onClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest(CHECKOUT_PAY_BUTTON)) return;
+      setHeld(true);
+      holdCardPayment(softSessionId).catch(() => undefined);
+    };
+    root.addEventListener("click", onClick, true);
+    return () => root.removeEventListener("click", onClick, true);
+  }, [softSessionId]);
 
   useEffect(() => {
     const session = state.session;
@@ -149,6 +195,11 @@ export function CardPayment({
   const sessionId = state.session?.sessionId;
   useEffect(() => {
     if (!sessionId) return;
+    const timer = window.setTimeout(() => setShown(true), SHOW_ANYWAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [sessionId]);
+  useEffect(() => {
+    if (!sessionId) return;
     const started = Date.now();
     let warned = false;
     const watchdog = window.setInterval(() => {
@@ -170,24 +221,33 @@ export function CardPayment({
     return () => window.clearInterval(watchdog);
   }, [sessionId, attempt]);
 
+  // The session is being opened (or is about to be), or Checkout is still building the chosen method's form.
+  const openingNow = !state.session && (starting || (opening && !state.error));
+  const loading = openingNow || (Boolean(state.session) && !shown && !problem);
+
   return (
-    <div className="flex flex-col gap-3" data-checkout-flat="" data-flat={picked}>
-      <style>{`${flatMethodCss("[data-checkout-flat]", method)}\n${checkoutLookCss("[data-checkout-flat]")}`}</style>
-      {paymentOpen && !state.session && !auto && (
+    <div className="flex flex-col gap-3" data-checkout-flat="" data-flat={picked} data-shown={shown || problem ? "" : undefined}>
+      <style>
+        {[flatMethodCss("[data-checkout-flat]", method), checkoutLookCss("[data-checkout-flat]"), buildingCss("[data-checkout-flat]")].join(
+          "\n",
+        )}
+      </style>
+      {paymentOpen && (
         <Message type="warning">
           A payment is open for this cart, so it can&apos;t be changed. Pay below, or cancel the payment to change your cart.
         </Message>
       )}
-      {auto && !state.session && (starting || (opening && !state.error)) && (
-        <p role="status" className="m-0 text-sm text-gray-700">
-          Loading PayPal…
+      {loading && (
+        <p role="status" className="m-0 flex items-center gap-2 text-sm text-gray-700">
+          <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-orange-700" />
+          {LOADING[method]}
         </p>
       )}
-      {!state.session && !(auto && (starting || (opening && !state.error))) && (
-        <form action={start} onSubmit={() => setStartingSoft(auto)} className="flex flex-col gap-3">
+      {!state.session && !openingNow && (
+        <form action={start} onSubmit={() => setStartingSoft(true)} className="flex flex-col gap-3">
           {/* The version the buyer reviewed: if the cart changes meanwhile, paying fails instead of surprising them. */}
           <input type="hidden" name="cartVersion" value={cartVersion} />
-          {auto && <input type="hidden" name="soft" value="1" />}
+          <input type="hidden" name="soft" value="1" />
           <button
             disabled={starting || !ready || busy}
             className="min-h-12 rounded bg-orange-700 px-5 text-base font-semibold text-white hover:bg-orange-800 disabled:opacity-60"

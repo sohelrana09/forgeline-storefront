@@ -223,13 +223,13 @@ export async function prepareCardPayment(
   cartId: string,
   expectedVersion: number,
   email: string | undefined,
-  // Opened by selecting PayPal, not by asking to pay: a soft lock (features/cart/payment-lock.ts).
+  // Opened by selecting card or PayPal, not by asking to pay: a soft lock (features/cart/payment-lock.ts).
   soft = false,
 ): Promise<{ session: CheckoutSession; reviewedCentAmount: number; soft: boolean }> {
   const { cart, lock } = await readyB2CCart(auth, ctx, cartId, expectedVersion, email, { paying: true });
   const now = Date.now();
   if (lock && lock.expiresAt > now) {
-    // The buyer now asks to pay in a session that selecting PayPal opened: from here on the cart holds.
+    // The buyer now asks to pay in a session that selecting a method opened: from here on the cart holds.
     if (lock.soft && !soft) await savePaymentLock(cart.id, { ...lock, soft: false });
     return { session: lock.session, reviewedCentAmount: lock.reviewedCentAmount, soft: Boolean(lock.soft) && soft };
   }
@@ -248,6 +248,17 @@ export async function prepareCardPayment(
     soft: softLock,
   });
   return { session, reviewedCentAmount, soft: softLock };
+}
+
+// The buyer pressed Checkout's pay button in a session that selecting card or PayPal opened: from here on the cart
+// holds (a full lock), as it does after "Pay by card". Only the caller's own cart (read with their token), only the
+// session it was opened for, and only a fresh soft lock; anything else is left as it is.
+export async function holdCardPayment(auth: CartAuth, ctx: PricingContext, cartId: string, sessionId: string): Promise<void> {
+  const cart = await getActiveCart(auth, cartId, ctx);
+  if (!cart) return;
+  const lock = await readPaymentLock(cart);
+  if (!lock?.soft || lock.session.sessionId !== sessionId || lock.expiresAt <= Date.now()) return;
+  await savePaymentLock(cart.id, { ...lock, soft: false });
 }
 
 // The same check commercetools makes when it creates the order, made before the buyer pays. Orders can still take the

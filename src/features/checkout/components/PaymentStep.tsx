@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { preconnect } from "react-dom";
+import { checkoutRegion } from "@/lib/commercetools/checkout-session";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import { Message } from "@/components/ui/Message";
 import { PaymentMethods, type PaymentKind, type PaymentOption } from "@/features/checkout/components/PaymentMethods";
@@ -47,6 +49,7 @@ export function PaymentStep({
   const open = paymentOpen ? kinds.filter((k) => k === "card" || k === "paypal") : [];
   const offered = open.length > 0 ? open : kinds;
   const options: PaymentOption[] = offered.map((kind) => ({ kind, ...details[kind] }));
+  if (offered.some((k) => k === "card" || k === "paypal")) preconnectCheckout();
   // No method switched on (B2C_CARD_PAYMENTS, CHECKOUT_PAYPAL, B2C_BANK_TRANSFER all off).
   if (options.length === 0) {
     return (
@@ -70,4 +73,14 @@ export function PaymentStep({
       </div>
     </CheckoutStep>
   );
+}
+
+// Card and PayPal forms are built in the browser by commercetools Checkout: open the connections to its hosts while the
+// page loads, so the session the payment step opens next doesn't wait for DNS and TLS. Its scripts load without CORS,
+// its API with it (two connection pools).
+function preconnectCheckout() {
+  const region = checkoutRegion();
+  preconnect(`https://app.checkout.${region}.commercetools.com`);
+  preconnect(`https://checkout.${region}.commercetools.com`, { crossOrigin: "anonymous" });
+  if (process.env.CHECKOUT_BRAINTREE === "true") preconnect("https://assets.braintreegateway.com");
 }

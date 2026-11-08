@@ -52,6 +52,23 @@ export function checkoutLookCss(scope: string): string {
   ].join("\n");
 }
 
+// What shows that the chosen method's form is there: the card fields' frames (Braintree's hosted fields) in the card
+// method's body, or PayPal's button frame, which Checkout renders where its pay button goes.
+export function methodReadySelector(method: CheckoutMethod): string {
+  return method === "card"
+    ? 'section[data-testid="payment-step"] div[data-test^="card-"] iframe'
+    : 'iframe[name^="__zoid__paypal_buttons"]';
+}
+
+// Keeps Checkout's form out of sight while it builds up (its list, empty fields, a pay button without fields), until
+// the scope gets `data-shown`. It still lays out at full width, so the frames inside load and size normally.
+export function buildingCss(scope: string): string {
+  return `${scope}:not([data-shown]) [data-ctc] { height: 0; overflow: hidden; visibility: hidden; }`;
+}
+
+// Checkout's own pay button (the card method's; PayPal's is a frame, whose clicks the page never sees).
+export const CHECKOUT_PAY_BUTTON = '[data-testid="checkout"] button';
+
 // Selects the chosen method among Checkout's radios. Returns whether Checkout offers it (and it is now selected).
 export function pickCheckoutMethod(root: ParentNode, method: CheckoutMethod): boolean {
   const radio = [...root.querySelectorAll<HTMLInputElement>(CHECKOUT_RADIO)].find((r) => methodOfValue(r.value) === method);
