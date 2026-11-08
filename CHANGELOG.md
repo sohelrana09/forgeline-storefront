@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## v2.2.0 (2026-11-08)
 
-Hardening before production: stock, payments, sessions, access checks, speed and resilience.
+Pay by card, PayPal or bank transfer in one clear payment step, with Braintree cards and a storefront hardened for production: stock, payments, sessions, access checks, speed and resilience. Release note: `docs/releases/v2.2.0.md`.
 
+- **Payment form inside the chosen option:** selecting card or PayPal opens its Checkout session on its own and shows the card fields or PayPal's button inside that option, with a loading line until they are ready. Switching between card and PayPal keeps the session. The SDK loads early and the page preconnects to Checkout's hosts. Pressing the card pay button makes the lock full, as "Pay by card" did.
+- **Braintree cards:** cards run through a self-hosted Braintree connector (a fork for the AWS regions, tag `1.0.34-aws.2`) with 3-D Secure. `CHECKOUT_BRAINTREE=true` allows Braintree's and Cardinal's hosts in the Content-Security-Policy. The card form and Checkout's pay button take the storefront's look.
 - **PayPal button straight away:** selecting PayPal opens its Checkout session on its own, so PayPal's button shows without clicking "Continue with PayPal" first. That session doesn't hold the cart: changing the cart, the delivery details or the billing address closes it, and a new one opens for the new total.
 - **One switch per payment method:** `B2C_CARD_PAYMENTS`, `CHECKOUT_PAYPAL` and `B2C_BANK_TRANSFER` each offer their own method, so PayPal can run without cards. Bank transfer is no longer offered automatically when cards are off: set `B2C_BANK_TRANSFER=true` to keep it.
 - **PayPal ready:** with `CHECKOUT_PAYPAL=true` the checkout lists PayPal as its own payment method next to card, both through commercetools Checkout, and orders, PDFs and emails name PayPal. `B2C_BANK_TRANSFER=true` offers bank transfer as a choice next to it. Not yet run against a real PayPal payment.
