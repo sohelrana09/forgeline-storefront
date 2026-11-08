@@ -55,6 +55,17 @@ export const ownBilling = (cart: Pick<Cart, "billingAddress" | "shippingAddress"
 export const selectedMethodKey = (options: Pick<ShippingOption, "id" | "key">[], cart: Pick<Cart, "shippingInfo">) =>
   options.find((o) => o.id === cart.shippingInfo?.shippingMethod?.id)?.key;
 
+// The method to set for an address: the one the buyer chose when it ships there, else the project's default method,
+// else the cheapest. Lets one save set address and method together, so the totals and payment show without a second click.
+export function pickMethod(options: Pick<ShippingOption, "key" | "isDefault" | "price">[], wanted?: string): string | undefined {
+  if (wanted && options.some((o) => o.key === wanted)) return wanted;
+  const byDefault = options.find((o) => o.isDefault);
+  if (byDefault) return byDefault.key;
+  const priced = options.filter((o) => o.price);
+  const cheapest = priced.sort((a, b) => a.price!.centAmount - b.price!.centAmount)[0] ?? options[0];
+  return cheapest?.key;
+}
+
 // Shipping methods as the checkout shows them: the price this cart would pay ("Free" above the threshold) and the method.
 export function methodOptions(options: ShippingOption[], cart: Cart): MethodOption[] {
   const subtotal = cart.lineItems.reduce((sum, l) => sum + l.totalPrice.centAmount, 0);

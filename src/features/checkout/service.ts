@@ -1,5 +1,5 @@
 import "server-only";
-import type { BaseAddress, Cart, Order } from "@commercetools/platform-sdk";
+import type { BaseAddress, Cart, MyCartUpdateAction, Order } from "@commercetools/platform-sdk";
 import { apiRoot, customerApiRoot } from "@/lib/commercetools/client";
 import type { PricingContext } from "@/features/business-units/types";
 import {
@@ -16,11 +16,11 @@ import {
 } from "@/features/cart/service";
 import { CART_LOCKED_MESSAGE, SESSION_TTL_MS, lockState, type PaymentLock } from "@/features/cart/payment-lock";
 import { outOfStockMessage, shortfalls } from "@/features/cart/stock";
-import { statusOf } from "@/lib/commercetools/errors";
+import { hasCode, statusOf } from "@/lib/commercetools/errors";
 import { str } from "@/lib/predicate";
 import { tooManyAttempts } from "@/lib/rate-limit";
 import { createCheckoutSession, type CheckoutSession } from "@/lib/commercetools/checkout-session";
-import { ownBilling, removePaymentActions } from "@/features/checkout/utils";
+import { ownBilling, pickMethod, removePaymentActions } from "@/features/checkout/utils";
 export { getShippingOptions, type ShippingOption } from "@/features/cart/service";
 import { isQuoteOnly } from "@/features/catalog/utils";
 // Checkout: delivery details, PO number and placing the order (server-only).
@@ -43,7 +43,6 @@ export async function applyCheckoutDetails(
     address,
     billing: ctx.defaultBillingAddress ?? address,
     shippingMethodKey,
-    methodOptional: true,
   });
 }
 
@@ -53,7 +52,10 @@ export async function setBillingAddress(session: CartAuth, ctx: PricingContext, 
   return updateMyCart(session, ctx, cart, () => [{ action: "setBillingAddress", address: cartAddress(address) }]);
 }
 
-// Sets the delivery address (and billing address, and for guests the email) and the shipping method on the cart.
+// Sets the delivery address (and billing address, and for guests the email) and a shipping method on the cart, in one
+// update: the buyer's method when it ships to this address, else the default one (pickMethod), so a single save brings
+// the totals and the payment step. commercetools checks the method against the updated cart itself (zones, predicates)
+// and answers ShippingMethodDoesNotMatchCart; the address is then saved on its own and the buyer picks a method.
 export async function applyDelivery(
   session: CartAuth,
   ctx: PricingContext,
@@ -63,46 +65,42 @@ export async function applyDelivery(
     billing,
     shippingMethodKey,
     email,
-    methodOptional,
   }: {
     address: BaseAddress;
     billing: BaseAddress;
     shippingMethodKey: string;
     email?: string;
-    methodOptional?: boolean;
   },
 ) {
-  const options = await getShippingOptions(ctx, address);
-  const methodOffered = options.some((o) => o.key === shippingMethodKey);
-  if (!methodOffered && !methodOptional) throw new CheckoutError("Choose a delivery method.");
-
-  // Set the address first, then validate the method against the real cart (predicates, tax rates), which a
-  // location-only match can't. The cart was just read with the buyer's token, so the admin read is safe.
-  const withAddress = await updateMyCart(session, ctx, cart, (c) => [
+  const methodKey = pickMethod(await getShippingOptions(ctx, address), shippingMethodKey);
+  const addressActions = (c: Cart): MyCartUpdateAction[] => [
     { action: "setShippingAddress", address: cartAddress(address) },
     // A billing address the buyer chose separately stays (features/checkout/utils.ts ownBilling).
     ...(ownBilling(c) ? [] : [{ action: "setBillingAddress" as const, address: cartAddress(billing) }]),
-    ...(email ? [{ action: "setCustomerEmail" as const, email }] : []),
+    ...(email && c.customerEmail !== email ? [{ action: "setCustomerEmail" as const, email }] : []),
     // B2C carts start without a country (the store has none). commercetools Checkout matches its Application's
     // countries against cart.country, so it follows the delivery country. Prices without a country still match.
     ...(!ctx.country && c.country !== address.country ? [{ action: "setCountry" as const, country: address.country }] : []),
-    // Address only: drop a method chosen for the previous address, so the buyer picks one that ships here.
-    ...(!methodOffered && c.shippingInfo ? [{ action: "setShippingMethod" as const }] : []),
-  ]);
-  if (!methodOffered) return withAddress;
-  const { body: matching } = await apiRoot
-    .shippingMethods()
-    .matchingCart()
-    .get({ queryArgs: { cartId: withAddress.id } })
-    .execute();
-  if (!matching.results.some((m) => m.key === shippingMethodKey)) {
-    throw new CheckoutError("That delivery method isn't available for this cart.");
+  ];
+  // Without a method for this address, drop one chosen for the previous address.
+  const addressOnly = (c: Cart): MyCartUpdateAction[] => [
+    ...addressActions(c),
+    ...(c.shippingInfo ? [{ action: "setShippingMethod" as const }] : []),
+  ];
+  if (!methodKey) return updateMyCart(session, ctx, cart, addressOnly);
+  try {
+    return await updateMyCart(session, ctx, cart, (c) => [
+      ...addressActions(c),
+      { action: "setShippingMethod", shippingMethod: { typeId: "shipping-method", key: methodKey } },
+      // The totals the buyer reviews reflect current prices and discounts (shipping and tax follow every update).
+      { action: "recalculate", updateProductData: false },
+    ]);
+  } catch (err) {
+    if (!hasCode(err, "ShippingMethodDoesNotMatchCart")) throw err;
+    const withAddress = await updateMyCart(session, ctx, cart, addressOnly);
+    if (methodKey === shippingMethodKey) throw new CheckoutError("That delivery method isn't available for this cart.");
+    return withAddress;
   }
-  // Recalculate so the totals the buyer reviews reflect current prices, discounts and rates.
-  return updateMyCart(session, ctx, withAddress, () => [
-    { action: "setShippingMethod", shippingMethod: { typeId: "shipping-method", key: shippingMethodKey } },
-    { action: "recalculate", updateProductData: false },
-  ]);
 }
 
 export class CheckoutError extends Error {}

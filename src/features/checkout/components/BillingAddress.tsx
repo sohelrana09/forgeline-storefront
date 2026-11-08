@@ -72,7 +72,7 @@ export function BillingAddress({
         />
         My billing and shipping address are the same
       </label>
-      {(checked || !editing) && billingLabel && <p className="m-0 whitespace-pre-line text-gray-700">{billingLabel}</p>}
+      {(checked || !editing) && billingLabel && <p className="m-0 pl-6 text-gray-600">{billingLabel.replaceAll("\n", ", ")}</p>}
       {!checked && editing && (
         <div className="flex flex-col gap-3">
           <input type="hidden" name="billing" value={choice} />

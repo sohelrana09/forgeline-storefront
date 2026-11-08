@@ -6,11 +6,14 @@ export function CheckoutStep({
   step,
   title,
   waitingFor,
+  showWhileWaiting,
   children,
 }: {
   step: number;
   title: string;
   waitingFor?: string;
+  // Show the step's content under the waiting note (the payment methods, so buyers see their options early).
+  showWhileWaiting?: boolean;
   children?: ReactNode;
 }) {
   const headingId = `checkout-step-${step}`;
@@ -25,7 +28,8 @@ export function CheckoutStep({
         </span>
         {title}
       </h2>
-      {waitingFor ? <p className="m-0 text-sm text-gray-600">{waitingFor}</p> : children}
+      {waitingFor && <p className="m-0 text-sm text-gray-600">{waitingFor}</p>}
+      {(!waitingFor || showWhileWaiting) && children}
     </section>
   );
 }

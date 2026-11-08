@@ -218,8 +218,9 @@ export async function saveGuestDetails(_prev: GuestDetailsState, formData: FormD
   if (!guest || !cartId) return { error: "Your cart is no longer open." };
   if (await isAutomated(formData)) return { error: AUTOMATED_MESSAGE };
   if (
-    (await tooManyAttempts(`guest-details:${actorKey(browse)}`, 20)) ||
-    (await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 60))
+    // The form saves in the background after each change (GuestDetailsForm), so the limits allow a few dozen saves.
+    (await tooManyAttempts(`guest-details:${actorKey(browse)}`, 60)) ||
+    (await tooManyAttempts(`guest-details-ip:${await clientIp()}`, 150))
   ) {
     return { error: "Too many changes. Please wait a few minutes and try again." };
   }

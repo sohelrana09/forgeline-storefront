@@ -9,7 +9,7 @@ import { CartSummary } from "@/features/cart/components/CartSummary";
 import { CheckoutItems } from "@/features/checkout/components/CheckoutItems";
 import { PaymentStep } from "@/features/checkout/components/PaymentStep";
 import { CheckoutStatusProvider } from "@/features/checkout/components/CheckoutStatus";
-import { addressLabel, methodOptions, ownBilling, selectedMethodKey } from "@/features/checkout/utils";
+import { addressLabel, methodOptions, ownBilling, pickMethod, selectedMethodKey } from "@/features/checkout/utils";
 import { b2cPaymentKinds } from "@/lib/commercetools/checkout-session";
 import { BillingAddress } from "@/features/checkout/components/BillingAddress";
 import { GuestDetailsForm } from "@/features/checkout/components/GuestDetailsForm";
@@ -32,10 +32,15 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
   }
   // Machines are sold to business customers on quote: the cart page explains that.
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");
-  const locked = await paymentOpen(cart);
-
-  // Delivery methods for the address on the cart (or the first delivery country until the guest enters one).
-  const options = await getShippingOptions(context, cart.shippingAddress ?? { country: countries[0].code });
+  // Delivery methods for every country the guest can pick, so changing the country shows its rates at once.
+  const [locked, perCountry] = await Promise.all([
+    paymentOpen(cart),
+    Promise.all(countries.map(async ({ code }) => [code, await getShippingOptions(context, { country: code })] as const)),
+  ]);
+  const methodsByCountry = Object.fromEntries(
+    perCountry.map(([code, options]) => [code, { methods: methodOptions(options, cart), defaultKey: pickMethod(options) }]),
+  );
+  const cartOptions = perCountry.find(([code]) => code === cart.shippingAddress?.country)?.[1] ?? [];
   const ready = Boolean(cart.shippingInfo && cart.taxedPrice && cart.customerEmail);
 
   return (
@@ -57,8 +62,9 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
               email={cart.customerEmail}
               address={cart.shippingAddress}
               countries={countries}
-              methods={methodOptions(options, cart)}
-              methodKey={selectedMethodKey(options, cart)}
+              methodsByCountry={methodsByCountry}
+              methodKey={selectedMethodKey(cartOptions, cart)}
+              saved={ready}
             />
             <PaymentStep
               kinds={b2cPaymentKinds()}
@@ -75,14 +81,14 @@ export async function GuestCheckoutView({ guest, context, cartId }: { guest?: Gu
                 ) : (
                   <div className="text-sm">
                     <p className="m-0 font-semibold">Billing address</p>
-                    <p className="m-0 text-gray-700">Save your shipping address first.</p>
+                    <p className="m-0 text-gray-700">Same as your shipping address. Enter it above first.</p>
                   </div>
                 )
               }
               cartVersion={cart.version}
               paymentOpen={locked}
               ready={ready}
-              waitingFor={ready ? undefined : "Save your shipping address and method first."}
+              waitingFor={ready ? undefined : "Enter your email and shipping address above to pay."}
             />
           </div>
         </CheckoutStatusProvider>

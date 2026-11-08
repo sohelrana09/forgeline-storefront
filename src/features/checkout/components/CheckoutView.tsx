@@ -48,11 +48,9 @@ export async function CheckoutView({
     }
   }
   if (!cart || cart.lineItems.length === 0 || quoteOnlyLines(cart).length > 0) redirect("/cart");
-  const locked = await paymentOpen(cart);
-
   // The cart's address is a copy; match it back to the saved address by its fields.
   const selected = context.addresses.find((a) => sameAddress(a, cart.shippingAddress)) ?? context.defaultShippingAddress;
-  const options = selected ? await getShippingOptions(context, selected) : [];
+  const [locked, options] = await Promise.all([paymentOpen(cart), selected ? getShippingOptions(context, selected) : []]);
   const methodKey = selectedMethodKey(options, cart);
   const shippingMethodSet = Boolean(cart.shippingInfo);
   const emailOk = !context.consumer || Boolean(me?.isEmailVerified);
@@ -114,6 +112,9 @@ export async function CheckoutView({
                 addressId={selected?.id}
                 methods={methodOptions(options, cart)}
                 methodKey={methodKey}
+                // Nothing chosen yet: the form saves the preselected address with its default method as the page opens,
+                // so a returning buyer goes straight to payment.
+                autoApply={Boolean(selected?.id) && !shippingMethodSet && options.length > 0 && !locked}
                 addAddressHref={context.consumer ? "/account/addresses#add-address" : undefined}
               />
             )}

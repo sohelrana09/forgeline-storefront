@@ -5,6 +5,7 @@ import {
   addressLabel,
   methodOptions,
   ownBilling,
+  pickMethod,
   removePaymentActions,
   sameAddress,
   selectedMethodKey,
@@ -86,6 +87,24 @@ describe("sameAddress", () => {
   it("never matches a missing address", () => {
     expect(sameAddress(office, undefined)).toBe(false);
     expect(sameAddress(undefined, undefined)).toBe(false);
+  });
+});
+
+describe("pickMethod", () => {
+  const options = [option({ key: "premium", price: eur(300) }), option({ key: "standard", price: eur(100) })];
+
+  it("keeps the buyer's method when it ships to the address", () => {
+    expect(pickMethod(options, "premium")).toBe("premium");
+  });
+
+  it("falls back to the default method, then the cheapest", () => {
+    expect(pickMethod([...options, option({ key: "default", price: eur(500), isDefault: true })], "gone")).toBe("default");
+    expect(pickMethod(options, "gone")).toBe("standard");
+    expect(pickMethod(options)).toBe("standard");
+  });
+
+  it("is undefined when nothing ships there", () => {
+    expect(pickMethod([], "standard")).toBeUndefined();
   });
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useActionState, type FormEvent } from "react";
+import { startTransition, useActionState, useEffect, useRef, type FormEvent } from "react";
 import { chooseDelivery, placeOrderAction, type DeliveryState, type PlaceOrderState } from "@/features/checkout/actions";
 import { CheckoutStep } from "@/features/checkout/components/CheckoutStep";
 import type { MethodOption } from "@/features/checkout/utils";
@@ -17,18 +17,28 @@ export function DeliveryForm({
   addressId,
   methods,
   methodKey,
+  autoApply,
   addAddressHref,
 }: {
   addresses: AddressOption[];
   addressId?: string;
   methods: MethodOption[];
   methodKey?: string;
+  // Save the preselected address (and its default method) once, as the page opens.
+  autoApply?: boolean;
   addAddressHref?: string;
 }) {
   const [state, action, pending] = useActionState(chooseDelivery, {} as DeliveryState);
   const submitOnChange = (e: React.ChangeEvent<HTMLInputElement>) => e.currentTarget.form?.requestSubmit();
+  const form = useRef<HTMLFormElement>(null);
+  const applied = useRef(false);
+  useEffect(() => {
+    if (!autoApply || applied.current) return;
+    applied.current = true;
+    form.current?.requestSubmit();
+  }, [autoApply]);
   return (
-    <form action={action} className="flex flex-col gap-6">
+    <form ref={form} action={action} className="flex flex-col gap-6">
       <CheckoutStep step={1} title="Shipping address">
         <fieldset className="m-0 grid gap-3 border-0 p-0 sm:grid-cols-2">
           <legend className="sr-only">Ship to</legend>
@@ -166,7 +176,7 @@ export function PlaceOrderButton({ pending, ready }: { pending: boolean; ready: 
   return (
     <button
       disabled={pending || !ready || busy}
-      className="min-h-12 self-end rounded bg-orange-700 px-8 text-base font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+      className="min-h-12 w-full rounded bg-orange-700 px-8 text-base font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
     >
       {pending ? "Placing order…" : "Place order"}
     </button>

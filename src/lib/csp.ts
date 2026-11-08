@@ -119,6 +119,10 @@ export function studioOrigin(studioUrl: string | undefined): string | undefined 
   }
 }
 
+// The nonce in a policy noncePolicy wrote (the request's CSP header on a private page), for tags React renders itself
+// (a module preload under 'strict-dynamic' needs it).
+export const nonceOf = (policy: string | null | undefined): string | undefined => policy?.match(/'nonce-([A-Za-z0-9+/=]+)'/)?.[1];
+
 export function newNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return btoa(String.fromCharCode(...bytes));

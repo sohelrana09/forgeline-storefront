@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { basePolicy, shellPolicy, newNonce, noncePolicy, studioOrigin, studioPolicy } from "@/lib/csp";
+import { basePolicy, shellPolicy, newNonce, nonceOf, noncePolicy, studioOrigin, studioPolicy } from "@/lib/csp";
 
 const directive = (policy: string, name: string) => policy.split("; ").find((d) => d.startsWith(`${name} `));
 const scriptSrc = (policy: string) => directive(policy, "script-src");
@@ -93,5 +93,17 @@ describe("CSP", () => {
     const a = newNonce();
     expect(atob(a)).toHaveLength(16);
     expect(newNonce()).not.toBe(a);
+  });
+});
+
+describe("nonceOf", () => {
+  it("reads the nonce back from a nonce policy", () => {
+    const nonce = newNonce();
+    expect(nonceOf(noncePolicy(nonce, { dev: false }))).toBe(nonce);
+  });
+
+  it("is undefined without one", () => {
+    expect(nonceOf(shellPolicy({ dev: false }))).toBeUndefined();
+    expect(nonceOf(null)).toBeUndefined();
   });
 });

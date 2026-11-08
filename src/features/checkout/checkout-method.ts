@@ -46,9 +46,17 @@ export function checkoutLookCss(scope: string): string {
   return [
     // Checkout sets Roboto on its container and on elements inside its form, so all of them inherit the page font.
     `${scope} [data-ctc], ${root}, ${root} * { font-family: inherit; }`,
-    `${root} button { font-size: 1rem; font-weight: 600; text-transform: none; min-height: 3rem; border-radius: 0.25rem; background-color: #c2410c; color: #fff; }`,
+    `${root} button { font-size: 1rem; font-weight: 600; text-transform: none; letter-spacing: normal; min-height: 3rem; border-radius: 0.25rem; background-color: #c2410c; color: #fff; box-shadow: none; }`,
+    // The card connector writes its label in capitals ("PAY WITH CREDIT CARD"): shown in sentence case, like ours.
+    `${root} button > span { display: inline-block; text-transform: lowercase; }`,
+    `${root} button > span::first-letter { text-transform: uppercase; }`,
     `${root} button:hover:not(:disabled) { background-color: #9a3412; }`,
     `${root} button:disabled { opacity: 0.6; }`,
+    // The card connector's form keeps a narrow maximum width: its fields span the payment box instead.
+    `${root} form { max-width: none; }`,
+    `${root} form > div:last-child, ${root} form > div:last-child > div > div { margin-bottom: 0; }`,
+    // Expiry and CVV side by side: on phones "Security code (CVV)" wraps, so the fields line up at the bottom.
+    `${root} form .grid { align-items: end; }`,
   ].join("\n");
 }
 

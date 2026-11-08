@@ -65,11 +65,8 @@ export async function fillGuestDetails(page: Page, email: string) {
   await page.getByLabel("Postcode").fill("28013");
   await page.getByLabel("City").fill("Madrid");
   await page.getByLabel("Country").selectOption("ES");
-  // The first method (rates are listed for the first country until the address is saved; it also ships to Spain).
-  await page.waitForTimeout(1700);
-  await page.getByRole("radio").first().check();
-  await page.getByRole("button", { name: "Save shipping details" }).click();
-  await expect(page.getByText("Saved. Check the order summary, then place your order below.")).toBeVisible();
+  // The form saves itself once complete (no sooner than 1.5 s after it rendered: bot check), choosing the default method.
+  await expect(page.getByText("Saved. Your total and payment options are up to date.")).toBeVisible({ timeout: 15_000 });
 }
 
 // Signed-in checkout steps 1 and 2: the saved choices, or the first address and method. Each choice saves on change.

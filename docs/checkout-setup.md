@@ -83,6 +83,14 @@ Set `CHECKOUT_BRAINTREE=true` next to `B2C_CARD_PAYMENTS=true`. It changes no me
 
 **Look:** the card form is the connector's own (its enabler), so its labels, fields and focus colours are set in the fork (`enabler/src/components/CreditCard/CreditCardMask.tsx`, `enabler/src/styles/index.tsx`, `enabler/src/index.css`; tag `1.0.34-aws.2` matches the storefront's inputs). Its card fields are Braintree iframes and take their font from the fork, not from the page. The pay button is Checkout's: `checkoutLookCss` (`features/checkout/checkout-method.ts`) gives it the storefront's orange, and Checkout's form the page's font; its text is the integration's pay button label (Merchant Center, the integration's "Display of the payment method", Custom details).
 
+**Speed:** Checkout builds the card form in the browser through a chain of requests, each waiting for the one before: Checkout's config and cart, the connectors' enabler scripts and Checkout's payment config, the connectors' `operations/config`, the card connector's `POST /payments` (it creates the Payment and Braintree's client token; the slowest step, about 2.3 s from Asia on the Preview deployment), then Braintree's GraphQL API. Measured on 8 November 2026 from Asia: about 6.4 s from the SDK starting to the fields showing. What the storefront does about it:
+
+- The form loads in the background as soon as the cart has an address and a method, whatever payment method is selected (`PaymentMethods.tsx` keeps it mounted), so choosing card shows it at once once it has loaded.
+- `CHECKOUT_PRELOAD` (comma-separated URLs) opens connections to the connector's hosts while the page loads and fetches a `.js` URL (the enabler) ahead of time. For `ctwara`: the Braintree deployment's `https://assets-<id>…/connector-enabler.es.js`, its `https://service-<id>…` URL, and `https://payments.sandbox.braintree-api.com`. Connect shows both connector URLs on the deployment; they change when the connector is deployed again.
+- Every connector in the Application loads its scripts and config, even with its integrations switched off: delete the old sample connector's integrations from the Application (Merchant Center) so only Braintree's load.
+
+The rest is inside Checkout and the connector: a production (not Preview) deployment, and a `POST /payments` that makes its commercetools and Braintree calls in parallel (in the fork), would shorten it further.
+
 Braintree's connector also offers ACH, Apple Pay, Google Pay and PayPal as payment methods; none of them is added yet, and the storefront's radios only know card and PayPal.
 
 ## Which methods are offered

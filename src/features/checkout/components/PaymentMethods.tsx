@@ -18,10 +18,11 @@ const PAY_LABELS = { card: "Pay by card", paypal: "Continue with PayPal" };
 // names, so Tailwind generates them.
 const ORDER = ["order-0", "order-1", "order-2", "order-3", "order-4", "order-5", "order-6", "order-7"];
 
-// One list of payment methods (radio buttons). The chosen method opens up: its body (the billing address shared by
-// all methods, `children`, then that method's form and button) shows inside its box, right under its title.
-// The body is one element that only moves on screen (flex order), never in the DOM: switching between card and PayPal
-// keeps the open Checkout session and its form instead of loading them again.
+// One list of payment methods (radio rows in one box). The chosen row opens up: its body (the billing address shared by
+// all methods, `children`, then that method's form and button) shows right under its title, inside the same row.
+// The body is one element that only moves on screen (flex order), never in the DOM, and Checkout's form (card and
+// PayPal) stays mounted in it whatever is chosen: it loads in the background as soon as the cart is ready, so choosing
+// card shows the fields at once, and switching between methods never loads them again.
 export function PaymentMethods({
   options,
   cartVersion,
@@ -46,75 +47,87 @@ export function PaymentMethods({
     setLocked(false);
     setRound((r) => r + 1);
   }, []);
+  // The Checkout method the hidden form is built for: the last one chosen, else the first offered.
+  const firstCheckout = options.map((o) => o.kind).find(throughCheckout);
+  const [checkoutMethod, setCheckoutMethod] = useState(firstCheckout ?? "card");
+  const choose = (kind: PaymentKind) => {
+    setSelected(kind);
+    if (throughCheckout(kind)) setCheckoutMethod(kind);
+  };
   const choosing = options.length > 1;
   const position = Math.max(
     0,
     options.findIndex((o) => o.kind === selected),
   );
   const chosen = options[position];
+  const checkoutShown = throughCheckout(selected);
 
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
       <legend className="sr-only">Payment method</legend>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col overflow-hidden rounded-md border border-b-0 border-gray-200 bg-white">
         {options.map((option, i) => {
           const active = option.kind === selected;
           const disabled = locked && !throughCheckout(option.kind);
           return (
             <label
               key={option.kind}
-              className={`${ORDER[i * 2]} border-2 p-4 ${
-                active ? "rounded-t border-b-0 border-orange-700 bg-orange-50" : "rounded border-gray-200 bg-white"
-              } ${choosing && !disabled ? "cursor-pointer" : ""} ${disabled ? "opacity-60" : ""}`}
+              className={`${ORDER[i * 2]} flex items-start gap-3 px-4 py-3.5 ${active ? "bg-orange-50/60" : "border-b border-gray-200 hover:bg-gray-50"} ${
+                choosing && !disabled ? "cursor-pointer" : ""
+              } ${disabled ? "opacity-60" : ""}`}
             >
-              <span className="flex items-center gap-3 font-semibold">
-                {choosing ? (
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value={option.kind}
-                    checked={active}
-                    disabled={disabled}
-                    onChange={() => setSelected(option.kind)}
-                    className="size-4 accent-orange-700"
-                  />
-                ) : (
-                  <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border-2 border-orange-700">
-                    <span className="size-2 rounded-full bg-orange-700" />
-                  </span>
-                )}
-                {option.title}
+              {choosing ? (
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value={option.kind}
+                  checked={active}
+                  disabled={disabled}
+                  onChange={() => choose(option.kind)}
+                  className="mt-0.5 size-4 shrink-0 accent-orange-700"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2 border-orange-700"
+                >
+                  <span className="size-2 rounded-full bg-orange-700" />
+                </span>
+              )}
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="font-semibold text-gray-900">{option.title}</span>
+                <span className="text-sm text-gray-600">{option.description}</span>
               </span>
-              <span className="mt-1 block pl-7 text-sm text-gray-700">{option.description}</span>
             </label>
           );
         })}
-        {/* The chosen method's body, drawn as the lower part of its box (the gap above it is taken back). */}
+        {/* The chosen method's body, the lower part of its row. */}
         <div
           role="group"
           aria-label={chosen.title}
-          className={`${ORDER[position * 2 + 1]} -mt-2 flex flex-col gap-4 rounded-b border-2 border-t-0 border-orange-700 bg-white p-4`}
+          className={`${ORDER[position * 2 + 1]} flex flex-col gap-5 border-b border-gray-200 bg-orange-50/60 px-4 pb-5 sm:pl-11`}
         >
           {/* A payment opened in this tab with a full lock holds the cart, billing address included. */}
-          <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
+          <fieldset disabled={locked} className="m-0 min-w-0 rounded border border-gray-200 bg-white p-4">
             {children}
           </fieldset>
-          {selected === "invoice" ? (
-            <PlaceOrderForm cartVersion={cartVersion} purchaseOrderNumber={purchaseOrderNumber} ready={ready} />
-          ) : throughCheckout(selected) ? (
-            // One element for both methods, so switching between them keeps the open Checkout session.
-            <CardPayment
-              key={round}
-              cartVersion={cartVersion}
-              ready={ready}
-              paymentOpen={paymentOpen}
-              method={selected}
-              onReset={reset}
-              payLabel={PAY_LABELS[selected]}
-              onLock={setLocked}
-            />
-          ) : (
-            <BankTransferForm cartVersion={cartVersion} ready={ready} />
+          {selected === "invoice" && <PlaceOrderForm cartVersion={cartVersion} purchaseOrderNumber={purchaseOrderNumber} ready={ready} />}
+          {selected === "bank-transfer" && <BankTransferForm cartVersion={cartVersion} ready={ready} />}
+          {firstCheckout && (
+            // Mounted for as long as card or PayPal is offered (see above); out of sight and inert while another method is
+            // chosen. It keeps its width, so Checkout's frames lay out normally while hidden.
+            <div inert={!checkoutShown} aria-hidden={!checkoutShown} className={checkoutShown ? "" : "h-0 overflow-hidden"}>
+              <CardPayment
+                key={round}
+                cartVersion={cartVersion}
+                ready={ready}
+                paymentOpen={paymentOpen}
+                method={checkoutMethod}
+                onReset={reset}
+                payLabel={PAY_LABELS[checkoutMethod]}
+                onLock={setLocked}
+              />
+            </div>
           )}
         </div>
       </div>
