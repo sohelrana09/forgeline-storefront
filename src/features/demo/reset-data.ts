@@ -5,6 +5,7 @@ import { str } from "@/lib/predicate";
 import type { Order } from "@commercetools/platform-sdk";
 import { getCustomerContexts } from "@/features/business-units/service";
 import { BUDGET_CONTAINER } from "@/features/spending-limits/budget";
+import { recurringOrdersEnabled } from "@/features/recurring-orders/schedule";
 import { demoEmails, type DemoRole, type ResetInput } from "@/features/demo/demo";
 
 const LIMIT = 500;
@@ -53,10 +54,13 @@ export async function readReset(): Promise<{ personas: Personas; input: ResetInp
       .shoppingLists()
       .get(q(`customer(id in (${customers}))`))
       .execute(),
-    apiRoot
-      .recurringOrders()
-      .get(q(`customer(id in (${customers}))`))
-      .execute(),
+    // Only with the feature on: without it the runtime client holds no recurring-order scope (FEATURE_SCOPES).
+    recurringOrdersEnabled()
+      ? apiRoot
+          .recurringOrders()
+          .get(q(`customer(id in (${customers}))`))
+          .execute()
+      : { body: { results: [] as { id: string; version: number }[] } },
   ]);
   const requestIds = quoteRequests.body.results.map((r) => r.id);
   const fromRequests = requestIds.length ? `quoteRequest(id in (${inList(requestIds)}))` : `id = "none"`;

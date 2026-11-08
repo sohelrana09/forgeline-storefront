@@ -3,7 +3,7 @@
 //   npm run ct:urls                                  table of all URLs, redirects and clashes
 //   npm run ct:urls -- --add /old-path /new-path [--temporary] [--yes]   add or change a redirect (301; 302 with --temporary)
 //   npm run ct:urls -- --remove /old-path [--yes]                        remove a redirect
-// Without --yes nothing is written. The storefront picks changes up within 5 minutes, or at once via /api/revalidate.
+// Without --yes nothing is written. The storefront picks changes up within 15 minutes, or at once via /api/revalidate.
 import { randomUUID } from "node:crypto";
 import { apiRoot } from "../src/lib/commercetools/client";
 import { normalizePath } from "../src/lib/urls";
@@ -44,7 +44,7 @@ async function main() {
         body: { container: REWRITE_CONTAINER, key: existing?.key ?? randomUUID(), value, ...(existing && { version: existing.version }) },
       })
       .execute();
-    return console.log("Saved. The storefront uses it within 5 minutes (or at once after POST /api/revalidate).");
+    return console.log("Saved. The storefront uses it within 15 minutes (or at once after POST /api/revalidate).");
   }
 
   if (remove) {

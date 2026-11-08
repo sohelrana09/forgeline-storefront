@@ -1,5 +1,7 @@
 // B2C engagement helpers (docs/features/b2c-engagement.md), pure and unit-tested.
 
+import { productImagesBase, SAMPLE_IMAGES_BASE } from "@/lib/image-hosts";
+
 type Money = { centAmount: number; currencyCode: string; fractionDigits: number };
 
 // ---------- Free shipping ----------
@@ -27,10 +29,7 @@ export const VIEWED_MAX = 12;
 
 // Only this project's picture hosts (next.config.ts images.remotePatterns): anything else is dropped, so a tampered
 // list can't make the image optimizer fetch elsewhere.
-const IMAGE_HOSTS = [
-  "https://storage.googleapis.com/merchant-center-europe/",
-  "https://images.us-east-2.aws.commercetools.com/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/",
-];
+const IMAGE_HOSTS = [SAMPLE_IMAGES_BASE, productImagesBase()];
 const safeImage = (url: unknown) =>
   typeof url === "string" && IMAGE_HOSTS.some((h) => url.startsWith(h)) && !url.includes("..") ? url : undefined;
 

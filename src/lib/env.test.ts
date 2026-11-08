@@ -27,6 +27,11 @@ describe("checkEnv", () => {
     expect(checkEnv({ ...base, SESSION_SECRET: undefined }).missing).toEqual(["SESSION_SECRET"]);
   });
 
+  it("refuses a session key the cookies can't use", () => {
+    expect(checkEnv({ ...base, SESSION_SECRET: "short" }).missing).toEqual(["SESSION_SECRET (at least 32 characters)"]);
+    expect(checkEnv({ ...base, SESSION_SECRET_PREVIOUS: "short" }).missing).toEqual(["SESSION_SECRET_PREVIOUS (at least 32 characters)"]);
+  });
+
   it("refuses demo seller details on a public site only", () => {
     expect(checkEnv(base).missing).toEqual([]);
     expect(checkEnv({ ...base, SITE_INDEXABLE: "true" }).missing).toContain("SELLER_IBAN");

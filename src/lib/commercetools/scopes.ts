@@ -1,7 +1,7 @@
 // What the running storefront may do with its API client (CTP_CLIENT_*), and nothing more. A leaked token, or a bug
 // that lets someone steer a server request, then can't touch products, prices, discounts, API clients or project
-// settings. Set CTP_SCOPES to this list (npm run setup does), and for full effect create the client in Merchant Center
-// with exactly these scopes. Scripts that change the catalog (npm run setup, ct:*) use their own client instead:
+// settings. Create the shop's own client in Merchant Center with exactly these scopes and leave CTP_SCOPES empty (npm run
+// setup sets CTP_SCOPES to manage_project only while the shop still runs on the admin client). Scripts that change the catalog (npm run setup, ct:*) use their own client instead:
 // CTP_ADMIN_CLIENT_* (src/lib/commercetools/client.ts), kept out of the hosting.
 // Pure (no imports), so the setup script and the tests read the same list.
 export const RUNTIME_SCOPES = [
@@ -28,7 +28,8 @@ export const RUNTIME_SCOPES = [
   // Payments for invoice and bank-transfer orders (features/order-processing), and reading how an order was paid.
   "manage_payments",
   // Giving stock back after a cancelled order (features/order-processing): commercetools has no narrower scope for
-  // inventory, and this one also covers products. Leave it out, with RESTOCK_ON_CANCEL=false, when an ERP owns stock.
+  // inventory, and this one also covers products. With RESTOCK_ON_CANCEL=false (an ERP owns stock) view_products is
+  // enough: the stock check before a card payment and the product types behind filter labels (requiredScopes).
   "manage_products",
 ] as const;
 
@@ -39,12 +40,17 @@ export const FEATURE_SCOPES: Record<string, readonly string[]> = {
   RECURRING_ORDERS: ["manage_recurring_orders", "view_recurrence_policies"],
   // Product reviews: verified buyers write them, approved ones show on the product page (features/reviews).
   REVIEWS: ["manage_reviews", "view_states"],
+  // The nightly demo reset deletes the personas' quote requests and the staged quotes made from them
+  // (features/demo); manage_quotes covers neither.
+  DEMO_MODE: ["manage_quote_requests", "manage_staged_quotes"],
 };
 
-// RUNTIME_SCOPES plus those of every feature switched on in `env` ("true").
+// RUNTIME_SCOPES plus those of every feature switched on in `env` ("true"). With RESTOCK_ON_CANCEL=false the shop never
+// writes stock, so view_products replaces manage_products.
 export function requiredScopes(env: Record<string, string | undefined>): string[] {
   const extra = Object.entries(FEATURE_SCOPES).flatMap(([flag, scopes]) => (env[flag] === "true" ? scopes : []));
-  return [...new Set([...RUNTIME_SCOPES, ...extra])];
+  const base = RUNTIME_SCOPES.map((s) => (s === "manage_products" && env.RESTOCK_ON_CANCEL === "false" ? "view_products" : s));
+  return [...new Set([...base, ...extra])];
 }
 
 export const runtimeScopes = (projectKey: string, env: Record<string, string | undefined> = {}) =>

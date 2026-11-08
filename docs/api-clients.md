@@ -42,6 +42,9 @@ Optional features (`docs/features/`) that need more rights list them in `FEATURE
 |---|---|---|
 | `RECURRING_ORDERS` | `manage_recurring_orders`, `view_recurrence_policies` | Native Recurring Orders have no customer (`/me`) endpoint: the shop creates and changes them for the buyer after checking ownership and permissions ([recurring-orders](features/recurring-orders.md)) |
 | `REVIEWS` | `manage_reviews`, `view_states` | commercetools has no `/me/reviews`: the shop writes a verified buyer's review for them, and reads the moderation states ([b2c-engagement](features/b2c-engagement.md)) |
+| `DEMO_MODE` | `manage_quote_requests`, `manage_staged_quotes` | The nightly demo reset deletes the personas' quote requests and the staged quotes made from them; `manage_quotes` covers neither ([demo-personas](features/demo-personas.md)) |
+
+With `RESTOCK_ON_CANCEL=false` the check asks for `view_products` instead of `manage_products`.
 
 Scripts for one-off setup need more than the runtime client and are best run with a separate admin client: `ct:product-selections` (`manage_product_selections`, `manage_stores`) and `ct:review-states` (`manage_states`).
 

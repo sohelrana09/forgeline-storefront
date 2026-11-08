@@ -51,6 +51,17 @@ describe("feature scopes", () => {
       extra: [],
     });
   });
+  it("needs the quote request and staged quote scopes for the demo reset", () => {
+    expect(requiredScopes({ DEMO_MODE: "true" })).toEqual(expect.arrayContaining(["manage_quote_requests", "manage_staged_quotes"]));
+  });
+  it("asks only to view products when an ERP owns stock", () => {
+    const required = requiredScopes({ RESTOCK_ON_CANCEL: "false" });
+    expect(required).toContain("view_products");
+    expect(required).not.toContain("manage_products");
+    const granted = [...RUNTIME_SCOPES.filter((s) => s !== "manage_products"), "view_products"];
+    expect(compareScopes(granted, required)).toEqual({ missing: [], extra: [] });
+    expect(compareScopes([...RUNTIME_SCOPES], required).extra).toEqual(["manage_products"]);
+  });
   it("lists them with the project key", () =>
     expect(runtimeScopes("p", { RECURRING_ORDERS: "true" })).toContain("manage_recurring_orders:p"));
 });

@@ -21,6 +21,9 @@ const longEnough = (value: string | undefined) => (value?.length ?? 0) >= 32;
 
 export function checkEnv(env: Env): { missing: string[]; degraded: string[] } {
   const missing = REQUIRED.filter((k) => !env[k]);
+  // A shorter key starts the server, but every session read then throws (features/auth/session.ts).
+  for (const k of ["SESSION_SECRET", "SESSION_SECRET_PREVIOUS"])
+    if (env[k] && !longEnough(env[k])) missing.push(`${k} (at least 32 characters)`);
   const open = env.SITE_INDEXABLE === "true";
   if (open) missing.push(...demoSellerFields(env));
 

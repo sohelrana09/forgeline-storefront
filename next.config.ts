@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 import { basePolicy, studioOrigin } from "./src/lib/csp";
+import { imagePattern, productImagesBase, SAMPLE_IMAGES_BASE } from "./src/lib/image-hosts";
 
 const sanityProjectId = process.env.NEXT_SANITY_PROJECT_ID;
 
@@ -44,17 +45,13 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   // Images go through the optimizer only from these exact hosts (a wildcard would make it an open image proxy):
-  // the sample data's bucket, this project's commercetools CDN folder (product images uploaded in Merchant Center) and
-  // this project's Sanity folder.
+  // the sample data's bucket, this project's commercetools CDN folder (product images uploaded in Merchant Center,
+  // NEXT_PUBLIC_PRODUCT_IMAGES_URL, src/lib/image-hosts.ts) and this project's Sanity folder.
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "storage.googleapis.com", pathname: "/merchant-center-europe/**" },
+      imagePattern(SAMPLE_IMAGES_BASE),
       // This project's folder only: the CDN host is shared by every commercetools project.
-      {
-        protocol: "https",
-        hostname: "images.us-east-2.aws.commercetools.com",
-        pathname: "/c189cfd4-9774-40b2-938c-3b62f7cfb6d5/**",
-      },
+      imagePattern(productImagesBase()),
       // Sanity's image CDN, this project's folder only (pages, blocks and blog pictures).
       ...(sanityProjectId ? [{ protocol: "https" as const, hostname: "cdn.sanity.io", pathname: `/images/${sanityProjectId}/**` }] : []),
     ],
