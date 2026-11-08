@@ -2,7 +2,7 @@
 
 ## v2.2.0 (2026-11-08)
 
-Pay by card, PayPal or bank transfer in one clear payment step, with Braintree cards and a storefront hardened for production: stock, payments, sessions, access checks, speed and resilience. Release note: `docs/releases/v2.2.0.md`.
+Pay by card, PayPal or bank transfer in one clear payment step, with Braintree cards and a storefront hardened for production: stock, payments, sessions, access checks, speed and resilience. Release note: [v2.2.0 on GitHub](https://github.com/sohelrana09/forgeline-storefront/releases/tag/v2.2.0).
 
 - **Payment form inside the chosen option:** selecting card or PayPal opens its Checkout session on its own and shows the card fields or PayPal's button inside that option, with a loading line until they are ready. Switching between card and PayPal keeps the session. The SDK loads early and the page preconnects to Checkout's hosts. Pressing the card pay button makes the lock full, as "Pay by card" did.
 - **Braintree cards:** cards run through a self-hosted Braintree connector (a fork for the AWS regions, tag `1.0.34-aws.2`) with 3-D Secure. `CHECKOUT_BRAINTREE=true` allows Braintree's and Cardinal's hosts in the Content-Security-Policy. The card form and Checkout's pay button take the storefront's look.

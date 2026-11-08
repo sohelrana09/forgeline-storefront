@@ -71,3 +71,7 @@ data/nz-trade/
 
 # Python bytecode (tools/)
 __pycache__/
+
+# Local drafts: release notes (published on GitHub Releases) and reviews, not committed
+docs/releases/
+docs/review/
