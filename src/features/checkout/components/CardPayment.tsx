@@ -237,13 +237,11 @@ export function CardPayment({
           A payment is open for this cart, so it can&apos;t be changed. Pay below, or cancel the payment to change your cart.
         </Message>
       )}
-      {loading && (
-        <p role="status" className="m-0 flex items-center gap-2 text-sm text-gray-700">
-          <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-gray-300 border-t-orange-700" />
-          {LOADING[method]}
-        </p>
-      )}
-      {!state.session && !openingNow && (
+      {/* Until the chosen method's fields or button are there, a stand-in of the same shape holds their place, so the
+          payment box keeps its size while Checkout builds its form (no jump, no flash of a button that goes away). */}
+      {!shown && !problem && !state.error && !finishing && <FormPlaceholder method={method} loading={loading} />}
+      {/* Opening on its own failed: the buyer asks again. */}
+      {!state.session && !openingNow && state.error && (
         <form action={start} onSubmit={() => setStartingSoft(true)} className="flex flex-col gap-3">
           {/* The version the buyer reviewed: if the cart changes meanwhile, paying fails instead of surprising them. */}
           <input type="hidden" name="cartVersion" value={cartVersion} />
@@ -280,6 +278,45 @@ export function CardPayment({
       {finishing && <Message type="success">Payment received. Opening your order…</Message>}
       {/* Checkout renders the payment methods here (inline mode). */}
       <div ref={ctc} data-ctc className="min-h-0" />
+    </div>
+  );
+}
+
+// The card form's or PayPal button's shape (the card connector's labels, 44 px fields, the 48 px pay button), shown
+// while it loads; it pulses only while something is loading.
+function FormPlaceholder({ method, loading }: { method: CheckoutMethod; loading: boolean }) {
+  const pulse = loading ? "animate-pulse" : "";
+  const field = "h-11 rounded border border-gray-200 bg-gray-50";
+  const label = "mb-1 block text-sm font-semibold text-gray-400";
+  return (
+    // -mb-3: Checkout's form container sits under this, still empty, and its gap above would make this 12 px taller.
+    <div className="-mb-3 flex flex-col gap-4">
+      {loading && (
+        <p role="status" className="sr-only">
+          {LOADING[method]}
+        </p>
+      )}
+      {method === "card" ? (
+        <div aria-hidden="true" className={`flex flex-col gap-4 ${pulse}`}>
+          <div>
+            <span className={label}>Card number</span>
+            <div className={field} />
+          </div>
+          <div className="grid grid-cols-2 items-end gap-4">
+            <div>
+              <span className={label}>Expiry date</span>
+              <div className={field} />
+            </div>
+            <div>
+              <span className={label}>Security code (CVV)</span>
+              <div className={field} />
+            </div>
+          </div>
+          <div className="h-12 rounded bg-orange-700/40" />
+        </div>
+      ) : (
+        <div aria-hidden="true" className={`h-12 rounded bg-gray-100 ${pulse}`} />
+      )}
     </div>
   );
 }
