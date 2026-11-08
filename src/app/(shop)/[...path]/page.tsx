@@ -5,7 +5,7 @@ import { getGuestContext } from "@/features/business-units/service";
 import type { CategoryQuery } from "@/features/catalog/components/CategoryView";
 import { CatalogContent, catalogMetadata, resolveTarget, type CatalogTarget } from "@/features/urls/components/CatalogRoute";
 import { getUrlIndex } from "@/features/urls/service";
-import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { ArticleSkeleton } from "@/components/ui/Skeletons";
 import { ProductView } from "@/features/catalog/components/ProductView";
 import { CategoryView } from "@/features/catalog/components/CategoryView";
 
@@ -37,7 +37,7 @@ export default async function CatalogPage({ params, searchParams }: Params) {
   if (target.kind === "product") return <ProductView slug={target.slug} query={searchParams} />;
   if (target.kind === "category") return <CategoryView slug={target.slug} query={searchParams} />;
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<ArticleSkeleton />}>
       <Content target={target} />
     </Suspense>
   );

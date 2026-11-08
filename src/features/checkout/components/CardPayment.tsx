@@ -17,6 +17,7 @@ import {
   CHECKOUT_PAY_BUTTON,
   checkoutLookCss,
   flatMethodCss,
+  layeredConnectorCss,
   methodReadySelector,
   pickCheckoutMethod,
   type CheckoutMethod,
@@ -43,7 +44,11 @@ const CHECKOUT_WATCH_MS = 3 * 60_000;
 const CHECKOUT_UNAVAILABLE = "Online payment is unavailable right now. Please try again later.";
 // Checkout's form is shown after this even when the chosen method's fields weren't recognised (its markup changed).
 const SHOW_ANYWAY_MS = 12_000;
-const LOADING = { card: "Loading the secure card form…", paypal: "Loading PayPal…" };
+// A field frame that hasn't reported its load after this counts as loaded; once all have, the form shows after a short
+// pause for the frames to draw their placeholders.
+const FRAME_LOAD_MS = 2_000;
+const FRAME_PAINT_MS = 120;
+const LOADING = { card: "Loading secure payment…", paypal: "Loading PayPal…" };
 
 export function CardPayment({
   cartVersion,
@@ -94,6 +99,21 @@ export function CardPayment({
     import("@commercetools/checkout-browser-sdk").catch(() => undefined);
   }, []);
 
+  // The card connector adds its own Tailwind stylesheet to <head>; it goes into the lowest layer as it arrives, so the
+  // page keeps its spacing when the form loads (layeredConnectorCss). It stays watching: Checkout loads the connector
+  // again for a new session. Already-wrapped sheets (a visit earlier in this tab) are left alone.
+  useEffect(() => {
+    const layer = (node: Node) => {
+      if (!(node instanceof HTMLStyleElement)) return;
+      const wrapped = layeredConnectorCss(node.textContent ?? "");
+      if (wrapped) node.textContent = wrapped;
+    };
+    document.head.querySelectorAll("style").forEach(layer);
+    const watch = new MutationObserver((records) => records.forEach((r) => r.addedNodes.forEach(layer)));
+    watch.observe(document.head, { childList: true });
+    return () => watch.disconnect();
+  }, []);
+
   // Open the session once per cart version the buyer has saved, so the form shows without a click.
   const opened = useRef<number>(undefined);
   const opening = ready && !busy && !state.session;
@@ -122,14 +142,35 @@ export function CardPayment({
   useEffect(() => {
     const root = ctc.current;
     if (!root) return;
+    // The fields (or PayPal's button) are frames: they show once every one of them has loaded, so the placeholder never
+    // gives way to empty boxes. A frame that doesn't report its load in time counts as loaded.
+    const loaded = new WeakSet<HTMLIFrameElement>();
+    const waiting = new WeakSet<HTMLIFrameElement>();
+    const timers: number[] = [];
+    const check = () => {
+      const frames = [...root.querySelectorAll<HTMLIFrameElement>(methodReadySelector(method))];
+      if (frames.length > 0 && frames.every((f) => loaded.has(f))) timers.push(window.setTimeout(() => setShown(true), FRAME_PAINT_MS));
+    };
     const pick = () => {
       setPicked(pickCheckoutMethod(root, method) ? method : undefined);
-      if (root.querySelector(methodReadySelector(method))) setShown(true);
+      for (const frame of root.querySelectorAll<HTMLIFrameElement>(methodReadySelector(method))) {
+        if (waiting.has(frame)) continue;
+        waiting.add(frame);
+        const done = () => {
+          loaded.add(frame);
+          check();
+        };
+        frame.addEventListener("load", done, { once: true });
+        timers.push(window.setTimeout(done, FRAME_LOAD_MS));
+      }
     };
     pick();
     const watch = new MutationObserver(pick);
     watch.observe(root, { childList: true, subtree: true });
-    return () => watch.disconnect();
+    return () => {
+      watch.disconnect();
+      timers.forEach((t) => window.clearTimeout(t));
+    };
   }, [method]);
 
   // Pressing Checkout's pay button turns the soft lock into a full one, as "Pay by card" does: the cart holds while
@@ -239,7 +280,16 @@ export function CardPayment({
       )}
       {/* Until the chosen method's fields or button are there, a stand-in of the same shape holds their place, so the
           payment box keeps its size while Checkout builds its form (no jump, no flash of a button that goes away). */}
-      {!shown && !problem && !state.error && !finishing && <FormPlaceholder method={method} loading={loading} />}
+      {!shown && !problem && !state.error && !finishing && (
+        <>
+          {(loading || busy) && (
+            <p role="status" className="sr-only">
+              {LOADING[method]}
+            </p>
+          )}
+          <FormPlaceholder method={method} loading={loading || busy} />
+        </>
+      )}
       {/* Opening on its own failed: the buyer asks again. */}
       {!state.session && !openingNow && state.error && (
         <form action={start} onSubmit={() => setStartingSoft(true)} className="flex flex-col gap-3">
@@ -282,44 +332,53 @@ export function CardPayment({
   );
 }
 
-// The card form's or PayPal button's shape (the card connector's labels, 44 px fields, the 48 px pay button), shown
-// while it loads; it pulses only while something is loading.
+// The card form or PayPal button as it will look (the card connector's labels and placeholders, white 44 px fields, the
+// 48 px pay button), shown while Checkout builds it, so the real one replaces it without a visible change. Nothing in it
+// moves or fades: the button's label says it is loading.
 function FormPlaceholder({ method, loading }: { method: CheckoutMethod; loading: boolean }) {
-  const pulse = loading ? "animate-pulse" : "";
-  const field = "h-11 rounded border border-gray-200 bg-gray-50";
-  const label = "mb-1 block text-sm font-semibold text-gray-400";
+  const label = "mb-1 block text-sm font-semibold text-gray-900";
+  const field = (hint: string) => (
+    <div className="flex h-11 items-center rounded border border-gray-300 bg-white px-3 text-base text-gray-400">{hint}</div>
+  );
+  const status = (
+    <span className="flex items-center justify-center gap-2">
+      {loading && <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+      {loading ? LOADING[method] : PAY_LABEL[method]}
+    </span>
+  );
   return (
     // -mb-3: Checkout's form container sits under this, still empty, and its gap above would make this 12 px taller.
-    <div className="-mb-3 flex flex-col gap-4">
-      {loading && (
-        <p role="status" className="sr-only">
-          {LOADING[method]}
-        </p>
-      )}
+    <div aria-hidden="true" className="-mb-3 flex flex-col gap-4">
       {method === "card" ? (
-        <div aria-hidden="true" className={`flex flex-col gap-4 ${pulse}`}>
+        <>
           <div>
             <span className={label}>Card number</span>
-            <div className={field} />
+            {field("1234 1234 1234 1234")}
           </div>
           <div className="grid grid-cols-2 items-end gap-4">
             <div>
               <span className={label}>Expiry date</span>
-              <div className={field} />
+              {field("MM / YY")}
             </div>
             <div>
               <span className={label}>Security code (CVV)</span>
-              <div className={field} />
+              {field("123")}
             </div>
           </div>
-          <div className="h-12 rounded bg-orange-700/40" />
-        </div>
+          <div className="flex min-h-12 items-center justify-center rounded bg-orange-700 text-base font-semibold text-white opacity-60">
+            {status}
+          </div>
+        </>
       ) : (
-        <div aria-hidden="true" className={`h-12 rounded bg-gray-100 ${pulse}`} />
+        <div className="flex min-h-12 items-center justify-center rounded bg-gray-100 text-sm text-gray-600">
+          {loading ? LOADING[method] : "PayPal"}
+        </div>
       )}
     </div>
   );
 }
+
+const PAY_LABEL = { card: "Pay with credit card", paypal: "PayPal" };
 
 // In development, every Checkout message goes to the browser console: its codes explain setup problems that the buyer
 // only sees as "Unable to proceed with the checkout".

@@ -74,6 +74,19 @@ export function buildingCss(scope: string): string {
   return `${scope}:not([data-shown]) [data-ctc] { height: 0; overflow: hidden; visibility: hidden; }`;
 }
 
+// The card connector's enabler puts its own Tailwind build (reset, theme, utilities) into the page's <head>. Its rules
+// come after the storefront's in the same layers, so its `.px-4` beat the page's `sm:px-8` and the whole page moved
+// when the card form loaded. Wrapped in this layer, declared first in globals.css, it ranks below everything of ours;
+// its own form still gets its classes (the storefront doesn't use the connector's markup).
+export const CONNECTOR_LAYER = "payment-connector";
+
+// A third-party stylesheet that declares Tailwind layers, not yet wrapped: returns it inside CONNECTOR_LAYER.
+export function layeredConnectorCss(css: string): string | undefined {
+  if (css.startsWith(`@layer ${CONNECTOR_LAYER}`)) return undefined;
+  if (!/@layer\s+(theme|base|utilities)\b/.test(css)) return undefined;
+  return `@layer ${CONNECTOR_LAYER} {\n${css}\n}`;
+}
+
 // Checkout's own pay button (the card method's; PayPal's is a frame, whose clicks the page never sees).
 export const CHECKOUT_PAY_BUTTON = '[data-testid="checkout"] button';
 

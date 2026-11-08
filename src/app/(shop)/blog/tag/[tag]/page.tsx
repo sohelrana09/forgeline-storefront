@@ -5,7 +5,7 @@ import { requireBrowseContext } from "@/features/business-units/context";
 import { blogEnabled } from "@/features/blog/service";
 import { isUrlKey, listPath, pageNumber } from "@/features/blog/utils";
 import { BlogListView } from "@/features/blog/components/BlogListView";
-import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { BlogSkeleton } from "@/components/ui/Skeletons";
 
 type Props = { params: Promise<{ tag: string }>; searchParams: Promise<{ page?: string }> };
 
@@ -25,7 +25,7 @@ export default function BlogTagPage(props: Props) {
   // Metadata streams in parallel with the page, so its notFound() alone doesn't stop the render.
   if (!blogEnabled()) notFound();
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<BlogSkeleton />}>
       <BlogTag {...props} />
     </Suspense>
   );

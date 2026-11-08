@@ -1,3 +1,6 @@
+/* Lowest layer: the payment connector's own Tailwind build is moved in here (layeredConnectorCss in
+   features/checkout/checkout-method.ts), so it can't override the storefront's utilities. */
+@layer payment-connector;
 @import "tailwindcss";
 
 :root {

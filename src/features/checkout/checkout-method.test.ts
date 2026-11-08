@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildingCss, checkoutLookCss, flatMethodCss, methodOfValue, methodReadySelector } from "@/features/checkout/checkout-method";
+import {
+  buildingCss,
+  checkoutLookCss,
+  flatMethodCss,
+  layeredConnectorCss,
+  methodOfValue,
+  methodReadySelector,
+} from "@/features/checkout/checkout-method";
 
 describe("methodOfValue", () => {
   it("reads the method from Checkout's radio value", () => {
@@ -52,5 +59,19 @@ describe("methodReadySelector", () => {
 describe("buildingCss", () => {
   it("hides Checkout's container until the scope is marked shown", () => {
     expect(buildingCss("[data-x]")).toBe("[data-x]:not([data-shown]) [data-ctc] { height: 0; overflow: hidden; visibility: hidden; }");
+  });
+});
+
+describe("layeredConnectorCss", () => {
+  const tailwind = "@layer theme{:root{--spacing:.25rem}}@layer utilities{.px-4{padding-inline:1rem}}";
+
+  it("moves a stylesheet with Tailwind layers into the connector layer", () => {
+    expect(layeredConnectorCss(tailwind)).toBe(`@layer payment-connector {\n${tailwind}\n}`);
+  });
+
+  it("leaves a wrapped sheet and other styles alone", () => {
+    expect(layeredConnectorCss(layeredConnectorCss(tailwind)!)).toBeUndefined();
+    expect(layeredConnectorCss(".x { color: red; }")).toBeUndefined();
+    expect(layeredConnectorCss("")).toBeUndefined();
   });
 });

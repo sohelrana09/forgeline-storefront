@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Category } from "@commercetools/platform-sdk";
 import { getAllProductsInCategories, getCategoryTree, type CategoryTree } from "@/features/catalog/service";
 import { requireBrowseContext } from "@/features/business-units/context";
-import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { CategoryListingSkeleton } from "@/components/ui/Skeletons";
 import { categoryHref, localize, taxNote } from "@/features/catalog/utils";
 import {
   catalogHref,
@@ -53,7 +53,7 @@ export async function CategoryView({ slug, query }: { slug: string; query: Promi
         ]}
       />
       <h1 className="m-0 text-2xl font-bold">{localize(category.name)}</h1>
-      <Suspense fallback={<PageSkeleton />}>
+      <Suspense fallback={<CategoryListingSkeleton />}>
         <CategoryListing category={category} tree={tree} query={query} />
       </Suspense>
     </div>
