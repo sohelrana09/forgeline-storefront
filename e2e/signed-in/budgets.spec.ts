@@ -8,10 +8,17 @@ import { stateFile } from "./accounts";
 test.skip(process.env.E2E_SPENDING_LIMITS !== "1", "E2E_SPENDING_LIMITS=1 (server with SPENDING_LIMITS=true) not set");
 
 const BUYER_NAME = /Sofía López/;
+const UNIT = "lifttech-solutions-ltd-es";
 
 async function buyerRow(page: Page) {
   await page.goto("/account/company/budgets");
   await expect(page.getByRole("heading", { level: 1, name: "Budgets" })).toBeVisible();
+  // The admin works for the parent company too; the buyer is in the Spanish unit (the ct_bu cookie of this context only).
+  const picker = page.getByLabel("Buying for");
+  if ((await picker.count()) && (await picker.inputValue()) !== UNIT) {
+    await picker.selectOption(UNIT);
+    await expect(page.getByRole("main")).toContainText("Spending limits for LiftTech Soluciones S.L.");
+  }
   const row = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: BUYER_NAME }) });
   return {
     amount: row.getByRole("textbox"),

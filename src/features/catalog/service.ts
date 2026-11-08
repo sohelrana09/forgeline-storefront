@@ -354,10 +354,12 @@ const storeId = (key: string) =>
 // The Product Search API's hits in its own relevance order; undefined when it's off or failed (use the index then).
 // After a failure it rests for 5 minutes, so an outage costs one logged error, not one per search.
 const PRODUCT_SEARCH_RETRY_MS = 5 * 60 * 1000;
-let productSearchFailedAt = 0;
+// performance.now(), not Date.now(): this check also runs while a page shell is prerendered, where Next refuses the
+// current time. -Infinity: no failure yet.
+let productSearchFailedAt = -Infinity;
 
 async function productSearch(key: PricingKey, query: string, offset: number, limit: number) {
-  if (!productSearchEnabled() || Date.now() - productSearchFailedAt < PRODUCT_SEARCH_RETRY_MS) return undefined;
+  if (!productSearchEnabled() || performance.now() - productSearchFailedAt < PRODUCT_SEARCH_RETRY_MS) return undefined;
   try {
     const [tree, id] = await Promise.all([getCategoryTree(), storeId(key.storeKey)]);
     const body = productSearchRequest(query, { ...key, storeId: id }, { offset, limit, locale: LOCALE });
@@ -366,7 +368,7 @@ async function productSearch(key: PricingKey, query: string, offset: number, lim
     const entries = res.results.flatMap((r) => (r.productProjection ? [toSearchEntry(r.productProjection, tree)] : []));
     return { entries: entries.filter((e): e is SearchEntry => !!e), total: res.total };
   } catch (err) {
-    productSearchFailedAt = Date.now();
+    productSearchFailedAt = performance.now();
     console.error("Product Search failed, using the in-memory index for 5 minutes", (err as { body?: unknown })?.body ?? err);
     return undefined;
   }
@@ -472,7 +474,8 @@ export async function searchCategoryListing(
   ctx: PricingKey,
   args: ListingSearchArgs,
 ): Promise<(ListingSearchResult & { products: ProductProjection[] }) | undefined> {
-  if (!productSearchEnabled() || ctx.externalPriceCompany || Date.now() - productSearchFailedAt < PRODUCT_SEARCH_RETRY_MS) return undefined;
+  if (!productSearchEnabled() || ctx.externalPriceCompany || performance.now() - productSearchFailedAt < PRODUCT_SEARCH_RETRY_MS)
+    return undefined;
   try {
     const [id, labels] = await Promise.all([storeId(ctx.storeKey), attributeLabels()]);
     const input: ListingSearchInput = { ...args, storeId: id, currency: ctx.currency, channelId: ctx.channelId, locale: LOCALE };
@@ -488,7 +491,7 @@ export async function searchCategoryListing(
     // The page's products at the visitor's prices (the search returns ids only), in the search's order.
     return { ...result, products: await getProductsByIds(ctx, result.ids) };
   } catch (err) {
-    productSearchFailedAt = Date.now();
+    productSearchFailedAt = performance.now();
     console.error("Product Search listing failed, using the in-memory listing for 5 minutes", (err as { body?: unknown })?.body ?? err);
     return undefined;
   }
